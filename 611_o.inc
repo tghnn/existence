@@ -119,19 +119,26 @@ if ~(_to in <_fr, >)
       mov	_to,_fr
 end if
 }
+macro _end {
+      clc
+      jmp    _end
+_err:
+      stc
+_end:
+}
 macro _local_set _type {
 _loc_off equ 0
 _loc_typ equ _type
       sub	rsp,dsc_#_type#_b
-_il equ rsp + dsc_#_type
+_il equ rsp + _loc_off + dsc_#_type
 _sl equ dsc_#_type
 }
 macro _push _p {
-_loc_off equ _loc_off - 8
+_loc_off equ _loc_off + 8
       push   _p
 }
 macro _pop  _p {
-_loc_off equ _loc_off + 8
+_loc_off equ _loc_off - 8
       pop    _p
 }
 macro _local_unset {
