@@ -59,31 +59,35 @@ macro _allign _a {
       add	_a,15
       and	_a,-16
 }
-macro _index _to,_st,_type,_base,_ind {
+macro _index _to,_st,_type,_base,_ind,_tmp {
 _st equ dsc_#_type
-if (dsc_#_type#_b) eq 8
-_to equ _base + (_ind) * 8 + dsc_#_type
-else if (dsc_#_type#_b) eq 4
-_to equ _base + (_ind) * 4 + dsc_#_type
-else if (dsc_#_type#_b) eq 2
-_to equ _base + (_ind) * 2 + dsc_#_type
-else if (dsc_#_type#_b) eq 1
-_to equ _base + (_ind) + dsc_#_type
-else
+if defined dsc_#_type#_pnt
+if (_tmp eq )
 UFUFUFUFU
 end if
+    mov    _tmp,[_base + dsc_#_type#_pnt]
+_to equ _tmp + (_ind) * (dsc_#_type#_b) + dsc_#_type
+else
+if ~ (_tmp eq )
+UFUFUFUFU
+end if
+_to equ _base + (_ind) * (dsc_#_type#_b) + dsc_#_type
+end if
 }
-macro _index_c _type,_base {
-_index _ic,_sc,_type,_base,rcx - 1
+macro _index_c0 _type,_base,_pnt {
+_index _ic0,_sc0,_type,_base,rcx - 1,_pnt
 }
-macro _index_c1 _type,_base {
-_index _ic1,_sc1,_type,_base,rcx - 1
+macro _index_c1 _type,_base,_pnt {
+_index _ic1,_sc1,_type,_base,rcx - 1,_pnt
 }
-macro _index0 _type,_base,_ind {
-_index _i0,_s0,_type,_base,_ind
+macro _index_c2 _type,_base,_pnt {
+_index _ic2,_sc2,_type,_base,rcx - 1,_pnt
 }
-macro _index1 _type,_base,_ind {
-_index _i1,_s0,_type,_base,_ind
+macro _index0 _type,_base,_ind,_pnt {
+_index _i0,_s0,_type,_base,_ind,_pnt
+}
+macro _index1 _type,_base,_ind,_pnt {
+_index _i1,_s0,_type,_base,_ind,_pnt
 }
 macro _neg8 _fr {
       bt qword _fr,63
