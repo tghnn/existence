@@ -55,3 +55,85 @@ forward
 align 8
       jmp _pref#_#_name
 }
+macro _allign _a {
+      add	_a,15
+      and	_a,-16
+}
+macro _index _to,_st,_type,_base,_ind {
+_st equ dsc_#_type
+if (dsc_#_type#_b) eq 8
+_to equ _base + (_ind) * 8 + dsc_#_type
+else if (dsc_#_type#_b) eq 4
+_to equ _base + (_ind) * 4 + dsc_#_type
+else if (dsc_#_type#_b) eq 2
+_to equ _base + (_ind) * 2 + dsc_#_type
+else if (dsc_#_type#_b) eq 1
+_to equ _base + (_ind) + dsc_#_type
+else
+UFUFUFUFU
+end if
+}
+macro _index_c _type,_base {
+_index _ic,_sc,_type,_base,rcx - 1
+}
+macro _index_c1 _type,_base {
+_index _ic1,_sc1,_type,_base,rcx - 1
+}
+macro _index0 _type,_base,_ind {
+_index _i0,_s0,_type,_base,_ind
+}
+macro _index1 _type,_base,_ind {
+_index _i1,_s0,_type,_base,_ind
+}
+macro _neg8 _fr {
+      bt qword _fr,63
+}
+macro _neg4 _fr {
+      bt dword _fr,31
+}
+macro _neg2 _fr {
+      bt word _fr,15
+}
+macro _neg1 _fr {
+      bt byte _fr,7
+}
+macro _neg _fr,_bt {
+if _fr in <rax,rbx,rcx,rdx,rsi,rdi,r8,r9,r10,r11,r12,r13,r14,r15>
+_neg8 _fr
+else if _fr in <eax,ebx,ecx,edx,r8d,r9d,r10d,r11d,r12d,r13d,r14d,r15d>
+_neg4 _fr
+else if (_bt) eq 8
+_neg8 _fr
+else if (_bt) eq 4
+_neg4 _fr
+else if (_bt) eq 2
+_neg2 _fr
+else if (_bt) eq 1
+_neg1 _fr
+else
+UFUFUFUFU
+end if
+}
+macro _mov _to,_fr {
+if ~(_to in <_fr, >)
+      mov	_to,_fr
+end if
+}
+macro _local_set _type {
+_loc_off equ 0
+_loc_typ equ _type
+      sub	rsp,dsc_#_type#_b
+_il equ rsp + dsc_#_type
+_sl equ dsc_#_type
+}
+macro _push _p {
+_loc_off equ _loc_off - 8
+      push   _p
+}
+macro _pop  _p {
+_loc_off equ _loc_off + 8
+      pop    _p
+}
+macro _local_unset {
+      add	rsp,dsc_#_loc_type#_b
+}
