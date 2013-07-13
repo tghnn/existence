@@ -1,7 +1,32 @@
+macro _loc _pref,[_name,_size] {
+common
+macro _loc_#_pref _off \{
+_loc_last equ _off
+forward
+if (_size) = 1
+loc_#_pref#_#_name equ byte [rsp + _loc_last]
+else if (_size) = 2
+loc_#_pref#_#_name equ word [rsp + _loc_last]
+else if (_size) = 4
+loc_#_pref#_#_name equ dword [rsp + _loc_last]
+else if (_size) = 8
+loc_#_pref#_#_name equ qword [rsp + _loc_last]
+else
+loc_#_pref#_#_name equ [rsp + _loc_last]
+end if
+_loc_last equ _loc_last + _size
+common
+\}
+}
+
+
 macro _dsc _pref,[_name,_size] {
 common
 _dsc_last equ 0
 forward
+if defined dsc_#_pref#_#_name#_b
+!WRONG!
+end if
 dsc_#_pref#_#_name equ _dsc_last
 dsc_#_pref#_#_name#_b equ _size
 _dsc_last equ dsc_#_pref#_#_name + dsc_#_pref#_#_name#_b
@@ -10,7 +35,7 @@ dsc_#_pref#_b equ _dsc_last
 }
 macro _dsc_in _pref,[_name,_size] {
 common
-if dsc_#_pref eq
+if ~ defined dsc_#_pref
 !WRONG!
 end if
 _dsc_in equ dsc_#_pref
@@ -60,34 +85,44 @@ macro _allign _a {
       and	_a,-16
 }
 macro _index _to,_st,_type,_base,_ind,_tmp {
-_st equ dsc_#_type
+_st equ dsc_#_type#_b
+_aa equ _base
 if defined dsc_#_type#_pnt
 if (_tmp eq )
 UFUFUFUFU
 end if
     mov    _tmp,[_base + dsc_#_type#_pnt]
-_to equ _tmp + (_ind) * (dsc_#_type#_b) + dsc_#_type
+_aa equ _tmp
 else
 if ~ (_tmp eq )
 UFUFUFUFU
 end if
-_to equ _base + (_ind) * (dsc_#_type#_b) + dsc_#_type
 end if
+_to equ _aa + (_ind) * (dsc_#_type#_b) + dsc_#_type
 }
-macro _index_c0 _type,_base,_pnt {
-_index _ic0,_sc0,_type,_base,rcx - 1,_pnt
+macro _index_c0 _type,_base,_tmp {
+_index _ic0,_sc0,_type,_base,rcx - 1,_tmp
 }
-macro _index_c1 _type,_base,_pnt {
-_index _ic1,_sc1,_type,_base,rcx - 1,_pnt
+macro _index_c1 _type,_base,_tmp {
+_index _ic1,_sc1,_type,_base,rcx - 1,_tmp
 }
-macro _index_c2 _type,_base,_pnt {
-_index _ic2,_sc2,_type,_base,rcx - 1,_pnt
+macro _index_c2 _type,_base,_tmp {
+_index _ic2,_sc2,_type,_base,rcx - 1,_tmp
 }
-macro _index0 _type,_base,_ind,_pnt {
-_index _i0,_s0,_type,_base,_ind,_pnt
+macro _index_c3 _type,_base,_tmp {
+_index _ic3,_sc3,_type,_base,rcx - 1,_tmp
 }
-macro _index1 _type,_base,_ind,_pnt {
-_index _i1,_s0,_type,_base,_ind,_pnt
+macro _index0 _type,_base,_ind,_pnt,_tmp {
+_index _i0,_s0,_type,_base,_ind,_pnt,_tmp
+}
+macro _index1 _type,_base,_ind,_pnt,_tmp {
+_index _i1,_s1,_type,_base,_ind,_pnt,_tmp
+}
+macro _index2 _type,_base,_ind,_pnt,_tmp {
+_index _i2,_s2,_type,_base,_ind,_pnt,_tmp
+}
+macro _index3 _type,_base,_ind,_pnt,_tmp {
+_index _i3,_s3,_type,_base,_ind,_pnt,_tmp
 }
 macro _neg8 _fr {
       bt qword _fr,63
@@ -123,28 +158,44 @@ if ~(_to in <_fr, >)
       mov	_to,_fr
 end if
 }
-macro _end {
+macro _e _a,_b {
       clc
-      jmp    _end
-_err:
+      jmp    _b
+_a:
       stc
-_end:
+_b:
 }
 macro _local_set _type {
 _loc_off equ 0
-_loc_typ equ _type
-      sub	rsp,dsc_#_type#_b
-_il equ rsp + _loc_off + dsc_#_type
-_sl equ dsc_#_type
+_loc_b equ loc_#_type#_b
+macro _loc_c _off \{
+_loc_#_type _off
+\}
+_loc_#_type 0
+      sub	rsp,_loc_last
 }
 macro _push _p {
 _loc_off equ _loc_off + 8
+_loc_c _loc_off
       push   _p
 }
 macro _pop  _p {
 _loc_off equ _loc_off - 8
+_loc_c _loc_off
       pop    _p
 }
 macro _local_unset {
-      add	rsp,dsc_#_loc_type#_b
+_loc_c _loc_off
+      add	rsp,_loc_last
+}
+
+macro _regs [_name] {
+common
+macro _check _reg \{
+forward
+if _reg eq _name
+!WRONG CALL PARM!
+end if
+common
+\}
 }
