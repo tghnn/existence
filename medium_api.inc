@@ -20,6 +20,9 @@ invoke WaitForSingleObject,rdx,100
       _pop	rax,rdx
       jmp	_l0
 _l1:
+      _push	rax,rdx
+invoke ResetEvent,rdx
+      _pop	rax,rdx
       mov	rdx,[rax + dsc_main_thrd_api_parm0]
       _neg	rdx
       retn
@@ -35,18 +38,26 @@ _m_api_call1:
       mov	[rax + dsc_main_thrd_api_parm0],r10
 _m_api_call0:
       mov	[rax + dsc_main_thrd_api_stat],r8
+      mov	rdx,[main]
+      mov	rdx,[rdx + dsc_main_thrd_event]
+invoke SetEvent rdx
       retn
 ; ------ direct call ------
 _call m_sour_unset,_med_sour_unset,rdi,r15
 ;m_sour_unset  medium_pnt,_sour_num
+_call m_sour_trans,_med_dest_trans,rdi,  r15, r11
+;m_dest_unset  medium_pnt, sour_num, thread_num
+
 _call m_dest_set,_med_dest_set,rdi, r14, r12
 ;m_dest_set    medium_pnt, dest_num, handler
 _call m_dest_unset,_med_dest_unset,rdi,  r14
 ;m_dest_unset  medium_pnt, dest_num
+_call m_dest_trans,_med_dest_trans,rdi,  r14, r11
+;m_dest_unset  medium_pnt, dest_num, thread_num
 ;----
 _call m_link_set,_med_dest_set_sourc,rdi,r14,  r15
 ;m_link_set    medium_pnt, dest_num, sour_num
-_call m_link_unset,_med_dest_unset_sourc,rdi,r14,  r15
+_call m_link_unset,_med_dest_unset_sourc,rdi,r14, r15
 ;m_link_unset  medium_pnt, dest_num, sour_num
 ;change last_dest, wake sour
 ;----
