@@ -85,8 +85,8 @@ align 8
       jmp _pref#_#_name
 }
 macro _allign _a {
-      add	_a,15
-      and	_a,-16
+      add       _a,15
+      and       _a,-16
 }
 macro _index _to,_st,_type,_base,_ind,_off,_basebase {
 _st equ dsc_#_type#_b
@@ -171,7 +171,7 @@ end if
 }
 macro _mov _to,_fr {
 if ~(_to in <_fr, >)
-      mov	_to,_fr
+      mov       _to,_fr
 end if
 }
 macro _e _a,_b {
@@ -185,10 +185,12 @@ _b:
 macro _push [_aaa] {
 forward
       push   _aaa
+__stack equ __stack + 1
 }
 macro _pop  [_aaa] {
 reverse
       pop    _aaa
+__stack equ __stack - 1
 }
 
 macro _regs [_name] {

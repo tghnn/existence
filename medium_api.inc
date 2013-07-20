@@ -40,24 +40,22 @@ _m_api_call0:
       mov	[rax + dsc_main_thrd_api_stat],r8
       mov	rdx,[main]
       mov	rdx,[rdx + dsc_main_thrd_event]
-invoke SetEvent rdx
+invoke SetEvent,rdx
       retn
 ; ------ direct call ------
 _call m_sour_unset,_med_sour_unset,rdi,r15
 ;m_sour_unset  medium_pnt,_sour_num
-_call m_sour_trans,_med_dest_trans,rdi,  r15, r11
+_call m_sour_trans,_med_sour_trans,rdi,  r15, r11
 ;m_dest_unset  medium_pnt, sour_num, thread_num
 
-_call m_dest_set,_med_dest_set,rdi, r14, r12
-;m_dest_set    medium_pnt, dest_num, handler
 _call m_dest_unset,_med_dest_unset,rdi,  r14
 ;m_dest_unset  medium_pnt, dest_num
 _call m_dest_trans,_med_dest_trans,rdi,  r14, r11
 ;m_dest_unset  medium_pnt, dest_num, thread_num
 ;----
-_call m_link_set,_med_dest_set_sourc,rdi,r14,  r15
+_call m_link_set,_med_link_set,rdi,r14,  r15
 ;m_link_set    medium_pnt, dest_num, sour_num
-_call m_link_unset,_med_dest_unset_sourc,rdi,r14, r15
+_call m_link_unset,_med_link_unset,rdi,r14, r15
 ;m_link_unset  medium_pnt, dest_num, sour_num
 ;change last_dest, wake sour
 ;----
@@ -66,6 +64,8 @@ _call m_task_sour_finish,_med_task_sour_finish,rdi,r11
 _call m_task_sour_abort,_med_task_sour_abort,rdi,r11
 ;m_task_sour_...    medium_pnt, sour_num
 _call m_task_dest_start,_med_task_dest_start,rdi,r11
+;m_task_dest_start    medium_pnt, dest_num
+;out: r11 - tasked links
 _call m_task_dest_finish,_med_task_dest_finish,rdi,r11
 _call m_task_dest_abort,_med_task_dest_abort,rdi,r11
 ;m_task_dest_...    medium_pnt, dest_num
@@ -130,16 +130,24 @@ _parm_set _medium_num,r10
 	  call near _m_api_call1
 }
 
-macro m_api_source_create _source_med_num, _source_step_num, _source_handl, _source_dist_wake, _source_dist_dest {
+macro m_api_source_create _source_med_num, _source_step_qty, _source_handl, _source_dist_wake, _source_dist_dest {
 _regs r8,r10,r11,r12,r13,r14
 _parm_set _source_med_num,r10
-_parm_set _source_step_num,r11
+_parm_set _source_step_qty,r11
 _parm_set _source_handl,r12
 _parm_set _source_dist_wake,r13
 _parm_set _source_dist_dest,r14
 	  call near _m_api_res
 	  mov	    r8,med_api_source_create
 	  call near _m_api_call5
+}
+macro m_api_destination_set _destination_med_num, _destionation_handl {
+_regs r8,r10,r11
+_parm_set _destination_med_num,r10
+_parm_set _destination_handl,r11
+	  call near _m_api_res
+	  mov	    r8,med_api_destination_set
+	  call near _m_api_call2
 }
 
 ;-----------------------------
