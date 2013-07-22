@@ -85,8 +85,8 @@ align 8
       jmp _pref#_#_name
 }
 macro _allign _a {
-      add       _a,15
-      and       _a,-16
+      add	_a,15
+      and	_a,-16
 }
 macro _index _to,_st,_type,_base,_ind,_off,_basebase {
 _st equ dsc_#_type#_b
@@ -171,7 +171,7 @@ end if
 }
 macro _mov _to,_fr {
 if ~(_to in <_fr, >)
-      mov       _to,_fr
+      mov	_to,_fr
 end if
 }
 macro _e _a,_b {
@@ -202,7 +202,7 @@ if (_fr eq _name) & (~(_fr eq _to))
 end if
 common
 if _to in <eax,ebx,ecx,edx,r8d,r9d,r10d,r11d,r12d,r13d,r14d,r15d,rax,rbx,rcx,rdx,rsi,rdi,r8,r9,r10,r11,r12,r13,r14,r15>
-mov _to,_fr
+_mov _to,_fr
 end if
 if _to in <xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7,xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15>
 movdqa _to,_fr

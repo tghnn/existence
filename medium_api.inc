@@ -12,6 +12,7 @@ local _l0,_l1
 _m_api_res:
 _api_prep
       mov	rdx,_i0
+      _push	r10,r11,r12,r13,r14,r15
 _l0:
       _neg8	[rax + dsc_main_thrd_api_stat]
       jc	_l1
@@ -23,7 +24,8 @@ _l1:
       _push	rax,rdx
 invoke ResetEvent,rdx
       _pop	rax,rdx
-      mov	rdx,[rax + dsc_main_thrd_api_parm0]
+      _pop	r10,r11,r12,r13,r14,r15
+      mov	rdx,[rax + dsc_main_thrd_api_result]
       _neg	rdx
       retn
 _m_api_call5:
@@ -43,6 +45,14 @@ _m_api_call0:
 invoke SetEvent,rdx
       retn
 ; ------ direct call ------
+_call m_thread_clear,_med_thrd_c
+_call m_thread_wait,_med_thrd_w,r11
+;                              timout
+_call m_med_count,_med_count,rdi,r8,r9
+;out:r8 sour,r9 dest
+_call m_med_getpnt,_med_getpnt,rdi
+;m_med_getpnt _med_num
+;out: rdi
 _call m_sour_unset,_med_sour_unset,rdi,r15
 ;m_sour_unset  medium_pnt,_sour_num
 _call m_sour_trans,_med_sour_trans,rdi,  r15, r11
@@ -70,11 +80,11 @@ _call m_task_dest_finish,_med_task_dest_finish,rdi,r11
 _call m_task_dest_abort,_med_task_dest_abort,rdi,r11
 ;m_task_dest_...    medium_pnt, dest_num
 ;----
-_call m_task_sour_ask,_med_task_sour_ask,rdi,r10,rbx,r11
+_call m_task_sour_ask,_med_task_sour_ask,rdi,r12,rbx,r11
 ;m_task_sour_ask medium_pnt, sour_num, adr, size
 ;in: adr - ignored
 ;out: rbx, r11
-_call m_task_dest_ask,_med_task_dest_ask,rdi,rsi,r10,rbx,r11
+_call m_task_dest_ask,_med_task_dest_ask,rdi,rsi,r12,rbx,r11
 ;m_task_dest_ask medium_pnt,  sour_pnt, dest_num, adr, size
 ;in: sour_pnt,adr - ignored
 ;out: rsi, rbx, r11
@@ -88,7 +98,7 @@ macro m_thread_head {
       mov      rax,[thread]
       mov      [thread],-1
       xor      rbp,rbp
-      enter    loc_task
+      enter    loc_task,0
       mov      loc_task_thread,rax
 }
 ; ------ api call  ----------
@@ -109,6 +119,8 @@ _regs r8
 	  call near _m_api_res
 	  mov	    r8,med_api_thread_destroy
 	  call near _m_api_call0
+	  leave
+invoke ExitThread
 }
 
 macro m_api_medium_create _medium_step_size, _medium_sours_qty, _medium_dests_qty {
@@ -141,7 +153,7 @@ _parm_set _source_dist_dest,r14
 	  mov	    r8,med_api_source_create
 	  call near _m_api_call5
 }
-macro m_api_destination_set _destination_med_num, _destionation_handl {
+macro m_api_destination_set _destination_med_num, _destination_handl {
 _regs r8,r10,r11
 _parm_set _destination_med_num,r10
 _parm_set _destination_handl,r11
@@ -156,5 +168,6 @@ _regs r11,r12,r13
 _parm_set _memory_size,r11
 _parm_set _mediums_qty,r12
 _parm_set _threads_qty,r13
+      enter	loc_task,0
       call	near _med_startup
 }

@@ -3,7 +3,7 @@
 _dsc mem,size,8,next,8,prev,8
 _dsc main,size,8,med_qty,8,med_pnt,8,thrd_qty,8,thrd_api_pnt,8,thrd_event,8
 _dsc main,med,8
-_dsc main_thrd_api,stat,8,parm0,8,parm1,8,parm2,8,parm3,8,parm4,8
+_dsc main_thrd_api,stat,8,result,8,parm0,8,parm1,8,parm2,8,parm3,8,parm4,8
 
 _dsc med,size,8,step_size,8,flags,8,dest_qty,8,dest_sour_pnt,8,dest_thrd_pnt,8,dest_hndl_pnt,8, \
 		sour_qty,8,sours_pnt,8
@@ -194,42 +194,39 @@ _end:
       pop	rsi
 }
 
-
-
-macro _main_calcsize _size,_med_qty,_thrd_qty {
-      mov	_size,dsc_main_thrd_event
+;------------------------
+macro _main_procparm _med_qty,_thrd_qty,_size,_main {
       mov	rax,dsc_main_thrd_event_b
       mov	rdx,_thrd_qty
-      mul	rdx
-      add	_size,rax
-_allign _size
-      mov	rax,dsc_main_med_b
-      mov	rdx,_med_qty
-      mul	rdx
-      add	_size,rax
-_allign _size
-      mov	rax,dsc_main_thrd_api_b
-      mov	rdx,_thrd_qty
-      mul	rdx
-      add	_size,rax
-_allign _size
-}
-macro _main_fillparm _main,_med_qty,_thrd_qty {
-      mov	qword [_main + dsc_main_med_qty],_med_qty
-      mov	rax,dsc_main_thrd_event_b
-      mov	rdx,_thrd_qty
+if ~(_main eq )
       mov	[_main + dsc_main_thrd_qty],rdx
+end if
       mul	rdx
       add	rax,dsc_main_thrd_event
-      add	rax,_main
 _allign rax
+      mov	_size,rax
+if ~(_main eq )
+      add	rax,_main
       mov	[_main + dsc_main_med_pnt],rax
+end if
+      mov	rax,dsc_main_med_b
+      mov	rdx,_med_qty
+if ~(_main eq )
+      mov	[_main + dsc_main_med_qty],rdx
+end if
+      mul	rdx
+      add	rax,_size
+_allign rax
+      mov	_size,rax
+if ~(_main eq )
+      add	rax,_main
+      mov	[_main + dsc_main_thrd_api_pnt],rax
+end if
       mov	rax,dsc_main_thrd_api_b
       mov	rdx,_thrd_qty
       mul	rdx
-      add	rax,[_main + dsc_main_med_pnt]
-_allign rax
-      mov	[_main + dsc_main_thrd_api_pnt],rax
+      add	_size,rax
+_allign _size
 }
 ;---------create main
 macro _main_create _med_qty,_thrd_qty {
@@ -237,11 +234,11 @@ local _l0,_l1,_err,_end
       _neg8	[main]
       jnc	_err
       mov	[thread],-1
-_main_calcsize r8,_med_qty,_thrd_qty
+_main_procparm _med_qty,_thrd_qty,r8
 _mem_get r10,r8
       jc	_err
       mov	[main],r10
-_main_fillparm r10,_med_qty,_thrd_qty
+_main_procparm _med_qty,_thrd_qty,r8,r10
       mov	rax,-1
       mov	rcx,[r10 + dsc_main_med_qty]
 _index_c0 main_med,rdx,,r10
@@ -291,7 +288,8 @@ _index0 main_thrd_event,rdx,rcx
       mov	rdx,_from_thread
       mul	rdx
       add	r8,rax ; from
-      mov	qword [r9 + dsc_main_thrd_api_stat],-1
+      mov	rax,-1
+      mov	[r9 + dsc_main_thrd_api_stat],eax
       mov	rax,[r8 + dsc_main_thrd_api_parm0]
       mov	[r9 + dsc_main_thrd_api_parm0],rax
       mov	rax,[r8 + dsc_main_thrd_api_parm1]
@@ -325,7 +323,7 @@ _l1:
       mov      rdx,[main]
       mov      _i0,rax
       mov      [thread],rcx
-invoke CreateThread, NULL, 10000h, rbx, NULL, NULL, NULL
+invoke CreateThread, NULL, 10000h, rbx, NULL, NULL, thread0
       test     rax, rax
       jz       _err
 invoke CloseHandle, rax
@@ -334,58 +332,55 @@ _e _err,_end
 
 
 ;------------------------------------------
-macro _med_calcsize _size,_sour_qty,_dest_qty {
-      mov	_size,dsc_med_sours_pnt
-      mov	rax,dsc_med_sours_pnt_b
+macro _med_procparm _sour_qty,_dest_qty,_step_size, _size, _med {
+if ~(_med eq )
+      mov	rdx,_step_size
+      mov	[_med + dsc_med_step_size],rdx
+end if
       mov	rdx,_sour_qty
+if ~(_med eq )
+      mov	[_med + dsc_med_sour_qty],rdx
+end if
+      mov	rax,dsc_med_sours_pnt_b
       mul	rdx
-      add	_size,rax
-_allign _size
-      mov	rax,dsc_med_dest_sour_b
+      add	rax,dsc_med_sours_pnt
+_allign rax
+      mov	_size,rax
+if ~(_med eq )
+      add	rax,_med
+      mov	[_med + dsc_med_dest_sour_pnt],rax
+end if
       mov	rdx,_dest_qty
+if ~(_med eq )
+      mov	[_med + dsc_med_dest_qty],rdx
+end if
+      mov	rax,dsc_med_dest_sour_b
       mul	rdx
-      add	_size,rax
-_allign _size
+      add	rax,_size
+_allign rax
+      mov	_size,rax
+if ~(_med eq )
+      add	rax,_med
+      mov	[_med + dsc_med_dest_thrd_pnt],rax
+end if
       mov	rax,dsc_med_dest_thrd_b
       mov	rdx,_dest_qty
       mul	rdx
-      add	_size,rax
-_allign _size
+      add	rax,_size
+_allign rax
+      mov	_size,rax
+if ~(_med eq )
+      add	rax,_med
+      mov	[_med + dsc_med_dest_hndl_pnt],rax
+end if
       mov	rax,dsc_med_dest_hndl_b
       mov	rdx,_dest_qty
       mul	rdx
       add	_size,rax
 _allign _size
 }
-macro _med_fillparm _med, _sour_qty,_dest_qty,_step_size {
-      mov	rdx,_step_size
-      mov	[_med + dsc_med_step_size],rdx
-      mov	rdx,_sour_qty
-      mov	[_med + dsc_med_sour_qty],rdx
-      mov	rax,dsc_med_sours_pnt_b
-      mul	rdx
-      add	rax,dsc_med_sours_pnt
-      add	rax,_med
-_allign rax
-      mov	[_med + dsc_med_dest_sour_pnt],rax
-      mov	rdx,_dest_qty
-      mov	[_med + dsc_med_dest_qty],rdx
-
-      mov	rax,dsc_med_dest_sour_b
-      mul	rdx
-      add	rax,[_med + dsc_med_dest_sour_pnt]
-_allign rax
-      mov	[_med + dsc_med_dest_thrd_pnt],rax
-
-      mov	rax,dsc_med_dest_thrd_b
-      mov	rdx,_dest_qty
-      mul	rdx
-      add	rax,[_med + dsc_med_dest_thrd_pnt]
-_allign rax
-      mov	[_med + dsc_med_dest_hndl_pnt],rax
-}
 ;---------create/del medium
-macro _med_create _med_num,_sour_qty,_dest_qty,_step_size {
+macro _med_create _med_num,_step_size,_sour_qty,_dest_qty {
 ;api
 local _l0,_l1,_l2,_l3,_l4,_err,_end
 _regs rax,rbx,rcx,rdx,rsi,rdi,r8,r10
@@ -410,11 +405,11 @@ _l2:
 _index0 main_med,r10,_med_num,,rax
       _neg	_i0,_s0
       jnc	_err ;medium alredy exist
-_med_calcsize r8,_sour_qty,_dest_qty
+_med_procparm _sour_qty,_dest_qty,_step_size,r8
 _mem_get rdi,r8
       jc	_err
       mov	_i0,rdi
-_med_fillparm rdi, _sour_qty,_dest_qty,_step_size
+_med_procparm _sour_qty,_dest_qty,_step_size,r8,rdi
       mov	qword [rdi + dsc_med_flags],0
       mov	rax,-1
       mov	rcx,[rdi + dsc_med_sour_qty]
@@ -454,7 +449,66 @@ _l0:
 _mem_del rsi
 _e _err,_end
 }
+macro _med_getpnt _med {
+      mov	rax,[main]
+_index0 main_med,rdx,_med,,rax
+      mov	_med,_i0
+      _neg	_med
+}
+macro _med_thrd_c {
+local _l0
+      mov	rax,[main]
+      mov	rdx,loc_task_thread
+_index0 main_thrd_event,rax,rdx
+      mov	rbx,_i0
+      _neg	rbx
+      jc	_l0
+      push	rdi
+invoke ResetEvent,rbx
+      pop	rdi
+      clc
+_l0:
+}
+macro _med_thrd_w _time {
+local _l0,_l1
+      mov	rax,[main]
+      mov	rdx,loc_task_thread
+_index0 main_thrd_event,rax,rdx
+      mov	rbx,_i0
+      _neg	rbx
+      jc	_l0
+      push	rdi
+      push	rbx
+invoke WaitForSingleObject,rbx,_time
+      pop	rbx
+      cmp	rax,0
+      jnz	_l1
+invoke ResetEvent,rbx
+_l1:
+      pop	rdi
+      clc
+_l0:
+}
+macro _med_count _med,_sour_q,_dest_q {
+local _l0,_l1
+      mov	rcx,[_med + dsc_med_sour_qty]
+      mov	_sour_q,rcx
+_index_c0 med_sours_pnt,_med
+_l0:
+      _neg	_ic0,_sc0
+      sbb	_sour_q,0
+      loop	_l0
 
+      mov	rcx,[_med + dsc_med_dest_qty]
+      mov	_dest_q,rcx
+_index_c1 med_dest_thrd,rbx,,_med
+_l1:
+      _neg	_ic1,_sc1
+      sbb	_dest_q,0
+      loop	_l1
+}
+
+;-------------------------
 macro _med_parm_set_sournum _med, _sour_pnt,_sour_num {
 local _l0
       mov	rax,_sour_num
@@ -466,28 +520,24 @@ _index0 med_sours_pnt,_med,rax
       _neg8	_sour_pnt
 _l0:
 }
-macro _med_sour_calcsize _med,_size,_step_qty {
-      mov	_size,dsc_med_sour_dests_pos
-      mov	rdx,dsc_med_sour_dests_pos_b
-      mov	rax,[_med + dsc_med_dest_qty]
-      mul	rdx
-      add	_size,rax
-_allign _size
-      mov	rax,_step_qty
-      mul	qword [_med + dsc_med_step_size]
-      add	_size,rax
-_allign _size
-}
-macro _med_sour_fillparm _med,_med_sour,_step_qty {
+macro _med_sour_procparm _med,_step_qty,_size,_med_sour {
       mov	rdx,dsc_med_sour_dests_pos_b
       mov	rax,[_med + dsc_med_dest_qty]
       mul	rdx
       add	rax,dsc_med_sour_dests_pos
-      add	rax,_med_sour
 _allign rax
+      mov	_size,rax
+if ~(_med_sour eq )
+      add	rax,_med_sour
       mov	[_med_sour + dsc_med_sour_buf_pnt],rax
-      mov	rdx,_step_qty
-      mov	[_med_sour + dsc_med_sour_step_qty],rdx
+end if
+      mov	rax,_step_qty
+if ~(_med_sour eq )
+      mov	[_med_sour + dsc_med_sour_step_qty],rax
+end if
+      mul	qword [_med + dsc_med_step_size]
+      add	_size,rax
+_allign _size
 }
 ;------------create/del sourc
 macro _med_sour_create _med, _sour_num,_step_qty,_thread,_handler,_dist_wake,_dist_dest {
@@ -515,10 +565,10 @@ _l3:
       dec	rcx
       mov	_sour_num,rcx
 _l1:
-_med_sour_calcsize _med,r8,_step_qty
+_med_sour_procparm _med,_step_qty,r8
 _mem_get rsi,r8
       jc	_err
-_med_sour_fillparm _med,rsi, _step_qty
+_med_sour_procparm _med,_step_qty,r8,rsi
       mov	rax,_thread
       mov	[rsi + dsc_med_sour_thrd],rax
       mov	rax,_handler
@@ -528,7 +578,7 @@ _med_sour_fillparm _med,rsi, _step_qty
       mov	rax,_dist_dest
       mov	[rsi + dsc_med_sour_dist_dest],rax
       xor	rax,rax
-      mov	eax,-1
+      dec	eax
       mov	[rsi + dsc_med_sour_pos],rax
       mov	rcx,[_med + dsc_med_dest_qty]
       mov	rax,-1
@@ -569,7 +619,7 @@ _index1 main_thrd_event,rax,rdx
 invoke SetEvent,rbx
 _e _err,_end
 }
-macro _med_sour_unset _med, _sour_num {
+macro _med_sour_unset _med, _sour_num, _glob {
 ;direct, local_thread, wake linked dest, medium mark as deleted sour
 local _err,_end,_l0,_l00,_l1
 _regs rax,rdx,rcx,rsi
@@ -577,9 +627,11 @@ _parm_set _med
 _parm_set _dest_num
 _med_parm_set_sournum _med, rsi,_sour_num
       jc	_err
+if (_glob eq )
       mov	rax,loc_task_thread
       cmp	rax,[rsi + dsc_med_sour_thrd]
       jnz	_err
+end if
       xor	rax,rax
       mov	[rsi + dsc_med_sour_dist_dest],rax
       dec	rax
@@ -596,9 +648,11 @@ _l0:
       jnc	_l1
       mov	rax,rcx
       dec	rax
-_index1 med_dest_thrd,rdx,_med,,rax
+_index1 med_dest_thrd,rdx,rax,,_med
       xor	rax,rax
       mov	eax,_i1 ;thread of dest
+      _neg	eax
+      jc	_l1
       mov	rdx,[main]
 _index1 main_thrd_event,rdx,rax
       _neg	_i1,_s1
@@ -675,17 +729,19 @@ _index1 main_thrd_event,rax,rdx
 invoke SetEvent,rcx
 _e _err,_end
 }
-macro _med_dest_unset _med, _dest_num {
+macro _med_dest_unset _med, _dest_num, _glob {
 ;direct, local_thread, wake at linked sour
 local _err,_end,_l0,_l1,_l2,_l3
 _regs rax,rdx,rcx,rbx,rsi,r8
 _parm_set _med
 _parm_set _dest_num
+if (_glob eq )
 _index0 med_dest_thrd,rdx,_dest_num,,_med
       xor	rax,rax
       mov	eax,_i0
       cmp	rax,loc_task_thread
       jnz	_err
+end if
 _index_c0 med_sours_pnt,_med
 _index0 med_sour_dests_pos,rsi,_dest_num
       mov	rcx,[_med + dsc_med_sour_qty]
@@ -710,9 +766,10 @@ _e _err,_end
 
 
 ;---------------------------------------------------------
-macro _med_dist_dest _med_sour, _dist, _dest_num, _err, _prepared, _off {
+macro _med_dist_dest _med_sour, _dest_num, _err, _prepared, _off {
+;from dist_pos to sour_pos, ==sour-pos
 ;prepared: rdx = sour_pos, rbx = sour_step_num
-local _l0,_l1
+local _l0
 _regs rax,rdx,rbx
 _parm_set _dest_num
 if (_prepared eq 0)
@@ -727,17 +784,11 @@ _index0 med_sour_dests_pos,_med_sour,_dest_num,_off
       mov      eax,_i0
       _neg     eax
       jc       _err
-      inc      rax ; dest_pos+1
-      cmp      rax,rbx
-      jc       _l0
-      sub      rax,rbx
+      sub      rdx,rax
+      jns	_l0
+      add      rdx,rbx
 _l0:
-      neg      rax
-      add      rax,rdx
-      jns	_l1
-      add      rax,rbx
-_l1:
-      _mov     _dist,rax
+      xchg     rdx,rax
 }
 
 
@@ -770,9 +821,10 @@ _l2:
       _mov     _dist,r8
 }
 macro _med_dist_sour _med,_med_sour, _dist, _err, _prepared {
+;from sour_pos to dist_pos, ==dist-(sour+1)
 ;prepared: rdx = sour_pos, rbx = sour_step_num
-local _l0,_l1
-_regs rax,rdx,rbx,rcx,r8,r9
+local _l0,_l1, _l2
+_regs rax,rdx,rbx,rcx,r8,r9,r10
 if (_prepared eq )
       xor      rdx,rdx
       mov      edx,[_med_sour + dsc_med_sour_pos_set]
@@ -780,22 +832,29 @@ if (_prepared eq )
       jc       _err
       mov      rbx,[_med_sour + dsc_med_sour_step_qty]
 end if
+      mov      r10,rdx
+      inc      rdx ; sour_pos+1
+      cmp      rdx,rbx
+      jc       _l0
+      sub      rdx,rbx
+_l0:
       mov      rax,[_med_sour + dsc_med_sour_dest_last]
       _neg     rax
-      jc       _l0
+      jc       _l1
 _index0 med_sour_dests_pos,_med_sour,rax,_set
       xor      rcx,rcx
       mov      ecx,_i0
       _neg     ecx
-      jc       _l0
+      jc       _l1
       mov      r8,rcx
       sub      r8,rdx
-      jnc      _l1
+      jnc      _l2
       add      r8,rbx
-      jmp      _l1
-_l0:
-_med_dist_sour_findlast _med,_med_sour, r8
+      jmp      _l2
 _l1:
+_med_dist_sour_findlast _med,_med_sour, r8
+_l2:
+      mov      rdx,r10
       _neg     r8
       _mov     _dist,r8
 }
@@ -828,7 +887,7 @@ _index0 med_sour_dests_pos,rsi,_dest_num
       _neg	_i0,_s0
       jnc	_err ;already setted sour->dest
       mov	rax,[rsi + dsc_med_sour_pos]
-      mov	eax,-1
+      or	rax,[mask_low32]
       mov	_i0,rax ;set dest_pos = sour_pos
       cmp	rdx,loc_task_thread
       jz	_end ;no wake self sour
@@ -936,7 +995,7 @@ _l2:
       mov	rax,_i0
       _neg	rax
       jc	_l3
-      _neg	rax
+      _neg	eax
       jnc	_l3
       shr	rax,32
       mov	_i1,eax
@@ -955,7 +1014,7 @@ macro _med_task_posok _pos, _newpos, _zero {
       jz	_zero
       mov	e#_newpos,eax
       shl	rax,32
-      mov	eax,-1
+      or	rax,[mask_low32]
       mov	_pos,rax
 }
 macro _med_task_sour_fin _med, _sour_num, _flag {
@@ -978,28 +1037,31 @@ _med_task_posok [rsi + dsc_med_sour_pos],dx,_end
 _l0:
       mov	r9,rcx
       dec	r9
-_med_dist_dest rsi, rax, r9, _l1, 1, _set ;rdx - sour_pos
+      _push	rcx,rdx
+_med_dist_dest rsi, r9, _l1, 1, _set ;<- rdx - sour_pos
       cmp	rax,r8
       jc	_l1
-_index1 med_dest_thrd,r9,_med,,r9
+_index1 med_dest_thrd,rcx,r9,,_med
       xor	rax,rax
       mov	eax,_i1 ;thread of dest
       mov	r9,[main]
 _index1 main_thrd_event,r9,rax
       _neg	_i1,_s1
       jc	_l1
-      _push	rdx,rcx,rbx,r8,rsi,_med
+      _push	rdx,rbx,r8,rsi,_med
       mov	rbx,_i1
 invoke SetEvent,rbx
-      _pop	rdx,rcx,rbx,r8,rsi,_med
+      _pop	rdx,rbx,r8,rsi,_med
       jmp      _l1
 _l00:
       jmp      _l0
 _l1:
+      _pop	rcx,rdx
       loop     _l00
 _l2:
 else
-      mov	dword [rsi + dsc_med_sour_pos_task],-1
+      mov	rax,-1
+      mov	[rsi + dsc_med_sour_pos_task],eax
 end if
 _e _err,_end
 }
@@ -1026,11 +1088,14 @@ _parm_set _dest_num
       jc	_end
       _neg	edx
       jnc	_end ;already task
+
       mov	rbx,[_med_sour + dsc_med_sour_step_qty]
-_med_dist_sour_findlast _med,rsi, r8
+      shr	rdx,32
+_med_dist_sour _med,_med_sour, r8, _end, 1
+;prepared: rdx = sour_pos, rbx = sour_step_num
       jc	_end
       cmp	r8,[_med_sour + dsc_med_sour_dist_wake]
-      jc	_l1
+      jc	_end
       mov	rax,[_med_sour + dsc_med_sour_thrd] ;thread of sour
       _neg	rax
       jc	_end ;non thread
@@ -1038,17 +1103,17 @@ _med_dist_sour_findlast _med,rsi, r8
 _index1 main_thrd_event,rdx,rax
       _neg	_i1,_s1
       jc	_end
-      _push	 rcx,_dest_num,_med
+      _push	_dest_num,_med
       mov	rbx,_i1
 invoke SetEvent,rbx
-      _pop	 rcx,_dest_num,_med
+      _pop	_dest_num,_med
       clc
 _end:
 }
 
 macro _med_task_dest_fin _med, _dest_num, _flag {
 ;direct, local_thread, retest and wake all sour on link
-local _err,_end,_l0,_l00,_l1
+local _err,_end,_l0,_l00,_l1,_l2
 _regs rax,rdx,rcx,rbx,rsi,r8
 _parm_set _med
 _parm_set _dest_num
@@ -1071,8 +1136,11 @@ _l0:
       _neg	edx
       jc	_l1 ;non task
 if _flag eq 0
-_med_task_posok _i0,dx,_l1
+      _push	rcx
+_med_task_posok _i0,dx,_l2
 _med_task_dest_testwake _med, rsi, _dest_num
+_l2:
+      _pop	rcx
 else
       mov	_i1,-1
 end if
@@ -1094,8 +1162,9 @@ _med_task_dest_fin _med, _dest_num, 1
 ;-----------------------------------------------
 macro _med_task_sour_ask _med,_sour_num,_adr,_size {
 local _err,_end,_l0
-_regs rax,rcx,rbx,rdx,rsi,r8,r9
+_regs rax,rcx,rbx,rdx,rsi,r8,r9,r10
 _parm_set _sour_num
+_parm_set _size
 _med_task_sour_prep _med, rsi, _sour_num, _err
       jc	_err ;non task
       xor	rax,rax
@@ -1104,9 +1173,7 @@ _med_task_sour_prep _med, rsi, _sour_num, _err
       mov	rbx,[rsi + dsc_med_sour_step_qty]
 _med_dist_sour _med,rsi, r8, _err, 1
       jc	_err
-      or	r8,r8
-      jz	_end
-      sub	rbx,rdx
+      sub	rbx,rdx ;size from now to end
       cmp	r8,rbx
       jc	_l0
       mov	r8,rbx
@@ -1115,13 +1182,21 @@ _l0:
       mul	rdx
       add	rax,[rsi + dsc_med_sour_buf_pnt]
       _mov	_adr,rax
-_e _err,_end
-      _mov	_size,r8
+      cmp	r8,_size
+      jnc	_end
+      mov	_size,r8
+      clc
+      jmp	_end
+_err:
+      stc
+_end:
 }
 macro _med_task_sour_roger _med,_sour_num, _size {
 local _err,_end,_l0
 _regs rax,rcx,rbx,rdx,rsi
 _parm_set _sour_num
+      cmp	_size,0
+      jz	_end
 _med_task_sour_prep _med, rsi, _sour_num, _err
       jc	_err ;non task
       mov	rbx,[rsi + dsc_med_sour_step_qty]
@@ -1136,8 +1211,8 @@ _e _err,_end
 }
 
 macro _med_task_dest_ask _med, _med_sour, _dest_num,_adr,_size {
-local _err,_end,_l0,_l1,_l2,_l3,_l4,_l5
-_regs rax,rcx,rbx,rdx,r8,r9
+local _err,_end,_l0,_l1,_l2,_l3,_l4,_l5,_l6
+_regs rax,rcx,rbx,rdx,r8,r9,r10
 _parm_set _dest_num
 _parm_set _med_sour
 _parm_set _med
@@ -1148,7 +1223,7 @@ _index0 med_dest_thrd,rdx,_dest_num,,_med
       jnz	_err
 
       mov	rcx,[_med + dsc_med_sour_qty]
-_index0 med_dest_sour,rdx,_med,,_dest_num
+_index0 med_dest_sour,rdx,_dest_num,,_med
       xor	r8,r8
       mov	r9,r8 ;r9==0 - sour is current
       mov	r8d,_i0
@@ -1162,7 +1237,7 @@ _l0:
       mov	_med_sour,_i0
       _neg	_med_sour
       jc	_l5
-_med_dist_dest _med_sour, rax,_dest_num, _l5,0,_task
+_med_dist_dest _med_sour, _dest_num, _l5,0,_task
       or	rax,rax
       jz	_l1
       or	r9,r9
@@ -1185,15 +1260,18 @@ _l2:
       xor	_size,_size
       jmp	_end
 _l3:
-_index0 med_dest_sour,rcx,_med,,_dest_num
+_index0 med_dest_sour,rcx,_dest_num,,_med
       mov	_i0,r8d
       mov	rcx,[_med_sour + dsc_med_sour_step_qty]
-      sub	rcx,rdx
+      sub	rcx,rdx ;size from now to end
       cmp	rax,rcx
       jc	_l4
       mov	rax,rcx
 _l4:
+      cmp	rax,_size
+      jnc	_l6
       mov	_size,rax
+_l6:
       mov	rax,[_med + dsc_med_step_size]
       mul	rdx
       add	rax,[_med_sour + dsc_med_sour_buf_pnt]
@@ -1207,6 +1285,8 @@ _parm_set _dest_num
 _parm_set _med_sour
 _parm_set _med
 _parm_set _size
+      cmp	_size,0
+      jz	_end
 _index0 med_dest_thrd,rdx,_dest_num,,_med
       xor	rax,rax
       mov	eax,_i0
@@ -1258,7 +1338,7 @@ med_api_destination_handl   equ dsc_main_thrd_api_parm1
 
 macro proc_med_sys {
 local _ls,_l0,_l1,_l_1,_l2,_l3,_l4,_l5,_l6,_l7,_l_7,_l8,_l9,_l_9,_l9_,_l10,_l11
-local _la00,_la01,_la02,_la03,_la04,_la1,_la2,_la3,_la4
+local _la00,_la01,_la02,_la03,_la04,_la1,_la2,_la3,_la4,_la41,_la5,_la6,_la61
 _med_startup:
 ;r11 - memsize, r12 - med_num, r13 - thrd_num
       push	r12
@@ -1337,10 +1417,14 @@ _la3:
       jnz	_la4
       _push	rcx,rbx,rdx
       dec	rcx
-m_dest_unset rdi,rcx
+      mov	r11,rcx
+_med_dest_unset rdi,r11,1
       _pop	rcx,rbx,rdx
+      jmp	_la4
+_la41:
+      jmp	_la3
 _la4:
-      loop	_la3
+      loop	_la41
 ;all sour
       mov	rcx,[rdi + dsc_med_sour_qty]
 _index_c1 med_sours_pnt,rdi
@@ -1352,16 +1436,22 @@ _la5:
       jnz	_la6
       _push	rcx,rdx
       dec	rcx
-m_sour_unset rdi,rcx
+      mov	r11,rcx
+_med_sour_unset rdi,r11, 1
       _pop	rcx,rdx
+      jmp	_la6
+_la61:
+      jmp	_la5
 _la6:
-      loop	_la5
+      loop	_la61
       _pop	rcx,rbx
+      jmp	_la2
+_la21:
+      jmp	_la1
 _la2:
-      loop	_la1
-      _pop	rcx,rbx
+      loop	_la21
       xor	rax,rax
-      jmp	_l4
+      jmp	_l3
 
 _la01:
       cmp	rax,med_api_medium_create
@@ -1386,7 +1476,7 @@ _index0 main_med,r11,rax,,rdi
       _neg	rdi
       jc	_l3
 m_sour_create rdi,-1,[rbx + med_api_source_step_num],rdx,[rbx + med_api_source_handl],[rbx + med_api_source_dist_wake],[rbx + med_api_source_dist_dest]
-      mov	rax,r11
+      mov	rax,r15
       jmp	_l3
 
 _la04:
@@ -1400,15 +1490,15 @@ _index0 main_med,r11,rax,,rdi
       _neg	rdi
       jc	_l3
 m_dest_set rdi,-1,rdx,[rbx + med_api_destination_handl]
-      mov	rax,r11
+      mov	rax,r14
 _l3:
+      inc	[med_sys0]
       _pop	rcx,rbx
       jnc	_l4
       mov	rax,-1
 _l4:
-      mov	[rbx + dsc_main_thrd_api_parm0],rax
+      mov	[rbx + dsc_main_thrd_api_result],rax
       mov	qword [rbx + dsc_main_thrd_api_stat],-1
-      inc	[med_sys0]
       mov	rdx,[main]
 _index_c0 main_thrd_event,rdx
       _push	rbx,rcx
@@ -1424,12 +1514,6 @@ _l_1:
 _l2:
       loop	_l_1
 
-      cmp	[med_sys0],0
-      jz	_l6
-      jmp	_l0
-
-
-_l6:
       mov	rbx,[main]
       mov	rcx,[rbx + dsc_main_med_qty]
 _index_c0 main_med,rbx,,rbx
@@ -1437,7 +1521,7 @@ _l7:
       mov	rdi,_ic0
       _neg	rdi
       jc	_l8
-      bt	qword [rdi + dsc_med_flags],1
+      bt	qword [rdi + dsc_med_flags],0
       jnc	_l8
       _push	rbx,rcx
       mov	rcx,[rdi + dsc_med_sour_qty]
@@ -1452,10 +1536,17 @@ _l9:
       jnc	_l10
       inc	r11
       mov	rcx,[rdi + dsc_med_dest_qty]
-_index_c2 med_sour_dests_pos,rsi
+      mov	ebx,[rsi + dsc_med_sour_pos_set]
+_index_c2 med_sour_dests_pos,rsi,_set
 _l11:
-      _neg	_ic2,_sc2
-      jnc	_l10
+      mov	eax,_ic2
+      _neg	eax
+      jc	_l12
+      cmp	eax,ebx
+      jnz	_l10
+      mov	rax,-1
+      mov	_ic2,eax
+_l12:
       loop	_l11
       _pop	rcx
       _push	rcx
@@ -1472,13 +1563,17 @@ _l_9:
       _pop	rbx,rcx
       or	r11,r11
       jnz	_l8
-      btr	qword [rdi + dsc_med_flags],1
+      btr	qword [rdi + dsc_med_flags],0
       jmp	_l8
 _l_7:
       jmp	_l7
 _l8:
       loop	_l_7
 
+      cmp	[med_sys0],0
+      jz	_l6
+      jmp	_l0
+_l6:
       mov	rbx,[main]
       mov	rbx,[rbx + dsc_main_thrd_event]
 invoke WaitForSingleObject,rbx,100
@@ -1493,7 +1588,7 @@ _call m_main_thread_set, _main_thread_set,rcx,r11,r12
 ;               _thread_num,_thread_proc,_from_thread (thread_num == -1) -> next
 ;----
 _call m_med_create,_med_create,r11,  r12,    r13,    r14
-;             _med_num,_sour_num,_dest_num,_step_size
+;                          _med_num,_step_size,_sour_qty,_dest_qty
 _call m_med_del,_med_del,r11
 ;             _med_num
 ;----
@@ -1508,9 +1603,11 @@ _call m_dest_set,_med_dest_set,rdi, r14, r12, r13
 
 
 macro med_data {
+mask_low32    dq    00000000FFFFFFFFh
 mem	      dq    -1
 main	      dq    -1
 thread	      dq    -1
+thread0       dq    -1
 med_sys0      dq    -1
 iotab_todec   db    '0123456789'
 iotab_tohex   db    '0123456789ABCDEF'
