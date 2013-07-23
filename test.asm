@@ -22,105 +22,91 @@ _l9:
 
   and	rsp,-16
   jmp	rest
-
 proc_med
 proc_med_api
 proc_med_sys
 rest:
-m_main_startup 10000000, 10, 1000
+m_main_startup 10000000, 10, 200
 jc eee
-m_api_medium_create 1, 100, 200
-m_api_result
+m_main_fileup 100
 jc eee
-mov [med0],rdx
-m_api_destination_set [med0], 0
-m_api_result
-jc eee
-mov [dst0],rdx
 
-m_api_thread_create _tst_
-m_api_result
+f_open_append ftstw,1000,6
 jc eee
-m_thread_wait 10000
-m_med_getpnt [med0]
-m_task_dest_start rdi,[dst0]
+f_open_read ftstr,1000,6
 jc eee
-m_task_dest_ask rdi,rsi,[dst0],rbx,10000
+m_thread_wait 1000
+_oooo:
+m_med_getpnt [file_medium]
+m_task_sour_start rdi,loc_task_file_sour
 jc eee
-m_task_dest_roger rdi,rsi,[dst0],r11
+m_task_dest_start rdi,loc_task_file_dest
 jc eee
-m_task_dest_finish rdi,[dst0]
+or r11,r11
+jz _o0
+m_task_sour_ask rdi,loc_task_file_sour,rbx,-1
 jc eee
-m_thread_wait 10000
-m_task_dest_start rdi,[dst0]
+or r11,r11
+jz _oo1
+push rbx
+m_task_dest_ask rdi,rsi,loc_task_file_dest,rbx,r11
+pop rdx
 jc eee
-m_task_dest_ask rdi,rsi,[dst0],rbx,10000
+or r11,r11
+jz _oo1
+mov rcx,r11
+__tttt:
+mov al,[rbx]
+mov [rdx],al
+inc rbx
+inc rdx
+loop __tttt
+push r11
+m_task_dest_roger rdi,rsi,loc_task_file_dest,r11
+pop r11
 jc eee
-m_task_dest_roger rdi,rsi,[dst0],r11
+m_task_sour_roger rdi,loc_task_file_sour,r11
 jc eee
-m_task_dest_ask rdi,rsi,[dst0],rbx,10000
+m_task_dest_finish rdi,loc_task_file_dest
 jc eee
-m_task_dest_roger rdi,rsi,[dst0],r11
+m_task_sour_finish rdi,loc_task_file_sour
 jc eee
-m_task_dest_finish rdi,[dst0]
+jmp _oooo
+_oo1:
+m_task_dest_abort rdi,loc_task_file_dest
 jc eee
-m_api_result
-invoke Sleep,10
-m_med_getpnt [med0]
-m_dest_unset rdi,[dst0]
-m_med_count rdi,r8,r9
+m_task_sour_abort rdi,loc_task_file_sour
+jc eee
+m_thread_wait 1000
+jc eee
+jmp _oooo
+_o0:
+m_sour_unset rdi,loc_task_file_sour
+jc eee
+invoke Sleep,1000
 invoke	ExitProcess,[msg.wParam]
+
+
 eee:
 db 0CCh
 dq 0,0,0
-eee1:
-db 0CCh
-dq 4,4,4
 
 
-proc _tst_
-m_thread_head
-m_api_source_create [med0], 1000, 0, 611, 6
-m_api_result
-jc eee1
-mov	[src0],rdx
-m_med_getpnt [med0]
-m_link_set rdi,[dst0], [src0]
-jc eee1
-m_task_sour_start rdi,[src0]
-jc eee1
-m_task_sour_ask rdi,[src0],rbx,800
-m_task_sour_roger rdi,[src0],r11
-m_task_sour_finish rdi,[src0]
-jc eee1
-m_thread_wait 10000
-m_task_sour_start rdi,[src0]
-jc eee1
-m_task_sour_ask rdi,[src0],rbx,300
-jc eee1
-m_task_sour_roger rdi,[src0],r11
-jc eee1
-add r11,400
-m_task_sour_ask rdi,[src0],rbx,r11
-jc eee1
-m_task_sour_roger rdi,[src0],r11
-jc eee1
-m_task_sour_finish rdi,[src0]
-jc eee1
-m_api_thread_destroy
-endp
 
 section '.data' data readable writeable
 med_data
+med_api_data
 med0 dq 0
 dst0 dq 0
 src0 dq 0
+uuuu dq 0
 section '.bss' readable writeable
 
 ;  hinstance dq ?
 ;  hwnd dq ?
   msg MSG
-
+ftstr db "aaaaa.in",0
+ftstw db "aaaaa.out",0
 
 section '.idata' import data readable
 

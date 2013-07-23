@@ -19,7 +19,8 @@ _dsc_in med_sour_dests_pos,task,4,set,4
 ;pos: h32 - set position, l32 - task position
 ;last dest = min dist(sour -> dest), if -1 = not have linked dest
 
-_loc task,thread,8,medium,8,dest,8,sour,8,handler,8,tmp,8,flag,8
+_loc task,thread,8,medium_num,8,medium_pnt,8,dest,8,sour,8,handler,8,tmp,8,flag,8, \
+	  file_sour,8,file_dest,8
 
 ;write/read in step
 ;write: first free, always at least 1 (num to write = min dist from +1 to read)
@@ -324,11 +325,15 @@ _l1:
       _pop     rbx,rcx,rax
       mov      rdx,[main]
       mov      _i0,rax
+      push     rcx
       mov      [api_thread],rcx
 invoke CreateThread, NULL, 10000h, rbx, NULL, NULL, thread0
+      pop      rcx
       test     rax, rax
       jz       _err
+      push     rcx
 invoke CloseHandle, rax
+      pop      rcx
 _e _err,_end
 }
 
@@ -452,6 +457,8 @@ _mem_del rsi
 _e _err,_end
 }
 macro _med_getpnt _med {
+_regs rax,rdx
+_parm_set _med
       mov	rax,[main]
 _index0 main_med,rdx,_med,,rax
       mov	_med,_i0
@@ -470,12 +477,11 @@ _index0 med_dest_thrd,rbx,_dest_num,,_med
 _l0:
       inc	_dest_num
       cmp	_dest_num,rdx
-      jc	_l1
-      xor	_dest_num,_dest_num
-_l1:
+      jnc	_l1
       cmp	eax,_i0
       jz	_l2
       loop	_l0
+_l1:
       mov	_dest_num,-1
       stc
 _l2:
@@ -493,9 +499,7 @@ _index0 med_sours_pnt,_med,_sour_num
 _l0:
       inc	_sour_num
       cmp	_sour_num,rdx
-      jc	_l1
-      xor	_sour_num,_sour_num
-_l1:
+      jnc	_l1
       mov	_med_sour,_i0
       _neg	_med_sour
       jc	_l2
@@ -503,6 +507,7 @@ _l1:
       jz	_l3
 _l2:
       loop	_l0
+_l1:
       mov	_sour_num,-1
       mov	_med_sour,-1
       stc
@@ -948,10 +953,13 @@ _index0 med_dest_thrd,rax,_dest_num,,_med
       jnz	_err
 _l0:
 _index0 med_sour_dests_pos,rsi,_dest_num
-      _neg	_i0,_s0
+      mov	rax,_i0
+      _neg	rax
       jnc	_err ;already setted sour->dest
       mov	rax,[rsi + dsc_med_sour_pos]
-      or	rax,[mask_low32]
+      xor	rcx,rcx
+      dec	ecx
+      or	rax,rcx
       mov	_i0,rax ;set dest_pos = sour_pos
       cmp	rdx,loc_task_thread
       jz	_end ;no wake self sour
@@ -1074,19 +1082,23 @@ _l4:
 _l3:
       loop	_l2
       _mov	_dest_num,rbx
+      clc
+      jmp	_end
 _e _err,_end
 }
 
 ;-----
-macro _med_task_posok _pos, _newpos, _zero {
+macro _med_task_posok _pos, _newpos,_tmp, _zero {
       mov	rax,r#_newpos
-      shr	r#_newpos,32
+      ror	r#_newpos,32
+      xor	r#_tmp,r#_tmp
+      dec	e#_tmp
+      or	r#_tmp,r#_newpos
+      mov	_pos,r#_tmp
       cmp	e#_newpos,eax
       jz	_zero
+      xor	r#_newpos,r#_newpos
       mov	e#_newpos,eax
-      shl	rax,32
-      or	rax,[mask_low32]
-      mov	_pos,rax
 }
 macro _med_task_sour_fin _med, _sour_num, _flag {
 ;direct, local_thread, wake all link(dest) aviable > dist_wake
@@ -1097,7 +1109,7 @@ _parm_set _sour_num
 _med_task_sour_prep _med, rsi, _sour_num, _err
       jc	_err ;non task
 if _flag eq 0
-_med_task_posok [rsi + dsc_med_sour_pos],dx,_end
+_med_task_posok [rsi + dsc_med_sour_pos],dx,cx,_end
 ;wake up
       mov	r8,[rsi + dsc_med_sour_dist_wake]
       _neg	r8
@@ -1195,7 +1207,6 @@ _index0 med_dest_thrd,rdx,_dest_num,,_med
       jnz	_err
 _index_c0 med_sours_pnt,_med
 _index0 med_sour_dests_pos,rsi,_dest_num
-_index1 med_sour_dests_pos,rsi,_dest_num,_task
       mov	rcx,[_med + dsc_med_sour_qty]
 _l0:
       mov	rsi,_ic0
@@ -1208,11 +1219,12 @@ _l0:
       jc	_l1 ;non task
 if _flag eq 0
       _push	rcx
-_med_task_posok _i0,dx,_l2
+_med_task_posok _i0,dx,cx,_l2
 _med_task_dest_testwake _med, rsi, _dest_num
 _l2:
       _pop	rcx
 else
+_index1 med_sour_dests_pos,rsi,_dest_num,_task
       mov	_i1,-1
 end if
       jmp	_l1
@@ -1674,7 +1686,6 @@ _call m_dest_set,_med_dest_set,rdi, r14, r12, r13
 
 
 macro med_data {
-mask_low32    dq    00000000FFFFFFFFh
 mem	      dq    -1
 main	      dq    -1
 api_thread    dq    -1

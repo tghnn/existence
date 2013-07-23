@@ -1,3 +1,63 @@
+macro file_open_write _fname, _bufsize, _minblock {
+local _err
+      push	_fname
+      mov	rax,_bufsize
+      shr	rax,1
+m_api_source_create [file_medium], _bufsize, -1, rax, _minblock
+      pop	_fname
+invoke CreateFile, _fname, GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0
+      _neg	rax
+      jc	_err
+      mov	r15,rax
+m_med_getpnt [file_medium]
+m_api_result
+      jc	_err
+      push	rdx
+m_api_destination_set [file_medium], r15
+invoke SetFilePointer, r15,0,0,FILE_END
+m_api_result
+      pop	rax
+      jc	_err
+      mov	loc_task_file_sour,rax
+      push	rdx
+m_link_set rdi, rdx, rax
+      pop	rdx
+      jc	_err
+m_dest_trans rdi, rdx, [file_thread]
+_err:
+}
+
+macro file_open_read _fname, _bufsize, _minblock {
+local _err
+_regs rax,rdx
+_parm_set _bufsize
+_parm_set _minblock
+      _push	_bufsize,_minblock
+      _push	_fname
+m_api_destination_set [file_medium], -1
+      _pop	_fname
+invoke CreateFile, _fname, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0
+      mov	r15,rax
+m_api_result
+      _pop	_bufsize,_minblock
+      jc	_err
+      _neg	r15
+      jc	_err
+      mov	loc_task_file_dest,rdx
+      mov	rax,_bufsize
+      shr	rax,1
+m_api_source_create [file_medium], _bufsize, r15, rax, _minblock
+m_med_getpnt [file_medium]
+m_api_result
+      jc	_err
+      push	rdx
+m_link_set rdi, loc_task_file_dest, rdx
+      pop	rdx
+      jc	_err
+m_sour_trans rdi, rdx, [file_thread]
+_err:
+}
+
 macro _api_prep {
       mov	rbx,loc_task_thread
       mov	rax,dsc_main_thrd_api_b
@@ -59,12 +119,12 @@ _call m_med_getpnt,_med_getpnt,rdi
 _call m_sour_unset,_med_sour_unset,rdi, r11
 ;m_sour_unset  medium_pnt,_sour_num
 _call m_sour_trans,_med_sour_trans,rdi, r11, r15
-;m_dest_unset  medium_pnt, sour_num, thread_num
+;m_dest_trans  medium_pnt, sour_num, thread_num
 
 _call m_dest_unset,_med_dest_unset,rdi,  r11
 ;m_dest_unset  medium_pnt, dest_num
 _call m_dest_trans,_med_dest_trans,rdi,  r11, r15
-;m_dest_unset  medium_pnt, dest_num, thread_num
+;m_dest_trans  medium_pnt, dest_num, thread_num
 ;----
 _call m_link_set,_med_link_set,rdi,r14,  r15
 ;m_link_set    medium_pnt, dest_num, sour_num
@@ -98,6 +158,11 @@ _call m_task_dest_roger,_med_task_dest_roger,rdi,rsi,r10,r11
 ;m_task_dest_roger medium_pnt, sour_pnt, dest_num, size
 
 
+_call f_open_append, file_open_write, rbx, rcx, r9
+_call f_open_read, file_open_read, rbx, rcx, r9
+;f_open_append file_name, bufsize, minblock
+
+
 
 
 _med_file_thrd:
@@ -106,14 +171,14 @@ local _f10,_f11,_f12,_f13,_f14,_f15,_f16,_f17,_f18,_f19
 m_thread_head
 
 _f0:
-	mov	rdi,loc_task_medium
+	mov	rdi,loc_task_medium_pnt
 	mov	loc_task_flag,0
 m_thread_destnext rdi,-1
 _f1:
 	_neg	r11
 	jc	_f2
 	mov	loc_task_dest,r11
-_index0 med_dest_hndl,rdx,r11,,rdi ;??????????????????????????????
+_index0 med_dest_hndl,rdx,r11,,rdi
 	mov	rax,_i0
 	_neg	rax
 	jc	_f2
@@ -147,35 +212,33 @@ invoke	WriteFile, r10,rbx,r11,r9, NULL
 m_task_dest_roger rdi, rsi, loc_task_dest, loc_task_tmp
 	jmp	_f4
 _f5:
-m_task_dest_finish rdi, loc_task_dest
+	mov	r10,loc_task_handler
+invoke FlushFileBuffers, r10
+m_task_dest_finish rdi,loc_task_dest
 _f3:
+
+
 m_thread_destnext rdi,loc_task_dest
 	or	r11,r11
 	jnz	_f1
 _f2:
-
-
+	mov	rdi,loc_task_medium_pnt
 m_thread_sournext rdi,rsi,-1
 _f11:
 	_neg	r11
 	jc	_f12
 	mov	loc_task_sour,r11
-
-	mov	rax,[rsi + dsc_med_sour_hndl] ;??????????????????????????
+	mov	rax,[rsi + dsc_med_sour_hndl]
 	_neg	rax
 	jc	_f12
 	mov	loc_task_handler,rax
 m_task_sour_start rdi, r11
-	jnc	_f16
+	jnc	_f17
 m_task_sour_abort rdi,loc_task_sour
 	jmp	_f13
-_f16:
+_f17:
 	or	r11,r11
-	jnz	_f14
-m_sour_unset rdi,loc_task_sour
-	mov	rbx,loc_task_handler
-invoke	CloseHandle, rbx
-	jmp	_f13
+	jz	_f16
 _f14:
 m_task_sour_ask rdi, loc_task_sour, rbx, -1
 	jc	_f15
@@ -188,13 +251,21 @@ invoke	ReadFile, r10,rbx,r11,r9, NULL
 	pop	rdi
 	or	rax,rax
 	jz	_f15
-	inc	loc_task_flag
 m_task_sour_roger rdi, loc_task_sour, loc_task_tmp
-	jmp	_f14
+	mov	rax,loc_task_tmp
+	add	loc_task_flag,rax
+	or	rax,rax
+	jnz	_f14
+_f16:
+m_task_sour_finish rdi, loc_task_sour
+m_sour_unset rdi,loc_task_sour
+	mov	rbx,loc_task_handler
+invoke	CloseHandle, rbx
+	jmp	_f13
 _f15:
 m_task_sour_finish rdi, loc_task_sour
 _f13:
-m_thread_sournext rdi,rsi,loc_task_dest
+m_thread_sournext rdi,rsi,loc_task_sour
 	or	r11,r11
 	jnz	_f11
 _f12:
@@ -216,14 +287,10 @@ local _l0
       mul	rdx
       mov	rbx,[main]
       add	rax,[rbx + dsc_main_thrd_api_pnt]
-      mov	rdx,[rax + dsc_main_thrd_api_parm1]
-      mov	rcx,-1
-      _neg	rdx
-      jc	_l0
-_index0 main_med,rax,rdx,,rbx
-      mov	rcx,_i0
-_l0:
-      mov	loc_task_medium,rcx
+      mov	rbx,[rax + dsc_main_thrd_api_parm1]
+      mov	loc_task_medium_num,rbx
+_med_getpnt rbx
+      mov	loc_task_medium_pnt,rbx
 }
 ; ------ api call  ----------
 
@@ -304,14 +371,16 @@ local _err
 m_api_medium_create 1, _files_qty, _files_qty
 m_api_result
 jc _err
-mov [med_file],rdx
-m_api_thread_create _med_file_thrd,[med_file],0,0
+mov [file_medium],rdx
+m_api_thread_create _med_file_thrd,[file_medium],0,0
 m_api_result
+mov [file_thread],rdx
 _err:
 }
 
 macro med_api_data {
-med_file      dq    -1
+file_thread   dq    -1
+file_medium   dq    -1
 iotab_todec   db    '0123456789'
 iotab_tohex   db    '0123456789ABCDEF'
 iotab_dec     db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
