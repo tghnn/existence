@@ -1,5 +1,7 @@
 ;for Them, who my death and my life
 
+;todo: check at input number, error msg
+
 _dsc mem,size,8,next,8,prev,8
 _dsc main,size,8,med_qty,8,med_pnt,8,thrd_qty,8,thrd_api_pnt,8,thrd_event,8
 _dsc main,med,8
@@ -17,7 +19,7 @@ _dsc_in med_sour_dests_pos,task,4,set,4
 ;pos: h32 - set position, l32 - task position
 ;last dest = min dist(sour -> dest), if -1 = not have linked dest
 
-_loc task,thread,8
+_loc task,thread,8,medium,8,dest,8,sour,8,handler,8,tmp,8,flag,8
 
 ;write/read in step
 ;write: first free, always at least 1 (num to write = min dist from +1 to read)
@@ -233,7 +235,7 @@ macro _main_create _med_qty,_thrd_qty {
 local _l0,_l1,_err,_end
       _neg8	[main]
       jnc	_err
-      mov	[thread],-1
+      mov	[api_thread],-1
 _main_procparm _med_qty,_thrd_qty,r8
 _mem_get r10,r8
       jc	_err
@@ -255,7 +257,7 @@ _l1:
       loop	_l1
 _e _err,_end
 }
-
+;-------------------
 macro _main_thread_set _thread_num, _thread_proc, _from_thread {
 local _err,_err1,_end,_l0,_l1,_l2,_l3,_l4
 _regs rax,rbx,rcx,rdx,r8,r9
@@ -303,16 +305,16 @@ invoke CreateEvent, NULL, TRUE, FALSE, NULL
       or	rax,rax
       jz       _err1
       _push    rax
-      _neg8    [thread]
+      _neg8    [api_thread]
       jc       _l1
 invoke Sleep,1
-      _neg8    [thread]
+      _neg8    [api_thread]
       jc       _l1
 invoke Sleep,10
-      _neg8    [thread]
+      _neg8    [api_thread]
       jc       _l1
 invoke Sleep,1000
-      _neg8    [thread]
+      _neg8    [api_thread]
       jc       _l1
       _pop     rax
 _err1:
@@ -322,7 +324,7 @@ _l1:
       _pop     rbx,rcx,rax
       mov      rdx,[main]
       mov      _i0,rax
-      mov      [thread],rcx
+      mov      [api_thread],rcx
 invoke CreateThread, NULL, 10000h, rbx, NULL, NULL, thread0
       test     rax, rax
       jz       _err
@@ -455,6 +457,58 @@ _index0 main_med,rdx,_med,,rax
       mov	_med,_i0
       _neg	_med
 }
+
+
+macro _med_thrd_destnext _med, _dest_num {
+local _l0,_l1,_l2
+_regs rax,rcx,rdx,rbx
+_parm_set _dest_num
+      mov	rax,loc_task_thread
+      mov	rdx,[_med + dsc_med_dest_qty]
+      mov	rcx,rdx
+_index0 med_dest_thrd,rbx,_dest_num,,_med
+_l0:
+      inc	_dest_num
+      cmp	_dest_num,rdx
+      jc	_l1
+      xor	_dest_num,_dest_num
+_l1:
+      cmp	eax,_i0
+      jz	_l2
+      loop	_l0
+      mov	_dest_num,-1
+      stc
+_l2:
+}
+macro _med_thrd_sournext _med, _med_sour, _sour_num {
+local _l0,_l1,_l2,_l3
+_regs rax,rcx,rdx,rbx
+_parm_set _sour_num
+_parm_set _med_sour
+_parm_set _med
+      mov	rax,loc_task_thread
+      mov	rdx,[_med + dsc_med_sour_qty]
+      mov	rcx,rdx
+_index0 med_sours_pnt,_med,_sour_num
+_l0:
+      inc	_sour_num
+      cmp	_sour_num,rdx
+      jc	_l1
+      xor	_sour_num,_sour_num
+_l1:
+      mov	_med_sour,_i0
+      _neg	_med_sour
+      jc	_l2
+      cmp	rax,[_med_sour + dsc_med_sour_thrd]
+      jz	_l3
+_l2:
+      loop	_l0
+      mov	_sour_num,-1
+      mov	_med_sour,-1
+      stc
+_l3:
+}
+
 macro _med_thrd_c {
 local _l0
       mov	rax,[main]
@@ -488,6 +542,16 @@ _l1:
       pop	rdi
       clc
 _l0:
+}
+macro _med_sour_links _med,_med_sour,_link_q {
+local _l0
+      mov	rcx,[_med + dsc_med_dest_qty]
+      mov	_link_q,rcx
+_index_c0 med_sour_dests_pos,_med_sour
+_l0:
+      _neg	_ic0,_sc0
+      sbb	_link_q,0
+      loop	_l0
 }
 macro _med_count _med,_sour_q,_dest_q {
 local _l0,_l1
@@ -956,11 +1020,12 @@ _med_task_sour_prep _med, rsi, _sour_num, _err
       mov      rax,rdx
       shr      rax,32
       mov      [rsi + dsc_med_sour_pos_task],eax
+_med_sour_links _med,rsi,_sour_num
 _e _err,_end
 }
 macro _med_task_dest_start _med,_dest_num {
 ;direct, local_thread
-local _err,_end,_l0,_l1,_l2,_l3
+local _err,_end,_l0,_l1,_l2,_l3,_l4
 _regs rax,rdx,rcx,rbx
 _parm_set _med
 _parm_set _dest_num
@@ -998,6 +1063,12 @@ _l2:
       _neg	eax
       jnc	_l3
       shr	rax,32
+;nontasked empty and unsetted sour
+      cmp	eax,[rdx + dsc_med_sour_pos_set]
+      jnz	_l4
+      _neg8	[rdx + dsc_med_sour_thrd]
+      jc	_l3
+_l4:
       mov	_i1,eax
       inc	rbx
 _l3:
@@ -1367,7 +1438,7 @@ _ls:
 
 _med_0thread:
 __stack equ 0
-      mov	[thread],-1
+      mov	[api_thread],-1
 
 
 _l0:
@@ -1606,61 +1677,7 @@ macro med_data {
 mask_low32    dq    00000000FFFFFFFFh
 mem	      dq    -1
 main	      dq    -1
-thread	      dq    -1
+api_thread    dq    -1
 thread0       dq    -1
 med_sys0      dq    -1
-iotab_todec   db    '0123456789'
-iotab_tohex   db    '0123456789ABCDEF'
-iotab_dec     db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,0C0h,0A0h,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,0C0h,0A0h,255
-	      db      0,  1,  2,  3,  4,  5,  6,  7,   8,  9,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-iotab_acc     db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db      0,  1,  2,  3,  4,  5,  6,  7,   8,  9,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-
-iotab_hex     db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,0C0h,0A0h,255
-	      db      0,  1,  2,  3,  4,  5,  6,  7,   8,  9,255,255,255,255,255,255
-	      db    255, 10, 11, 12, 13, 14, 15,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255, 10, 11, 12, 13, 14, 15,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
 }
