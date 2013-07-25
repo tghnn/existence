@@ -19,8 +19,11 @@ _dsc_in med_sour_dests_pos,task,4,set,4
 ;pos: h32 - set position, l32 - task position
 ;last dest = min dist(sour -> dest), if -1 = not have linked dest
 
-_loc task,thread,8,medium_num,8,medium_pnt,8,dest,8,sour,8,handler,8,tmp,8,flag,8, \
-	  file_sour,8,file_dest,8
+_loc task,thread,8,otherthread,8,medium_num,8,medium_pnt,8,dest,8,sour,8,handler,8,tmp,8,flag,8, \
+	  file_sour,8,file_sour_pnt,8,file_dest,8, \
+	  file_read_adr,8,file_read_size,8,file_readed,8, \
+	  file_write_adr,8,file_write_size,8,file_writed,8, \
+	  int,8,frac,8,div,8,chars,64,chars_end,8
 
 ;write/read in step
 ;write: first free, always at least 1 (num to write = min dist from +1 to read)
@@ -1681,9 +1684,106 @@ _call m_dest_set,_med_dest_set,rdi, r14, r12, r13
 ;m_dest_set    medium_pnt, dest_num, thread, handler
 }
 
+macro _med_read_next _medium_pnt, _dest_num, _sour_pnt, _adr,_size,_readed {
+local _err,_end,_l0,_l1,_l2,_l3
+      mov	rbx,_adr
+      mov	rdx,_readed
+      cmp	rdx,_size
+      jc	_l0
+      _mov	rdi,_medium_pnt
+      cmp	_size,0
+      jz	_l3
+m_task_dest_roger rdi,_sour_pnt,_dest_num,_size
+      jc	_err
+_l2:
+m_task_dest_ask rdi,rsi,_dest_num,rbx,-1
+      jc	_err
+      or	r11,r11
+      jnz	_l1
+      mov	_size,0
+m_task_dest_finish rdi,_dest_num
+      jc	_err
+_l3:
+m_thread_wait 100
+m_task_dest_start rdi,_dest_num
+      jc	_err
+      or	r11,r11
+      jz	_err
+      jmp	_l2
+_l1:
+      mov	_sour_pnt,rsi
+      mov	_adr,rbx
+      mov	_size,r11
+      xor	rdx,rdx
+      mov	_readed,rdx
+_l0:
+      add	rbx,rdx
+      add	rdx,[rdi + dsc_med_step_size]
+      mov	_readed,rdx
+      jmp      _end
+_err:
+m_task_dest_abort rdi,_dest_num
+stc
+_end:
+}
 
+macro _med_write_next _medium_pnt, _sour_num, _adr,_size,_writed {
+local _err,_end,_l0,_l1,_l2,_l3
+      mov	rbx,_adr
+      mov	rdx,_writed
+      cmp	rdx,_size
+      jc	_l0
+      _mov	rdi,_medium_pnt
+      push	rax
+      cmp	_size,0
+      jz	_l3
+m_task_sour_roger rdi,_sour_num,_size
+      jc	_err
+_l2:
+m_task_sour_ask rdi,_sour_num,rbx,-1
+      jc	_err
+      or	r11,r11
+      jnz	_l1
+      mov	_size,0
+m_task_sour_finish rdi,_sour_num
+      jc	_err
+_l3:
+m_thread_wait 100
+m_task_sour_start rdi,_sour_num
+      jc	_err
+      or	r11,r11
+      jz	_err
+      jmp	_l2
+_l1:
+      mov	_adr,rbx
+      mov	_size,r11
+      xor	rdx,rdx
+      mov	_writed,rdx
+      pop	rax
+_l0:
+      add	rbx,rdx
+      add	rdx,[rdi + dsc_med_step_size]
+      mov	_writed,rdx
+      jmp      _end
+_err:
+      pop	rax
+m_task_sour_abort rdi,_sour_num
+stc
+_end:
+}
 
-
+macro _med_write_close _medium_pnt, _sour_num, _adr,_size,_writed {
+local _err,_end,_l0
+      cmp	_size,0
+      jz	_l0
+m_task_sour_roger _medium_pnt,_sour_num,_writed
+      jc	_err
+m_task_sour_finish rdi,_sour_num
+      jc	_err
+_l0:
+m_sour_unset _medium_pnt,_sour_num
+_err:
+}
 
 macro med_data {
 mem	      dq    -1

@@ -1,19 +1,259 @@
+;table: 0-FD = value, FF = nonvalue
+macro file_word_read _char, _max {
+local _l0,_l1,_l2,_l3
+	 mov	 loc_task_flag,0
+	 mov	 loc_task_int,0
+	 mov	 loc_task_frac,0
+	 mov	 loc_task_div,0
+_l0:
+f_char_read
+	 jc	 _l3
+	 mov	 al,[rax + f_tab_#_char#]
+	 cmp	 al,0FFh
+	 jz	 _l0
+	 mov	 rcx,_max
+_l1:
+	 test	 rax,128
+	 jnz	 _l2
+file_rnext_#_char
+	 xor	rax,rax
+_l2:
+	 xor	 loc_task_flag,rax
+f_char_read
+	 jc	 _l3
+	 mov	 al,[rax + f_tab_#_char#]
+	 cmp	 al,0FFh
+	 jz	 _l3
+	 loop	 _l1
+	 clc
+_l3:
+	 pushf
+file_rlast_#_char
+	 popf
+}
+
+;40h - minus, 20h - fract part
+macro file_rnext_num _base {
+local _l,_end
+	 test	 loc_task_flag,20h
+	 jz	 _l
+	 xchg	 loc_task_frac,rax
+	 mov	 rdx,_base
+	 mul	 rdx
+	 add	 loc_task_frac,rax
+	 mov	 rax,_base
+	 mul	 loc_task_div
+	 mov	 loc_task_div,rax
+	 jmp	 _end
+_l:
+	 xchg	 loc_task_int,rax
+	 mov	 rdx,_base
+	 mul	 rdx
+	 add	 loc_task_int,rax
+_end:
+}
+macro file_rlast_num {
+local _l0,_l1
+	 cmp	 loc_task_div,0
+	 jz	 _l0
+	 mov	 rdx,loc_task_frac
+	 xor	 rax,rax
+	 div	 loc_task_div
+	 shr	 rax,1
+	 mov	 loc_task_frac,rax
+_l0:
+	 test	 loc_task_flag,40h
+	 jz	 _l1
+	 neg	 loc_task_int
+	 neg	 loc_task_frac
+_l1:
+}
+macro file_rnext_dec {
+file_rnext_num 10
+}
+macro file_rnext_hex {
+file_rnext_num 16
+}
+macro file_rnext_acc {
+file_rnext_num 10
+}
+macro file_rlast_dec {
+file_rlast_num
+}
+macro file_rlast_hex {
+file_rlast_num
+}
+macro file_rlast_acc {
+file_rlast_num _io
+}
+macro file_id_read {
+local _end
+      push	rbx
+file_word_read acc,4
+      pop	rbx
+      jc	_end
+      mov	rax,loc_task_int
+      mov	[rbx + 16],ax
+      push	rbx
+file_word_read acc,19
+      pop	rbx
+      jc	_end
+      mov	rax,loc_task_int
+      mov	[rbx + 8],rax
+      push	rbx
+file_word_read acc,19
+      pop	rbx
+      jc	_end
+      mov	rax,loc_task_int
+      mov	[rbx],rax
+      add	rbx,18
+_end:
+}
+macro file_dec_read {
+file_word_read dec,42
+}
+macro file_hex_read {
+file_word_read hex,36
+}
+
+
+
+
+macro file_word_write _char, _size {
+local _l0,_l1,_l2,_end,_err
+      mov	rcx,_size
+      mov	rdx,loc_task_int
+      mov	loc_task_flag,-1
+file_wfirst_#_char
+_l0:
+file_wnext_#_char
+      push	rax
+      loop	_l0
+      mov	rax,loc_task_flag
+      _neg	rax
+      jc	_l1
+      push	rax
+_l1:
+      mov	rcx,_size
+_l2:
+      pop	rax
+      push	rcx
+f_char_write
+      pop	rcx
+      jc	_err
+      loop	_l2
+      clc
+      jmp	_end
+_err:
+      shl	rcx,3
+      add	rsp,rcx
+      stc
+_end:
+}
+
+
+macro file_wnext_num _base, _tabl {
+      mov	rax,rdx
+      xor	rdx,rdx
+      mov	rdi,_base
+      div	rdi
+      xchg	rax,rdx
+      mov	al,[rax + _tabl]
+}
+macro file_wnext_sdec {
+file_wnext_num 10, f_tab_todec
+}
+macro file_wnext_udec {
+file_wnext_num 10, f_tab_todec
+}
+macro file_wnext_shex {
+file_wnext_num 16, f_tab_tohex
+}
+macro file_wnext_uhex {
+file_wnext_num 16, f_tab_tohex
+}
+
+macro file_wfirst_num {
+local _l0
+      mov	al,' '
+      _neg	rdx
+      jnc	_l0
+      mov	al,'-'
+      neg	rdx
+_l0:  dec	rcx
+      mov	loc_task_flag,rax
+}
+macro file_wfirst_sdec {
+file_wfirst_num
+}
+macro file_wfirst_udec {
+}
+macro file_wfirst_shex {
+file_wfirst_num
+}
+macro file_wfirst_uhex {
+}
+
+macro file_sdec32 {
+file_word_write sdec,11
+}
+macro file_udec32 {
+file_word_write udec,10
+}
+macro file_sdec64 {
+file_word_write sdec,20
+}
+macro file_udec64 {
+file_word_write udec,19
+}
+macro file_shex32 {
+file_word_write shex,9
+}
+macro file_uhex32 {
+file_word_write uhex,8
+}
+macro file_shex64 {
+file_word_write shex,17
+}
+macro file_uhex64 {
+file_word_write uhex,16
+}
+
+
+
+
+macro file_char_read {
+_med_read_next [file_medium_pnt], loc_task_file_dest, loc_task_file_sour_pnt, loc_task_file_read_adr,loc_task_file_read_size,loc_task_file_readed
+      xor      rax,rax
+      mov      al,[rbx]
+}
+macro file_char_write {
+_med_write_next [file_medium_pnt], loc_task_file_sour, loc_task_file_write_adr, loc_task_file_write_size,loc_task_file_writed
+      mov      [rbx],al
+}
+
+macro file_char_close {
+_med_write_close [file_medium_pnt], loc_task_file_sour, loc_task_file_write_adr, loc_task_file_write_size,loc_task_file_writed
+}
+
+
 macro file_open_write _fname, _bufsize, _minblock {
 local _err
+      mov	loc_task_file_write_size,0
       push	_fname
       mov	rax,_bufsize
       shr	rax,1
-m_api_source_create [file_medium], _bufsize, -1, rax, _minblock
+m_api_source_create [file_medium_num], _bufsize, -1, rax, _minblock
       pop	_fname
 invoke CreateFile, _fname, GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0
       _neg	rax
       jc	_err
       mov	r15,rax
-m_med_getpnt [file_medium]
+      mov	rdi,[file_medium_pnt]
 m_api_result
       jc	_err
       push	rdx
-m_api_destination_set [file_medium], r15
+m_api_destination_set [file_medium_num], r15
 invoke SetFilePointer, r15,0,0,FILE_END
 m_api_result
       pop	rax
@@ -32,9 +272,10 @@ local _err
 _regs rax,rdx
 _parm_set _bufsize
 _parm_set _minblock
+      mov	loc_task_file_read_size,0
       _push	_bufsize,_minblock
       _push	_fname
-m_api_destination_set [file_medium], -1
+m_api_destination_set [file_medium_num], -1
       _pop	_fname
 invoke CreateFile, _fname, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0
       mov	r15,rax
@@ -46,8 +287,8 @@ m_api_result
       mov	loc_task_file_dest,rdx
       mov	rax,_bufsize
       shr	rax,1
-m_api_source_create [file_medium], _bufsize, r15, rax, _minblock
-m_med_getpnt [file_medium]
+m_api_source_create [file_medium_num], _bufsize, r15, rax, _minblock
+      mov	rdi,[file_medium_pnt]
 m_api_result
       jc	_err
       push	rdx
@@ -161,7 +402,21 @@ _call m_task_dest_roger,_med_task_dest_roger,rdi,rsi,r10,r11
 _call f_open_append, file_open_write, rbx, rcx, r9
 _call f_open_read, file_open_read, rbx, rcx, r9
 ;f_open_append file_name, bufsize, minblock
+_call f_char_read, file_char_read
+_call f_char_write, file_char_write
+_call f_char_close, file_char_close
 
+_call f_dec_read, file_dec_read
+_call f_hex_read, file_hex_read
+
+_call f_sdec32_write, file_sdec32
+_call f_udec32_write, file_udec32
+_call f_sdec64_write, file_sdec64
+_call f_udec64_write, file_udec64
+_call f_shex32_write, file_shex32
+_call f_uhex32_write, file_uhex32
+_call f_shex64_write, file_shex64
+_call f_uhex64_write, file_uhex64
 
 
 
@@ -371,19 +626,27 @@ local _err
 m_api_medium_create 1, _files_qty, _files_qty
 m_api_result
 jc _err
-mov [file_medium],rdx
-m_api_thread_create _med_file_thrd,[file_medium],0,0
+mov [file_medium_num],rdx
+m_med_getpnt rdx
+mov [file_medium_pnt],rdi
+m_api_thread_create _med_file_thrd,[file_medium_num],0,0
 m_api_result
 mov [file_thread],rdx
 _err:
 }
 
+
+
+
+
+
 macro med_api_data {
-file_thread   dq    -1
-file_medium   dq    -1
-iotab_todec   db    '0123456789'
-iotab_tohex   db    '0123456789ABCDEF'
-iotab_dec     db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
+file_thread	dq    -1
+file_medium_num dq    -1
+file_medium_pnt dq    -1
+f_tab_todec   db    '0123456789'
+f_tab_tohex   db    '0123456789ABCDEF'
+f_tab_dec     db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
 	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,0C0h,0A0h,255
 	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,0C0h,0A0h,255
 	      db      0,  1,  2,  3,  4,  5,  6,  7,   8,  9,255,255,255,255,255,255
@@ -400,7 +663,7 @@ iotab_dec     db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255
 	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
 	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
 	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
-iotab_acc     db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
+f_tab_acc     db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
 	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
 	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
 	      db      0,  1,  2,  3,  4,  5,  6,  7,   8,  9,255,255,255,255,255,255
@@ -418,7 +681,7 @@ iotab_acc     db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255
 	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
 	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
 
-iotab_hex     db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
+f_tab_hex     db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
 	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,255,255,255
 	      db    255,255,255,255,255,255,255,255, 255,255,255,255,255,0C0h,0A0h,255
 	      db      0,  1,  2,  3,  4,  5,  6,  7,   8,  9,255,255,255,255,255,255
