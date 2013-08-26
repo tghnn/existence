@@ -469,17 +469,14 @@ namespace alg
         public char last;
         public bool thisnum, more, div;
         public num rnum;
-        string[] m_name, macro;
-        int[] m_nparm;
-        int n_macro;
+        List<string> m_name, macro;
+        List<int> m_nparm;
         public fileio sys;
         public parse(string nin, string nout, string d)
         {
-            int m;
-            sys = new fileio(nin,nout,this); m = Convert.ToInt32(sys.rline());
+            sys = new fileio(nin,nout,this); 
             delim = d; val = ""; pos = 0; rnum = new num(1); reset();
-            m_name = new string[m]; macro = new string[m]; m_nparm = new int[m];
-            n_macro = 0;
+            m_name = new List<string>(); macro = new List<string>(); m_nparm = new List<int>();
         }
         public bool isnum(string s, int i)
         {
@@ -499,27 +496,29 @@ namespace alg
             string s0,s1;
             int i0,i1,i2,i3,i4, deep;
             val = sys.rline(); pos = 0; more = true;
+            if ((val.Length == 0) || (val[0] == '`')) return false;
             name = get();
             if (thisnum) return false;
             if (last == '#')
             {
-                for (i0 = 0; i0 < n_macro; i0++) if ((name.IndexOf(m_name[i0]) > -1) || (m_name[i0].IndexOf(name) > -1)) sys.error("macro: name intersect");
-                if ((!isnum(val, pos)) || (n_macro > macro.Length - 2)) sys.error("macro: wrong num");
-                m_name[n_macro] = name + "("; m_nparm[n_macro] = (int)(val[pos] - '0'); macro[n_macro] = val.Substring(pos + 1);
+                for (i0 = 0; i0 < m_name.Count; i0++) if ((name.IndexOf(m_name[i0]) > -1) || (m_name[i0].IndexOf(name) > -1)) sys.error("macro: name intersect");
+                if (!isnum(val, pos)) sys.error("macro: wrong num");
+                int _np = (int)(val[pos] - '0'); string _m = val.Substring(pos + 1);
+                m_name.Add(name + "("); m_nparm.Add(_np); macro.Add(_m);
                 for (i0 = 0; i0 < 10; i0++)
                 {
-                    if (macro[n_macro].IndexOf("#" + ((char)(i0 + '0')).ToString()) > -1)
+                    if (_m.IndexOf("#" + ((char)(i0 + '0')).ToString()) > -1)
                     {
-                        if (i0 >= m_nparm[n_macro]) sys.error("macro: used nonparm");
+                        if (i0 >= _np) sys.error("macro: used nonparm");
                     }
                     else
                     {
-                        if (i0 < m_nparm[n_macro]) sys.error("macro: nonused parm");
+                        if (i0 < _np) sys.error("macro: nonused parm");
                     }
                 }
-                n_macro++;  return false;
+                return false;
             }
-            for (i0 = 0; i0 < n_macro; i0++)
+            for (i0 = 0; i0 < macro.Count; i0++)
             {
                 while ((i1 = val.IndexOf(m_name[i0])) > -1)
                 {
@@ -644,11 +643,12 @@ namespace alg
 
         static int Main(string[] args)
         {
-            ids root = new ids(200);
             int i,i0;
             parse par;
             par = new parse(args[0],args[1], "#$+-=*/^(),");
-            while (par.sys.has && (! par.sys.err))
+            par.next(); par.get();
+            ids root = new ids((int)par.rnum.up);
+            while (par.sys.has)
             {
                 if (par.next()) 
                 {
@@ -691,8 +691,6 @@ namespace alg
                     }
                 }
             }
-
-
             par.sys.close();
             return 0;
         }
