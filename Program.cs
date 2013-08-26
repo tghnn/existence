@@ -128,7 +128,23 @@ namespace alg
             down *= a.down;
             simple();
         }
-        public bool natural() { return ((down == 1) && (up > 0) && (sign > 0)); }
+        BigInteger _sq(BigInteger a, int b)
+        {
+            BigInteger r0,r1;
+            r1 = BigInteger.Pow((BigInteger)(b), (int)(BigInteger.Log(a, (double)b) / b + 0.5)); r0 = 0;
+            while (r0 != r1) { r0 = r1; r1 = r0 - (BigInteger.Pow(r0, b) - a) / BigInteger.Pow(r0, b-1) / b; }
+            return r0;
+        }
+        public bool root(int s)
+        {
+            if ((sign < 0) && (s % 2 == 0)) return false;
+            BigInteger u = _sq(up,s), d = _sq(down,s);
+            if ((BigInteger.Pow(u, s) == up) && (BigInteger.Pow(d, s) == down))
+            {
+                up = u; down = d; return true;
+            }
+            return false;
+        }
         public string print(string pos, string neg, string bord)
         {
             string s0;
@@ -291,6 +307,7 @@ namespace alg
             int i0;
             to.mult.up = BigInteger.GreatestCommonDivisor(to.mult.up, from.mult.up);
             to.mult.down = BigInteger.GreatestCommonDivisor(to.mult.down, from.mult.down);
+            to.mult.sign = (((to.mult.sign < 0) && (from.mult.sign < 0)) ? -1 : 1);
             for (i0 = 0; i0 < head.size; i0++)
             {
                 if (from.exps[i0].sign == to.exps[i0].sign)
@@ -339,30 +356,65 @@ namespace alg
             simple(up);
             simple(down);
         }
+        List<one> fup(num exp,many from)
+        {
+            return (exp.sign > 0 ? from.up : from.down);
+        }
+        List<one> fdw(num exp,many from)
+        {
+            return (exp.sign > 0 ? from.down : from.up);
+        }
 
         public bool expand(List<one> _up, List<one> _down, int _id)
         {
             int i,j;
-            BigInteger _exp;
-            List<one> u,d;
+            num _exp;
+            many id = head.values[_id];
             for (i = 0; i < _up.Count; i++)
             {
-                if ((_exp = _up[i].exps[_id].up) != 0) {
-                    if (_up[i].exps[_id].down == 1) {
+                if ((_exp = _up[i].exps[_id]).up != 0) {
+                    if (_up[i].exps[_id].down == 1)
+                    {
+                        List<one> u, d;
                         u = new List<one>();
-                        add(u,head.values[_id].up);
-                        for (j = (int)_exp; j > 1; j--) mul(u,head.values[_id].up);
+                        add(u, fup(_exp,id));
+                        for (j = (int)_exp.up; j > 1; j--) mul(u, fup(_exp,id));
                         _up[i].exps[_id].up = 0;
-                        mul(u,_up[i]);
+                        mul(u, _up[i]);
                         _up.RemoveAt(i);
 
                         d = new List<one>();
-                        add(d,head.values[_id].down);
-                        for (j = (int)_exp; j > 1; j--) mul(d,head.values[_id].down);
-                        mul(_up,d);
-                        add(_up,u);
-                        mul(_down,d);
+                        add(d, fdw(_exp,id));
+                        for (j = (int)_exp.up; j > 1; j--) mul(d, fdw(_exp,id));
+                        mul(_up, d);
+                        add(_up, u);
+                        mul(_down, d);
                         return true;
+                    }
+                    else
+                    {
+                        if ((id.up.Count == 1) && (id.down.Count == 1))
+                        {
+                            one u, d, ru, rd;
+                            u = new one(fup(_exp, id)[0]);
+                            d = new one(fdw(_exp, id)[0]);
+                            if (u.mult.root((int)_exp.down) && d.mult.root((int)_exp.down))
+                            {
+                                for (j = 0; j < head.size; j++)
+                                {
+                                    if (u.exps[j].up > 0) u.exps[j].down *= _exp.down;
+                                    if (d.exps[j].up > 0) d.exps[j].down *= _exp.down;
+                                }
+                                ru = new one(u); rd = new one(d);
+                                for (j = (int)_exp.up; j > 1; j--) ru.mul(u);
+                                for (j = (int)_exp.up; j > 1; j--) rd.mul(d);
+                                _up[i].exps[_id].up = 0;
+                                d.div();
+                                _up[i].mul(u);
+                                _up[i].mul(d);
+                                return true;
+                            }
+                        }
                     }
                 }
             }
@@ -589,6 +641,7 @@ namespace alg
                 if (last != '\0') { more = (pos < val.Length); break; }
                 pos++;
             }
+            r = r.Replace(" ", "");
             thisnum = isnum(r);
             if (thisnum)
             {
@@ -619,12 +672,14 @@ namespace alg
               {
                   if ((par.last == '+') || (par.last == '-') || (par.last == ')') || (par.last == '\n'))
                   {
+                      if (hasone && (data.Count < 1)) par.sys.error("AZAZA");
                       if (!hasone) data.Add(new one(root.values[i], par.rnum));
                       else data[data.Count - 1].mult.mul(par.rnum);
                       hasone = false;  par.reset();
                   }
               } else {
                   if ((fids = root.find(val)) < 0) par.sys.error("no name");
+                  if (hasone && (data.Count < 1)) par.sys.error("AZAZA");
                   if (!hasone) data.Add(new one(root.values[i], par.rnum));
                   else data[data.Count - 1].mult.mul(par.rnum);
                   if (par.div) {par.reset(); par.rnum.neg();} else par.reset();
@@ -633,9 +688,10 @@ namespace alg
                       val = par.get();
                       if (par.last == '(') while (par.last != ')') val = par.get();
                   }
+                  if ((data.Count < 1)) par.sys.error("AZAZA");
                   data[data.Count - 1].exps[fids].add(par.rnum);
                   par.reset();
-                  if ((par.last == '+') || (par.last == '-')) hasone = false; else hasone = true;
+                  if ((par.last == '+') || (par.last == '-') || (par.last == ')') || (par.last == '\n')) hasone = false; else hasone = true;
               }
           }
           return hasone;
