@@ -670,11 +670,11 @@ namespace alg
                                 if (par.more)
                                 {
                                     if ((par.val[par.pos] != '/') || (par.val[par.pos+1] != '(') || (nowdiv)) par.sys.error("wrong");
-                                    nowdiv = true; par.pos += 2; par.reset();
+                                    nowdiv = true; root.values[i].down.RemoveAt(0);  par.pos += 2; par.reset();
                                 }
                             }
                         }
-                        if (root.values[i] != null) par.sys.wline(root.names[i] + " = " + root.values[i].print());
+                        if (root.values[i] != null) { root.values[i].simple(); par.sys.wline(root.names[i] + " = " + root.values[i].print()); }
 
                      break;
                      case '$':
