@@ -774,16 +774,13 @@ namespace alg
                             for (i0 = 0; i0 < dv.Count; i0++)
                             {
                                 num e = dv[i0].exps[i];
-                                if (e.up != 0)
-                                {
-                                    nn = root.names[i] + (e.sign > 0 ? "p" : "m") + e.up.ToString().Trim() + "_" + e.down.ToString().Trim();
-                                    if ((i1 = root.find(nn)) < 0) { 
-                                        i1 = root.set_empty(nn);
-                                        if (i1 < 0) par.sys.error("too many");
-                                        root.values[i1] = new many(root);
-                                    }
-                                    e.up = 0; root.values[i1].up.Add(new one(dv[i0])); many.simple(root.values[i1].up);
+                                nn = root.names[i] + (e.up != 0 ? ((e.sign < 0 ? "_" : "") + e.up.ToString().Trim() + (e.down > 1 ? ("_" + e.down.ToString().Trim()) : "")) : "0");
+                                if ((i1 = root.find(nn)) < 0) { 
+                                    i1 = root.set_empty(nn);
+                                    if (i1 < 0) par.sys.error("too many");
+                                    root.values[i1] = new many(root);
                                 }
+                                e.up = 0; root.values[i1].up.Add(new one(dv[i0])); many.simple(root.values[i1].up);
                             }
                             for (i0 = ip; i0 < root.last; i0++) par.sys.wline(root.names[i0] + " = " + root.values[i0].print());
                         }
