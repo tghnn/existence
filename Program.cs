@@ -145,14 +145,14 @@ namespace alg
             }
             return false;
         }
-        public string print(string pos, string neg, string bord)
+        public string print(string pos, string neg, string b0, string b1)
         {
             string s0;
             s0 = "";
-            if (down > 1) s0 += bord.Substring(0,1);
+            if (down > 1) s0 += b0;
             s0 += (sign < 0 ? neg : pos);
-            s0 += up.ToString();
-            if (down > 1) s0 += "/" + down.ToString() + bord.Substring(1, 1);
+            s0 += up.ToString().Trim();
+            if (down > 1) s0 += "/" + down.ToString().Trim() + b1;
             return s0;
         }
     }
@@ -468,14 +468,14 @@ namespace alg
                                 if (data[i0].mult.isone() && (data[i0].exps[i1].sign > 0))  {
                                     s0 += (i0 > 0 ? (data[i0].mult.sign < 0 ? "-" : "+") : (data[i0].mult.sign < 0 ? "-": ""));
                                 } else {
-                                    s0 += data[i0].mult.print((i0 > 0 ? "+" : ""), "-", "  ");
+                                    s0 += data[i0].mult.print((i0 > 0 ? "+" : ""), "-", "", "");
                                 }
                             }
-                            s0 += (data[i0].exps[i1].sign < 0 ? "/" : (oneout || (!data[i0].mult.isone()) ? "*" : "")) + data[i0].head.head.names[i1] + (data[i0].exps[i1].isone() ? "" : "^" + data[i0].exps[i1].print("","","()"));
+                            s0 += (data[i0].exps[i1].sign < 0 ? "/" : (oneout || (!data[i0].mult.isone()) ? "*" : "")) + data[i0].head.head.names[i1] + (data[i0].exps[i1].isone() ? "" : "^" + data[i0].exps[i1].print("","","(",")"));
                             oneout = true;
                         }
                     }
-                    if (!oneout) s0 += data[i0].mult.print((i0 > 0 ? "+" : ""), "-", "  ");
+                    if (!oneout) s0 += data[i0].mult.print((i0 > 0 ? "+" : ""), "-", "", "");
                 }
             }
             return s0;
