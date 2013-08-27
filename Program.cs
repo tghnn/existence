@@ -173,9 +173,17 @@ namespace alg
         }
         public one(one o)
         {
+            init(o, 1);
+        }
+        public one(one o, int s)
+        {
+            init(o, s);
+        }
+        void init(one o, int s)
+        {
             int i;
             init(o.head);
-            mult = new num(o.mult);
+            mult = new num(o.mult); mult.sign *= s;
             for (i = 0; i < head.head.size; i++) exps[i] = new num(o.exps[i]);
         }
         void init(many h)
@@ -238,7 +246,7 @@ namespace alg
             for (i0 = 0; i0 < m.up.Count; i0++) up.Add(new one(m.up[i0]));
             for (i0 = 0; i0 < m.down.Count; i0++) down.Add(new one(m.down[i0]));
         }
-        public void simple(List<one> data)
+        static public void simple(List<one> data)
         {
             int i, j;
             for (i = 0; i < data.Count; i++)
@@ -254,61 +262,60 @@ namespace alg
                 }
             }
         }
-        public bool mul(List<one> multo, one mul0)
+        static public void mul(List<one> multo, one mul0)
         {
             int i;
-            if (head != mul0.head.head) return false;
             for (i = 0; i < multo.Count; i++) multo[i].mul(mul0);
-            return true;
         }
-        public bool muladd(List<one> addto, List<one> mul0, one mul1, int cn)
+        static public void muladd(List<one> addto, List<one> mul0, one mul1, int cn)
         {
             int i;
-            if (head != mul1.head.head) return false;
             for (i = 0; i < cn; i++)
             {
                 addto.Add(new one(mul0[i]));
                 addto[addto.Count - 1].mul(mul1);
             }
-            return true;
         }
-        public bool muladd(List<one> addto, List<one> mul0, one mul1)
+        static public void muladd(List<one> addto, List<one> mul0, one mul1)
         {
-            return muladd(addto,mul0,mul1,mul0.Count);
+            muladd(addto,mul0,mul1,mul0.Count);
         }
-        public bool add(List<one> addto, List<one> add0)
+        static public void add(List<one> addto, List<one> add0)
         {
             int i;
             for (i = 0; i < add0.Count; i++) addto.Add(new one(add0[i]));
             simple(addto);
-            return true;
         }
-        public bool mul(List<one> multo, List<one> mul0)
+        static public void sub(List<one> addto, List<one> add0)
+        {
+            int i;
+            for (i = 0; i < add0.Count; i++) addto.Add(new one(add0[i],-1));
+            simple(addto);
+        }
+        static public void mul(List<one> multo, List<one> mul0)
         {
             int i,cn;
             if (mul0.Count == 0) {
-                multo.RemoveRange(0,multo.Count); return true;
+                multo.RemoveRange(0,multo.Count); return;
             }
             for (cn = multo.Count, i = 0; i < mul0.Count; i++) muladd(multo,multo,mul0[i],cn);
             multo.RemoveRange(0,cn);
             simple(multo);
-            return true;
         }
-        public bool muladd(List<one> muladdto, List<one> mul0)
+        static public void muladd(List<one> muladdto, List<one> mul0)
         {
             int i,cn;
-            if (mul0.Count < 1) return true;
+            if (mul0.Count < 1) return;
             cn = muladdto.Count;
             for (i = 0; i < mul0.Count; i++) muladd(muladdto, muladdto, mul0[i], cn);
-            return true;
         }
-        public void extract(one to, one from)
+        static public void extract(one to, one from)
         {
             int i0;
             to.mult.up = BigInteger.GreatestCommonDivisor(to.mult.up, from.mult.up);
             to.mult.down = BigInteger.GreatestCommonDivisor(to.mult.down, from.mult.down);
             to.mult.sign = (((to.mult.sign < 0) && (from.mult.sign < 0)) ? -1 : 1);
-            for (i0 = 0; i0 < head.size; i0++)
+            for (i0 = 0; i0 < to.head.head.size; i0++)
             {
                 if (from.exps[i0].sign == to.exps[i0].sign)
                 {
@@ -356,11 +363,11 @@ namespace alg
             simple(up);
             simple(down);
         }
-        List<one> fup(num exp,many from)
+        static List<one> fup(num exp,many from)
         {
             return (exp.sign > 0 ? from.up : from.down);
         }
-        List<one> fdw(num exp,many from)
+        static List<one> fdw(num exp,many from)
         {
             return (exp.sign > 0 ? from.down : from.up);
         }
@@ -372,7 +379,7 @@ namespace alg
             many id = head.values[_id];
             for (i = 0; i < _up.Count; i++)
             {
-                if ((_exp = _up[i].exps[_id]).up != 0) {
+                if ((_exp = new num(_up[i].exps[_id])).up != 0) {
                     if (_up[i].exps[_id].down == 1)
                     {
                         List<one> u, d;
@@ -442,7 +449,7 @@ namespace alg
             s0 = (hasdiv ? "(" + print(up) + ")/(" + print(down) + ")" : print(up));
             return s0;
         }
-        public string print(List<one> data)
+        static public string print(List<one> data)
         {
             int i0, i1;
             bool oneout;
@@ -452,7 +459,7 @@ namespace alg
                 if (data[i0].mult.up != 0)
                 {
                     oneout = false;
-                    for (i1 = 0; i1 < head.size; i1++)
+                    for (i1 = 0; i1 < data[i0].head.head.size; i1++)
                     {
                         if (data[i0].exps[i1].up > 0)
                         {
@@ -464,7 +471,7 @@ namespace alg
                                     s0 += data[i0].mult.print((i0 > 0 ? "+" : ""), "-", "  ");
                                 }
                             }
-                            s0 += (data[i0].exps[i1].sign < 0 ? "/" : (oneout || (!data[i0].mult.isone()) ? "*" : "")) + head.names[i1] + (data[i0].exps[i1].isone() ? "" : "^" + data[i0].exps[i1].print("","","()"));
+                            s0 += (data[i0].exps[i1].sign < 0 ? "/" : (oneout || (!data[i0].mult.isone()) ? "*" : "")) + data[i0].head.head.names[i1] + (data[i0].exps[i1].isone() ? "" : "^" + data[i0].exps[i1].print("","","()"));
                             oneout = true;
                         }
                     }
@@ -699,9 +706,9 @@ namespace alg
 
         static int Main(string[] args)
         {
-            int i,i0;
+            int i,i0,i1;
             parse par;
-            par = new parse(args[0],args[1], "#$+-=*/^(),");
+            par = new parse(args[0],args[1], "#@$+-=*/^(),");
             par.next(); par.get();
             ids root = new ids((int)par.rnum.up);
             while (par.sys.has)
@@ -740,9 +747,46 @@ namespace alg
                         {
                             val = par.get(); if (val.Length == 0) break;
                             if ((i0 = root.find(val)) < 0) par.sys.error("no name");
+                            if (i0 == i) par.sys.error("recursion - look recursion");
                             root.values[i].expand(i0);
                         }
                         par.sys.wline(root.names[i] + " = " + root.values[i].print());
+                     break;
+                     case '@':
+                        i0 = 0; val = "";
+                        if ((i = root.find(par.name)) < 0) par.sys.error("no name");
+                        if ((!par.more) || ((i0 = root.find(val = par.get())) < 0)) par.sys.error("must be defined many");
+                        if ((par.last != '=') || (!par.more) || ((val = par.get()).Length < 1)) par.sys.error("must be equate");
+                        if (i0 == i) par.sys.error("recursion - look recursion");
+                        {
+                            string nn;
+                            int ip = root.last;
+                            List<one> dv = new List<one>();
+                            one odv = new one(root.values[i0], (par.thisnum ? par.rnum : new num(1)));
+                            if (!par.thisnum)
+                            {
+                                if ((i1 = root.find(val)) < 0) par.sys.error("no name");
+                                odv.exps[i1].one();
+                            }
+                            many.add(dv, root.values[i0].down);
+                            many.mul(dv, odv);
+                            many.sub(dv, root.values[i0].up);
+                            for (i0 = 0; i0 < dv.Count; i0++)
+                            {
+                                num e = dv[i0].exps[i];
+                                if (e.up != 0)
+                                {
+                                    nn = root.names[i] + (e.sign > 0 ? "p" : "m") + e.up.ToString().Trim() + "_" + e.down.ToString().Trim();
+                                    if ((i1 = root.find(nn)) < 0) { 
+                                        i1 = root.set_empty(nn);
+                                        if (i1 < 0) par.sys.error("too many");
+                                        root.values[i1] = new many(root);
+                                    }
+                                    e.up = 0; root.values[i1].up.Add(new one(dv[i0])); many.simple(root.values[i1].up);
+                                }
+                            }
+                            for (i0 = ip; i0 < root.last; i0++) par.sys.wline(root.names[i0] + " = " + root.values[i0].print());
+                        }
                      break;
                     }
                 }

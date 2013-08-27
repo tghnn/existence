@@ -1,4 +1,4 @@
-maxvar=11
+maxvar=30
 `maximum numbers of symvar
 sum#2#0+#1
 div#2#0/#1
@@ -10,4 +10,5 @@ r=1
 e=div((f-s+u-r),(sum(f,u)))
 x=e^11
 x$e
+f@x=x
 x$f,s,u,r
