@@ -743,14 +743,23 @@ namespace alg
                      case '$':
                         if ((i=root.find(par.name)) < 0) par.sys.error("no name");
                         if (root.values[i] == null) par.sys.error("empty name");
+                        {
+                        many v = root.values[i];
                         while (par.more)
                         {
                             val = par.get(); if (val.Length == 0) break;
                             if ((i0 = root.find(val)) < 0) par.sys.error("no name");
                             if (i0 == i) par.sys.error("recursion - look recursion");
-                            root.values[i].expand(i0);
+                            v.expand(i0);
+                            if ((par.last == '$') && (v.down.Count == 1))
+                            {
+                                v.down[0].div();
+                                many.mul(v.up, v.down[0]);
+                                v.down[0] = new one(v, 1);
+                            }
                         }
-                        par.sys.wline(root.names[i] + " = " + root.values[i].print());
+                        par.sys.wline(root.names[i] + " = " + v.print());
+                        }
                      break;
                      case '@':
                         i0 = 0; val = "";
@@ -768,9 +777,10 @@ namespace alg
                                 if ((i1 = root.find(val)) < 0) par.sys.error("no name");
                                 odv.exps[i1].one();
                             }
+                            odv.mult.neg();
                             many.add(dv, root.values[i0].down);
                             many.mul(dv, odv);
-                            many.sub(dv, root.values[i0].up);
+                            many.add(dv, root.values[i0].up);
                             for (i0 = 0; i0 < dv.Count; i0++)
                             {
                                 num e = dv[i0].exps[i];
