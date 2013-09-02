@@ -693,7 +693,7 @@ namespace alg
                   if (par.last == '^')
                   {
                       val = par.get();
-                      if (par.last == '(') while (par.last != ')') val = par.get();
+                      if (par.last == '(') { while (par.last != ')') val = par.get(); par.last = ' ';}
                   }
                   if ((data.Count < 1)) par.sys.error("AZAZA");
                   data[data.Count - 1].exps[fids].add(par.rnum);
