@@ -1,6 +1,11 @@
 xy=600,600
 m=40
 `screen xy, max variable number
+sqr#1#0^(1/2)
+`macro, 1 parm
+sum#2#0+#1
+`macro, 2 parms
+`sum(sqr(a),4)
 a=
 b=
 c=
