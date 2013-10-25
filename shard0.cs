@@ -96,11 +96,16 @@ namespace shard0
     }
     class num
     {
-        public BigInteger up, down;
-        public int sign;
+        private BigInteger up, down;
+        private int sign;
+        private bool exs;
+        public void set_sign(int _s) { sign = _s;}
+        public int get_sign() { return sign;}
+        public BigInteger get_up() { return up;}
+        public BigInteger get_down() { return down;}
         public num()
         {
-            sign = 0;
+            init(0, 0); exs = false;
         }
         public num(num n)
         {
@@ -108,7 +113,7 @@ namespace shard0
         }
         public void unset()
         {
-            sign = 0;
+            exs = false;
         }
         public void set(int n)
         {
@@ -116,9 +121,21 @@ namespace shard0
         }
         public void set(num n)
         {
-            sign = n.sign;
-            up = BigInteger.Abs(n.up);
-            down = BigInteger.Abs(n.down);
+            sign = n.get_sign();
+            up = BigInteger.Abs(n.get_up());
+            down = BigInteger.Abs(n.get_down());
+            exs = true;
+        }
+        public num(int _s, BigInteger _u, BigInteger _d)
+        {
+            set(_s,_u,_d);
+        }
+        public void set(int _s, BigInteger _u, BigInteger _d)
+        {
+            sign = _s;
+            up = _u;
+            down = _d;
+            exs = true;
         }
         public num(int a, int b)
         {
@@ -136,15 +153,12 @@ namespace shard0
         {
             init(1, 1);
         }
-        void setsign()
-        {
-            if (up < 0) { sign = -1; up = -up; } else sign = 1;
-        }
         void init(int a, int b)
         {
             up = BigInteger.Abs(a);
             down = BigInteger.Abs(b);
-            sign = (a < 0 ? -1 : 1);
+            sign = (a < 0 ? -1 : (a > 0 ? 1: 0));
+            exs = true;
         }
         public void neg()
         {
@@ -152,18 +166,18 @@ namespace shard0
         }
         public bool exist()
         {
-            return sign != 0;
+            return exs;
         }
         public bool great(num a)
         {
-            if (sign == a.sign)
+            if (sign == a.get_sign())
             {
-                return (a.up*down > up*a.down);
-            } else return (a.sign > 0);
+                return (a.get_up()*down > up*a.get_down());
+            } else return (a.get_sign() > 0);
         }
         public bool cmp(num a)
         {
-            return ((sign == a.sign) && (up == a.up) && (down == a.down));
+            return ((sign == a.get_sign()) && (up == a.get_up()) && (down == a.get_down()));
         }
 
         public bool isone()
@@ -182,9 +196,9 @@ namespace shard0
         }
         public void mul(num a)
         {
-            sign *= a.sign;
-            up *= a.up;
-            down *= a.down;
+            sign *= a.get_sign();
+            up *= a.get_up();
+            down *= a.get_down();
         }
         public void revert()
         {
@@ -203,22 +217,33 @@ namespace shard0
         }
         public void div(num a)
         {
-            sign *= a.sign;
-            up *= a.down;
-            down *= a.up;
+            sign *= a.get_sign();
+            up *= a.get_down();
+            down *= a.get_up();
+        }
+        public void div()
+        {
+            BigInteger t;
+            t = up; up = down; down = t;
+        }
+        public void add_up(BigInteger a)
+        {
+            up += a;
         }
         public void add(num a)
         {
-            if (sign * a.sign < 0)
+            if (sign == 0) set(a); else {
+            if (sign * a.get_sign() < 0)
             {
-                up = up * a.down - a.up * down;
+                up = up * a.get_down() - a.get_up() * down;
             }
             else
             {
-                up = up * a.down + a.up * down;
+                up = up * a.get_down() + a.get_up() * down;
             }
-            if (up < 0) { up = -up; sign = -sign; }
-            down *= a.down;
+            down *= a.get_down();
+            if (up < 0) { up = -up; sign = -sign; } else if (up == 0) { sign = 0; down = 1; }
+            }
         }
         public BigInteger _sq(BigInteger a, int b)
         {
@@ -285,7 +310,7 @@ namespace shard0
         {
             int i;
             init(o.head);
-            mult = new num(o.mult); mult.sign *= s;
+            mult = new num(o.mult); mult.set_sign(mult.get_sign() * s);
             for (i = 0; i < head.head.size; i++) exps[i] = new num(o.exps[i]);
         }
         void init(many h)
@@ -313,17 +338,20 @@ namespace shard0
         public bool mul(one a)
         {
             int i;
+            bool rt = true;
             if (head.head != a.head.head) return false;
             mult.mul(a.mult);
-            for (i = 0; i < head.head.size; i++) exps[i].add(a.exps[i]);
-            return true;
+            for (i = 0; i < head.head.size; i++) { 
+                exps[i].add(a.exps[i]);
+                if ((a.exps[i].get_sign() != 0) && (a.exps[i].get_sign() == exps[i].get_sign())) rt = false;
+            }
+            return rt;
         }
         public bool div()
         {
-            BigInteger t;
             int i0;
-            if ((t = mult.up) == 0) return false; mult.up = mult.down; mult.down = t;
-            for (i0 = 0; i0 < head.head.size; i0++) exps[i0].sign *= -1;
+            if (mult.get_up() == 0) return false; mult.div();
+            for (i0 = 0; i0 < head.head.size; i0++) exps[i0].neg();
             return true;
         }
 
@@ -418,16 +446,14 @@ namespace shard0
         static public void extract(one to, one from)
         {
             int i0;
-            to.mult.up = BigInteger.GreatestCommonDivisor(to.mult.up, from.mult.up);
-            to.mult.down = BigInteger.GreatestCommonDivisor(to.mult.down, from.mult.down);
-            to.mult.sign = (((to.mult.sign < 0) && (from.mult.sign < 0)) ? -1 : 1);
+            to.mult.set((((to.mult.get_sign() < 0) && (from.mult.get_sign() < 0)) ? -1 : 1),BigInteger.GreatestCommonDivisor(to.mult.get_up(), from.mult.get_up()),BigInteger.GreatestCommonDivisor(to.mult.get_down(), from.mult.get_down()));
             for (i0 = 0; i0 < to.head.head.size; i0++)
             {
-                if (from.exps[i0].sign == to.exps[i0].sign)
+                if (from.exps[i0].get_sign() == to.exps[i0].get_sign())
                 {
                     if (from.exps[i0].great(to.exps[i0])) to.exps[i0] = new num(from.exps[i0]);
                 }
-                else to.exps[i0].up = 0;
+                else to.exps[i0].zero();
             }
         }
         public one extract(List<one> from)
@@ -457,8 +483,8 @@ namespace shard0
             f_down.mult.one();
             for (i0 = 0; i0 < head.size; i0++)
             {
-                if (f_up.exps[i0].sign > 0) f_up.exps[i0].zero();
-                if (f_down.exps[i0].sign > 0) f_down.exps[i0].zero();
+                if (f_up.exps[i0].get_sign() > 0) f_up.exps[i0].zero();
+                if (f_down.exps[i0].get_sign() > 0) f_down.exps[i0].zero();
             }
             f_up.div();
             mul(data[0], f_up);
@@ -477,13 +503,13 @@ namespace shard0
             foreach (one u in data[ud]) 
             {
                 _exp = new num(u.exps[_id]); 
-                if ((_exp.up != 0) && (_exp.sign < 0)) 
+                if ((_exp.get_up() != 0) && (_exp.get_sign() < 0)) 
                     {
                         if (_exp.great(_max)) _max.set(_exp);
                         ret = true;
                     }
             }
-            if (!ret || (_max.up == 0)) return ret;
+            if (!ret || (_max.get_up() == 0)) return ret;
             _max.neg();
             foreach (one u in data[ud])  u.exps[_id].add(_max);
             foreach (one d in data[1-ud])  d.exps[_id].add(_max);
@@ -495,23 +521,24 @@ namespace shard0
             int i,j;
             bool ret = false;
             num _exp;
+            num _dex = new num();
             many id = head.values[_id];
             for (i = 0; i < data[ud].Count; i++)
             {
-                _exp = new num(data[ud][i].exps[_id]); if ((_exp.up != 0) && (_exp.sign > 0)) {
-                    if (_exp.down == 1)
+                _exp = new num(data[ud][i].exps[_id]); if (_exp.get_sign() > 0) {
+                    if (_exp.get_down() == 1)
                     {
                         List<one> u, d;
                         u = new List<one>();
-                        add(u, id.data[_exp.sign > 0 ? 0 : 1]);
-                        for (j = (int)_exp.up; j > 1; j--) mul(u, id.data[_exp.sign > 0 ? 0 : 1]);
-                        data[ud][i].exps[_id].up = 0;
+                        add(u, id.data[_exp.get_sign() > 0 ? 0 : 1]);
+                        for (j = (int)_exp.get_up(); j > 1; j--) mul(u, id.data[_exp.get_sign() > 0 ? 0 : 1]);
+                        data[ud][i].exps[_id].zero();
                         mul(u, data[ud][i]);
                         data[ud].RemoveAt(i);
 
                         d = new List<one>();
-                        add(d, id.data[_exp.sign > 0 ? 1 : 0]);
-                        for (j = (int)_exp.up; j > 1; j--) mul(d, id.data[_exp.sign > 0 ? 1 : 0]);
+                        add(d, id.data[_exp.get_sign() > 0 ? 1 : 0]);
+                        for (j = (int)_exp.get_up(); j > 1; j--) mul(d, id.data[_exp.get_sign() > 0 ? 1 : 0]);
                         mul(data[ud], d);
 
                         add(data[ud], u);
@@ -523,19 +550,20 @@ namespace shard0
                         if ((id.data[0].Count == 1) && (id.data[1].Count == 1))
                         {
                             one u, d, ru, rd;
-                            u = new one(id.data[_exp.sign > 0 ? 0 : 1][0]);
-                            d = new one(id.data[_exp.sign > 0 ? 1 : 0][0]);
-                            if (u.mult.root((int)_exp.down) && d.mult.root((int)_exp.down))
+                            _dex.set(1,new BigInteger(1), _exp.get_down());
+                            u = new one(id.data[_exp.get_sign() > 0 ? 0 : 1][0]);
+                            d = new one(id.data[_exp.get_sign() > 0 ? 1 : 0][0]);
+                            if (u.mult.root((int)_exp.get_down()) && d.mult.root((int)_exp.get_down()))
                             {
                                 for (j = 0; j < head.size; j++)
                                 {
-                                    if (u.exps[j].up > 0) u.exps[j].down *= _exp.down;
-                                    if (d.exps[j].up > 0) d.exps[j].down *= _exp.down;
+                                    if (u.exps[j].get_up() > 0) u.exps[j].mul(_dex);
+                                    if (d.exps[j].get_up() > 0) d.exps[j].mul(_dex);
                                 }
                                 ru = new one(u); rd = new one(d);
-                                for (j = (int)_exp.up; j > 1; j--) ru.mul(u);
-                                for (j = (int)_exp.up; j > 1; j--) rd.mul(d);
-                                data[ud][i].exps[_id].up = 0;
+                                for (j = (int)_exp.get_up(); j > 1; j--) ru.mul(u);
+                                for (j = (int)_exp.get_up(); j > 1; j--) rd.mul(d);
+                                data[ud][i].exps[_id].zero();
                                 d.div();
                                 data[ud][i].mul(u);
                                 data[ud][i].mul(d);
@@ -574,8 +602,8 @@ namespace shard0
             string s0 = "";
             int i;
             if ((data[0].Count < 1) || (data[1].Count < 1)) return "AAAA";
-            hasdiv = ((data[1].Count > 1) || (!data[1][0].mult.isone()) || (data[1][0].mult.sign < 0));
-            for (i = 0; i < head.size; i++) if (data[1][0].exps[i].up != 0) hasdiv = true;
+            hasdiv = ((data[1].Count > 1) || (!data[1][0].mult.isone()) || (data[1][0].mult.get_sign() < 0));
+            for (i = 0; i < head.size; i++) if (data[1][0].exps[i].get_up() != 0) hasdiv = true;
             s0 = (hasdiv ? "(" + print(data[0]) + ")/(" + print(data[1]) + ")" : print(data[0]));
             return s0;
         }
@@ -586,22 +614,22 @@ namespace shard0
             string s0;
             for (s0 = "", i0 = 0; i0 < data.Count; i0++)
             {
-                if (data[i0].mult.up != 0)
+                if (data[i0].mult.get_up() != 0)
                 {
                     oneout = false;
                     for (i1 = 0; i1 < data[i0].head.head.size; i1++)
                     {
-                        if (data[i0].exps[i1].up > 0)
+                        if (data[i0].exps[i1].get_up() > 0)
                         {
                             if (!oneout) 
                             {
-                                if (data[i0].mult.isone() && (data[i0].exps[i1].sign > 0))  {
-                                    s0 += (i0 > 0 ? (data[i0].mult.sign < 0 ? "-" : "+") : (data[i0].mult.sign < 0 ? "-": ""));
+                                if (data[i0].mult.isone() && (data[i0].exps[i1].get_sign() > 0))  {
+                                    s0 += (i0 > 0 ? (data[i0].mult.get_sign() < 0 ? "-" : "+") : (data[i0].mult.get_sign() < 0 ? "-": ""));
                                 } else {
                                     s0 += data[i0].mult.print((i0 > 0 ? "+" : ""), "-", "", "");
                                 }
                             }
-                            s0 += (data[i0].exps[i1].sign < 0 ? "/" : (oneout || (!data[i0].mult.isone()) ? "*" : "")) + data[i0].head.head.names[i1] + (data[i0].exps[i1].isone() ? "" : "^" + data[i0].exps[i1].print("","","(",")"));
+                            s0 += (data[i0].exps[i1].get_sign() < 0 ? "/" : (oneout || (!data[i0].mult.isone()) ? "*" : "")) + data[i0].head.head.names[i1] + (data[i0].exps[i1].isone() ? "" : "^" + data[i0].exps[i1].print("","","(",")"));
                             oneout = true;
                         }
                     }
@@ -625,13 +653,14 @@ namespace shard0
         public num calc(int ud,BigInteger prec)
         {
             num tr = new num(0), t0 = new num(0), t1 = new num(0);
+            num _prec = new num(1,prec,prec);
             foreach (one u in data[ud])
             {
                 t0.set(u.mult);
                 for (int i = 0; i < head.size; i++)
                 {
                     num ex = u.exps[i];
-                    if (ex.up > 0)
+                    if (ex.get_up() > 0)
                     {
                         if (!head.calc[i].exist())
                         {
@@ -639,20 +668,19 @@ namespace shard0
                             head.values[i].calc(prec);
                         }
                         t1.set(head.calc[i]);
-                        t1.exp((int)(ex.up));
-                        if (ex.down > 1)
+                        t1.exp((int)(ex.get_up()));
+                        if (ex.get_down() > 1)
                         {
-                            if (!t1.root((int)(ex.down)))
+                            if (!t1.root((int)(ex.get_down())))
                             {
-                                if (((t1.up > 1) && (t1.up < prec)) || ((t1.down > 1) && (t1.down < prec)))
+                                if (((t1.get_up() > 1) && (t1.get_up() < prec)) || ((t1.get_down() > 1) && (t1.get_down() < prec)))
                                 {
-                                    t1.up *= prec; t1.down *= prec;
+                                    t1.mul(_prec);
                                 }
-                                t1.up = t1._sq(t1.up, (int)(ex.down));
-                                t1.down = t1._sq(t1.down, (int)(ex.down));
+                                t1.set(t1.get_sign(),t1._sq(t1.get_up(), (int)(ex.get_down())),t1._sq(t1.get_down(), (int)(ex.get_down())));
                             }
                         }
-                        if (ex.sign < 0) t1.revert();
+                        if (ex.get_sign() < 0) t1.revert();
                         t1.simple();
                         t0.mul(t1);
                     }
@@ -776,7 +804,7 @@ namespace shard0
             for (i = 0; i < dict.nvars; i++) ret.Key.key[i] = 0;
             for (i = 0; i < o.exps.Length; i++)
             {
-                if (o.exps[i].up != 0) ret.Key.key[dict.var(i)] = dict.exp(o.exps[i]);
+                if (o.exps[i].get_up() != 0) ret.Key.key[dict.var(i)] = dict.exp(o.exps[i]);
             }
             return ret;
         }
@@ -853,16 +881,16 @@ namespace shard0
             many_as_one tmp = new many_as_one(dict);
             many_as_one fr = new many_as_one(dict);
             num exp = dict.exps[_e], nexp = new num(0);
-            int i0,_eu = (int)(exp.up);
+            int i0,_eu = (int)(exp.get_up());
             fr.set(_m);
-            if (exp.down > 1) {
+            if (exp.get_down() > 1) {
                 if ((fr.data[0].Count > 1) || (fr.data[1].Count > 1)) return;
-                if (! fr.data[0].ToArray()[0].Value.root((int)exp.down)) return;
-                if (! fr.data[1].ToArray()[0].Value.root((int)exp.down)) return;
+                if (! fr.data[0].ToArray()[0].Value.root((int)exp.get_down())) return;
+                if (! fr.data[1].ToArray()[0].Value.root((int)exp.get_down())) return;
                 for (i0 = 0; i0 < dict.nvars; i0++) 
                 {
                     nexp.set(dict.exps[fr.data[0].ToArray()[0].Key.key[i0]]);
-                    nexp.down *= exp.down;
+                    nexp.mul(new num(1,new BigInteger(1),exp.get_down()));
                     fr.data[0].ToArray()[0].Key.key[i0] = dict.exp(nexp);
                 }
             }
@@ -893,7 +921,7 @@ namespace shard0
                     }
                     break;
             }
-            if (exp.sign < 0) {tmp.data[0] = data[0]; data[0] = data[1]; data[1] = tmp.data[0];}
+            if (exp.get_sign() < 0) {tmp.data[0] = data[0]; data[0] = data[1]; data[1] = tmp.data[0];}
         }
         public bool expand(int n, many_as_one e, int id)
         {
@@ -930,10 +958,10 @@ namespace shard0
                 {
                     if (tex > 0) ret = true;
                     now_u.set(max_u); now_d.set(max_d);
-                    if (dict.exps[tex].down == 1) 
+                    if (dict.exps[tex].get_down() == 1) 
                     {
-                        if (dict.exps[tex].sign > 0) now_u.up -= dict.exps[tex].up;
-                        else now_d.up -= dict.exps[tex].up;
+                        if (dict.exps[tex].get_sign() > 0) now_u.add_up(0 - dict.exps[tex].get_up());
+                        else now_d.add_up(0 - dict.exps[tex].get_up());
                     } else {
                         for (int tex0 = 0; tex0 < 254; tex0++) if ((ae[tex0] != null) && (tex0 != tex)) ae[tex0].mul(0,me[tex].data[1]);
                         mul(1-n,me[tex].data[1]);
@@ -1128,8 +1156,8 @@ namespace shard0
                         } else {
                             switch (p)
                             {
-                                case '+': rnum.sign = 1; break;
-                                case '-': rnum.sign = -1; break;
+                                case '+': rnum.set_sign(1); break;
+                                case '-': rnum.set_sign(-1); break;
                                 case '*': div = false; break;
                                 case '/': div = true; break;
                                 default:
@@ -1149,9 +1177,9 @@ namespace shard0
                 if (div)
                 {
                     if (b == 0) sys.error("/0");
-                    rnum.down *= b; 
+                    rnum.mul(new num(1,new BigInteger(1),b)); 
                 } else {
-                    rnum.up *= b;
+                    rnum.mul(new num(1,b,new BigInteger(1)));
                 }
             }
             return r;
@@ -1206,8 +1234,8 @@ namespace shard0
             int sx=0, sy=0;
             if (args.Length < 2) return 0;
             par = new parse(args[0], args[1], "#!@$+-=*/^(),~");
-            par.next(); par.get(); sx = (int)par.rnum.up;
-            par.rnum.one(); par.get(); sy = (int)par.rnum.up;
+            par.next(); par.get(); sx = (int)par.rnum.get_up();
+            par.rnum.one(); par.get(); sy = (int)par.rnum.get_up();
             if ((sx < 100) || (sy < 100)) return -1;
             Application.SetCompatibleTextRenderingDefault(false);
             Application.EnableVisualStyles();
@@ -1221,7 +1249,7 @@ namespace shard0
         static void doit() {
             int i,i0,i1;
             par.next(); par.rnum.one(); par.get();
-            ids root = new ids((int)par.rnum.up,par.sys);
+            ids root = new ids((int)par.rnum.get_up(),par.sys);
             while (par.sys.has)
             {
                 if (par.next()) 
@@ -1285,7 +1313,7 @@ namespace shard0
                         root.values[i].revert(i);
                         {
                         par.get();
-                        mao_dict mdict = new mao_dict((int)par.rnum.up,root.size,par.sys);
+                        mao_dict mdict = new mao_dict((int)par.rnum.get_up(),root.size,par.sys);
                         many_as_one[] mao_fr = new many_as_one[root.size];
                         List<int> _id = new List<int>();
                         bool _div = false;
@@ -1333,6 +1361,19 @@ namespace shard0
                         {
                             string nn;
                             int ip = root.last;
+                            one _dv,_ml;
+                            if (root.values[i] == null)
+                            {
+                                _ml = new one(root.values[i0], 1);
+                                _ml.exps[i].one();
+                            }
+                            else
+                            {
+                                if ((root.values[i].data[0].Count != 1) || (root.values[i].data[1].Count != 1)) par.sys.error("one only");
+                                _ml = new one(root.values[i].data[0][0]);
+                            }
+                            _dv = new one(_ml);
+                            _dv.div();
                             List<one> dv = new List<one>();
                             one odv = new one(root.values[i0], (par.thisnum ? par.rnum : new num(1)));
                             if (!par.thisnum)
@@ -1344,16 +1385,26 @@ namespace shard0
                             many.add(dv, root.values[i0].data[1]);
                             many.mul(dv, odv);
                             many.add(dv, root.values[i0].data[0]);
+                            num e = new num();
                             for (i0 = 0; i0 < dv.Count; i0++)
                             {
-                                num e = dv[i0].exps[i];
-                                nn = root.names[i] + (e.up != 0 ? ((e.sign < 0 ? "_" : "") + e.up.ToString().Trim() + (e.down > 1 ? ("_" + e.down.ToString().Trim()) : "")) : "0");
+                                e.zero();
+                                if (dv[i0].mul(_ml)) {
+                                    do { e.add(new num(-1));
+                                    } while (dv[i0].mul(_ml));
+                                    dv[i0].mul(_dv);
+                                } else {
+                                    dv[i0].mul(_dv);
+                                    while (dv[i0].mul(_dv)) e.add(new num(1));
+                                    dv[i0].mul(_ml);
+                                }
+                                nn = root.names[i] + (e.get_up() != 0 ? ((e.get_sign() < 0 ? "_" : "") + e.get_up().ToString().Trim() + (e.get_down() > 1 ? ("_" + e.get_down().ToString().Trim()) : "")) : "0");
                                 if ((i1 = root.find(nn)) < 0) { 
                                     i1 = root.set_empty(nn);
                                     if (i1 < 0) par.sys.error("too many");
                                     root.values[i1] = new many(root,i1);
                                 }
-                                e.up = 0; root.values[i1].data[0].Add(new one(dv[i0])); many.simple(root.values[i1].data[0]);
+                                e.zero(); root.values[i1].data[0].Add(new one(dv[i0])); many.simple(root.values[i1].data[0]);
                             }
                             for (i0 = ip; i0 < root.last; i0++) par.sys.wline(root.names[i0] + " = " + root.values[i0].print());
                         }
@@ -1362,11 +1413,11 @@ namespace shard0
                         int x0,x1,f0,f1,c0,c1;
                         int[] xid = new int[6];
                         int _r0,_r1,_r2; double _d0,_d1,x2;
-                        par.get(); BigInteger prec = par.rnum.up;
-                        par.rnum.one(); par.get(); f0 = (int)(par.rnum.up);
-                        par.rnum.one(); par.get(); f1 = (int)(par.rnum.up);
-                        par.rnum.one(); par.get(); c0 = (int)(par.rnum.up);
-                        par.rnum.one(); par.get(); c1 = (int)(par.rnum.up);
+                        par.get(); BigInteger prec = par.rnum.get_up();
+                        par.rnum.one(); par.get(); f0 = (int)(par.rnum.get_up());
+                        par.rnum.one(); par.get(); f1 = (int)(par.rnum.get_up());
+                        par.rnum.one(); par.get(); c0 = (int)(par.rnum.get_up());
+                        par.rnum.one(); par.get(); c1 = (int)(par.rnum.get_up());
                         if ((f0 + c0 > m0.sx) || (f1 + c1 > m0.sy) || (c0 < 2) || (c1 < 2)) par.sys.error("wrong size");
                         i = 0; i0 = -1;
                         while (par.more && (i < 6))

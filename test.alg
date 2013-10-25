@@ -15,10 +15,13 @@ t1= 2*a+b-3*c+d
 t2= 6*d+c
 t3= t1^3/t2^4
 t4= t3^11 + t3^-6
-`t4!11,t3,t2,t1
+t4!11,t3,t2,t1
 `fast expand at t4, max vars in = 11
 `t4$t3,t2,t1
 `slow expand (but faster on small expression)
+abc= a*b*c
+abc@t4=0
+`extract multiplier - may be single variable or monomial
 
 xa=
 ya=
@@ -38,7 +41,7 @@ cr2=xca^2+yca^2
 cr=250-cr2^2/6000000
 gr=0
 a~1000000,0,0,600,600,xa,ya,br,cr,gr
-`graph (xa,ya) -> (br,cr)   input vars must be empty
+`graph(uper left(0,0), size(600,600)) (xa,ya) -> (br,cr)   input vars must be empty
 t=
 tt=t/600/3-3
 xt=t/6
