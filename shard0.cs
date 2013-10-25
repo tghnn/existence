@@ -243,6 +243,10 @@ namespace shard0
         {
             return sign * up / down;
         }
+        public double todouble()
+        {
+            return (double)(sign * up) / (double)(down);
+        }
         public string print(string pos, string neg, string b0, string b1)
         {
             string s0;
@@ -1228,6 +1232,7 @@ namespace shard0
                      case '=':
                         if (root.find(par.name) > -1) par.sys.error("double name");
                         i = root.set_empty(par.name);
+                        if (i < 0) par.sys.error("too many");
                         bool hasone,nowdiv;
                         string val;
                         if (par.more) root.values[i] = new many(root,i);
@@ -1354,11 +1359,15 @@ namespace shard0
                         }
                      break;
                      case '~':
-                        int x0,x1;
+                        int x0,x1,f0,f1,c0,c1;
                         int[] xid = new int[6];
-                        int _r0,_r1,_r2;
-                        par.get();
-                        BigInteger prec = par.rnum.up;
+                        int _r0,_r1,_r2; double _d0,_d1,x2;
+                        par.get(); BigInteger prec = par.rnum.up;
+                        par.rnum.one(); par.get(); f0 = (int)(par.rnum.up);
+                        par.rnum.one(); par.get(); f1 = (int)(par.rnum.up);
+                        par.rnum.one(); par.get(); c0 = (int)(par.rnum.up);
+                        par.rnum.one(); par.get(); c1 = (int)(par.rnum.up);
+                        if ((f0 + c0 > m0.sx) || (f1 + c1 > m0.sy) || (c0 < 2) || (c1 < 2)) par.sys.error("wrong size");
                         i = 0; i0 = -1;
                         while (par.more && (i < 6))
                         {
@@ -1368,7 +1377,7 @@ namespace shard0
                             i++;
                         }
                         m0.rp = false;
-                        if ((i0 == 0) && (i == 3)) for (x0 = 0; x0 < m0.sx * 6; x0++)
+                        if ((i0 == 0) && (i == 3)) for (x0 = 0; x0 < c0 * 6; x0++)
                             {
                                 root.uncalc();
                                 root.calc[xid[0]].set(x0);
@@ -1377,11 +1386,28 @@ namespace shard0
                                 root.values[xid[2]].calc(prec);
                                 _r1 = (int)root.calc[xid[2]].toint();
                                 if (_r0 < 0) _r0 = 0; if (_r1 < 0) _r1 = 0;
-                                m0.bm.SetPixel((int)(_r0 % m0.sx), (int)(_r1 % m0.sy), Color.FromArgb(255, 255, 255));
+                                m0.bm.SetPixel((int)(_r0 % c0) + f0, (int)(_r1 % c1) + f1, Color.FromArgb(255, 255, 255));
                             }
-                        else if (i0 == 1) for (x0 = 0; x0 < m0.sx; x0++)
+                        else if (i0 == 1) {
+                            if (i == 4)  for (x0 = 22; x0 < c0-22; x0 += 11)
+                            {
+                                for (x1 = 22; x1 < c1-22; x1 += 11)
+                                {
+                                    root.uncalc();
+                                    root.calc[xid[0]].set(x0);
+                                    root.calc[xid[1]].set(x1);
+                                    root.values[xid[2]].calc(prec);
+                                    _d0 = root.calc[xid[2]].todouble();
+                                    root.values[xid[3]].calc(prec);
+                                    _d1 = root.calc[xid[3]].todouble();
+                                    for (x2 = 0; x2 < 10; x2++) m0.bm.SetPixel(f0 + x0 + (int)(_d0 * x2), f1 + x1 + (int)(_d1 * x2), Color.FromArgb(255,2,2));
+                                    m0.bm.SetPixel(f0 + x0, f1 + x1, Color.FromArgb(255,255,255));
+                                }
+                                m0.Set(0);
+                            }
+                            else for (x0 = 0; x0 < c0; x0++)
                         {
-                            for (x1 = 0; x1 < m0.sy; x1++)
+                            for (x1 = 0; x1 < c1; x1++)
                             {
                                 root.uncalc();
                                 root.calc[xid[0]].set(x0);
@@ -1400,9 +1426,10 @@ namespace shard0
                                 }
                                 if (_r0 < 0) _r0 = 0; if (_r1 < 0) _r1 = 0; if (_r2 < 0) _r2 = 0;
                                 if (_r0 > 255) _r0 = 255; if (_r1 > 255) _r1 = 255; if (_r2 > 255) _r2 = 255;
-                                m0.bm.SetPixel(x0, x1, Color.FromArgb(_r0,_r2,_r1));
+                                m0.bm.SetPixel(f0 + x0, f1 + x1, Color.FromArgb(_r0,_r2,_r1));
                             }
                             m0.Set(0);
+                        }
                         }
                         m0.Set(0);
                         m0.rp = true;
