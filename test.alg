@@ -1,11 +1,11 @@
 xy=600,600
 m=40
 `screen xy, max variable number
-sqr#1#0^(1/2)
+_fact#1*#0
 `macro, 1 parm
-sum#2#0+#1
-`macro, 2 parms
-`sum(sqr(a),4)
+fact#1(1#_fact(2:#0))
+`macro, loop
+f=#fact(100)
 a=
 b=
 c=
@@ -14,7 +14,7 @@ d=
 t1= 2*a+b-3*c+d
 t2= 6*d+c
 t3= t1^3/t2^4
-t4= t3^11 + t3^-6
+t4= t3^11 + t3^(-6)
 t4!11,t3,t2,t1
 `fast expand at t4, max vars in = 11
 `t4$t3,t2,t1

@@ -111,6 +111,10 @@ namespace shard0
         {
             set(n);
         }
+        public num(string s)
+        {
+            set(s);
+        }
         public void unset()
         {
             exs = false;
@@ -125,6 +129,19 @@ namespace shard0
             up = BigInteger.Abs(n.get_up());
             down = BigInteger.Abs(n.get_down());
             exs = true;
+        }
+        public void set(num n,int s)
+        {
+            sign = n.get_sign() * s;
+            up = BigInteger.Abs(n.get_up());
+            down = BigInteger.Abs(n.get_down());
+            exs = true;
+        }
+        public void set(string s)
+        {
+            sign = 1;
+            down = 1;
+            exs = BigInteger.TryParse(s, out up);
         }
         public num(int _s, BigInteger _u, BigInteger _d)
         {
@@ -194,12 +211,6 @@ namespace shard0
                 down = BigInteger.Divide(down, a);
             } while (a != 1);
         }
-        public void mul(num a)
-        {
-            sign *= a.get_sign();
-            up *= a.get_up();
-            down *= a.get_down();
-        }
         public void revert()
         {
             BigInteger t = up;
@@ -207,13 +218,26 @@ namespace shard0
         }
         public void exp(int ex)
         {
-            if ((ex & 1) == 0) sign = 1;
-            if (ex == 0) { up = 1; down = 1; }
-            else
-            {
-                BigInteger u0 = up, d0 = down;
-                for (int i = 1; i < ex; i++) { up *= u0; down *= d0; }
+            int _e;
+            _e = ((ex < 0) ? -ex : ex);
+            if ((_e & 1) == 0) sign = 1;
+            BigInteger u0 = up, d0 = down;
+            up = 1; down = 1; 
+            for (int i = _e; i > 0; i >>= 1) { 
+                if ((i&1) != 0) {up *= u0; down *= d0;} 
+                u0 *= u0;  d0 *= d0;
             }
+            if (ex < 0) div();
+        }
+        public void exp(num ex)
+        {
+            exp((int)(ex.get_up()) * ex.get_sign());
+        }
+        public void mul(num a)
+        {
+            sign *= a.get_sign();
+            up *= a.get_up();
+            down *= a.get_down();
         }
         public void div(num a)
         {
@@ -230,10 +254,10 @@ namespace shard0
         {
             up += a;
         }
-        public void add(num a)
+        public void add(num a, int s)
         {
-            if (sign == 0) set(a); else {
-            if (sign * a.get_sign() < 0)
+            if (sign == 0) set(a,s); else {
+            if (sign * (a.get_sign() * s) < 0)
             {
                 up = up * a.get_down() - a.get_up() * down;
             }
@@ -245,6 +269,8 @@ namespace shard0
             if (up < 0) { up = -up; sign = -sign; } else if (up == 0) { sign = 0; down = 1; }
             }
         }
+        public void add(num a) { add(a, 1); }
+        public void sub(num a) { add(a, -1); }
         public BigInteger _sq(BigInteger a, int b)
         {
             BigInteger r0=0,r1;
@@ -603,8 +629,9 @@ namespace shard0
             int i;
             if ((data[0].Count < 1) || (data[1].Count < 1)) return "AAAA";
             hasdiv = ((data[1].Count > 1) || (!data[1][0].mult.isone()) || (data[1][0].mult.get_sign() < 0));
-            for (i = 0; i < head.size; i++) if (data[1][0].exps[i].get_up() != 0) hasdiv = true;
-            s0 = (hasdiv ? "(" + print(data[0]) + ")/(" + print(data[1]) + ")" : print(data[0]));
+            for (i = 0; i < head.size; i++) if (data[1][0].exps[i].get_up() != 0) 
+                hasdiv = true;
+            s0 = (hasdiv ? print(data[0]) + "//" + print(data[1]) : print(data[0]));
             return s0;
         }
         static public string print(List<one> data)
@@ -1046,16 +1073,13 @@ namespace shard0
     {
         public string val,delim,name;
         public int pos;
-        public char last;
-        public bool thisnum, more, div;
-        public num rnum;
         List<string> m_name, macro;
         List<int> m_nparm;
         public fileio sys;
         public parse(string nin, string nout, string d)
         {
             sys = new fileio(nin,nout,this); 
-            delim = d; val = ""; pos = 0; rnum = new num(1); reset();
+            delim = d; val = ""; pos = 0;
             m_name = new List<string>(); macro = new List<string>(); m_nparm = new List<int>();
         }
         public bool isnum(string s, int i)
@@ -1065,26 +1089,23 @@ namespace shard0
         }
         public bool isnum(string s)
         {
-            return isnum(s, 0);
-        }
-        public void reset()
-        {
-            div = false; rnum.one();
+            if (s.Length < 1) return false;
+            for (int i = 0; i < s.Length; i++) if (!isnum(s, i)) return false;
+            return true;
         }
         public bool next()
         {
-            string s0,s1;
-            int i0,i1,i2,i3,i4, deep;
-            val = sys.rline(); pos = 0; more = true;
+            string s0,s1,st,sf;
+            int i0,i1,i2,i3,i4,i5,i6, deep;
+            val = sys.rline(); val = val.Replace(" ",""); pos = 0;
             if ((val.Length == 0) || (val[0] == '`')) return false;
-            name = get();
-            if (thisnum) return false;
-            if (last == '#')
+            name = snext(false);
+            if (now() == '#')
             {
-                for (i0 = 0; i0 < m_name.Count; i0++) if ((name.IndexOf(m_name[i0]) > -1) || (m_name[i0].IndexOf(name) > -1)) sys.error("macro: name intersect");
-                if (!isnum(val, pos)) sys.error("macro: wrong num");
-                int _np = (int)(val[pos] - '0'); string _m = val.Substring(pos + 1);
-                m_name.Add(name + "("); m_nparm.Add(_np); macro.Add(_m);
+                for (i0 = 0; i0 < m_name.Count; i0++) if (m_name[i0].IndexOf("#" + name + "(") > -1) sys.error("macro: name intersect");
+                if (!isnum(val, pos+1)) sys.error("macro: wrong num");
+                int _np = (int)(val[pos+1] - '0'); string _m = val.Substring(pos + 2);
+                m_name.Add("#" + name + "("); m_nparm.Add(_np); macro.Add(_m);
                 for (i0 = 0; i0 < 10; i0++)
                 {
                     if (_m.IndexOf("#" + ((char)(i0 + '0')).ToString()) > -1)
@@ -1098,13 +1119,22 @@ namespace shard0
                 }
                 return false;
             }
-            for (i0 = 0; i0 < macro.Count; i0++)
-            {
-                while ((i1 = val.IndexOf(m_name[i0])) > -1)
+            while ((i1 = val.LastIndexOf("#")) > -1) {
+                for (i0 = 0; i0 < macro.Count; i0++) if (i1 == val.IndexOf(m_name[i0], i1)) break;
+                if (i0 == macro.Count) sys.error("macro: not found");
+                s0 = macro[i0];
+                int ploop = -1,floop = 0,tloop = 0;
+                for (i2 = 0,i3 = i1 + m_name[i0].Length; i2 < m_nparm[i0]; i2++)
                 {
-                    s0 = macro[i0];
-                    for (i2 = 0,i3 = i1 + m_name[i0].Length; i2 < m_nparm[i0]; i2++)
-                    {
+                    i4 = val.IndexOf(":",i3); i5 = val.IndexOf(",",i3); i6 = val.IndexOf(")",i3);
+                    if ((i5 < 0) || ((i5 > i6) && (i6 > -1))) i5 = i6;
+                    if ((i4 > -1) && (i4 < i5)) {
+                        if ((!isnum(val.Substring(i3,i4-i3))) || (!isnum(val.Substring(i4+1,i5-i4-1))) || (ploop > -1)) sys.error("macro: wrong loop");
+                        ploop = i2;
+                        int.TryParse(val.Substring(i3,i4-i3),out floop);
+                        int.TryParse(val.Substring(i4+1,i5-i4-1),out tloop);
+                        i4 = i5;
+                    } else {
                         i4 = i3; deep = 0; while (true)
                         {
                             if (i4 >= val.Length) sys.error("macro: call wrong");
@@ -1112,130 +1142,152 @@ namespace shard0
                             if (val[i4] == ')') { deep--; if (deep < 0) break; }
                             if ((val[i4] == ',') && (deep == 0)) break;
                             i4++;
-                        }
-                        if (((i2 == m_nparm[i0] - 1) && (deep == 0)) || ((i2 < m_nparm[i0] - 1) && (deep < 0))) sys.error("macro: call nparm");
-                        s1 = val.Substring(i3,i4-i3);
-                        s0 = s0.Replace("#" + ((char)(i2 + '0')).ToString(), s1);
-                        i3 = i4 + 1;
+                         }
+                         s1 = val.Substring(i3,i4-i3);
+                         s0 = s0.Replace("#" + ((char)(i2 + '0')).ToString(), s1);
                     }
-                    val = val.Substring(0, i1) + s0 + (i3 < val.Length ? val.Substring(i3, val.Length - i3): "");
+                    if (((i2 == m_nparm[i0] - 1) && (val[i4] != ')')) || ((i2 < m_nparm[i0] - 1) && (val[i4] != ','))) sys.error("macro: call nparm");
+                    i3 = i4 + 1;
+                }
+                sf = val.Substring(0, i1); st = (i3 < val.Length ? val.Substring(i3, val.Length - i3) : "");
+                if (ploop < 0) val = sf + s0 + st;
+                else
+                {
+                    for (s1 = "", i3 = floop; i3 <= tloop; i3++) s1 += s0.Replace("#" + ((char)(ploop + '0')).ToString(), i3.ToString().Trim());
+                    val = sf + s1 + st;
                 }
             }
-            pos = 0; rnum.one(); name = get();
             return true;
         }
-
-        public string get()
+        public bool more() { return pos < val.Length; }
+        public char now() { return (more() ? val[pos] : '\0'); }
+        public string snext(bool skp)
         {
-            string r = "";
-            char p;
-            int start = pos;
-            BigInteger b;
-            bool data = false;
-            if (pos >= val.Length) { more = false; return ""; }
-            last = '\0';  while (true)
-            {
-                if (pos == val.Length) { last = '\n'; more = false; r = val.Substring(start); break; }
-                if ((p = val[pos]) != ' ')
-                {
-                    if (delim.IndexOf(p) > -1)
-                    {
-                        if (data)
-                        {
-                            last = p; r = val.Substring(start, pos - start);
-                            switch (p)
-                            {
-                                case '+': 
-                                case '-': 
-                                case '*': 
-                                case '/': 
-                                    break;
-                                default:
-                                    pos++; break;
-                            }
-                        } else {
-                            switch (p)
-                            {
-                                case '+': rnum.set_sign(1); break;
-                                case '-': rnum.set_sign(-1); break;
-                                case '*': div = false; break;
-                                case '/': div = true; break;
-                                default:
-                                    last = p; pos++; break;
-                            }
-                        }
-                    } else if (!data) { data = true; start = pos; }
-                }
-                if (last != '\0') { more = (pos < val.Length); break; }
-                pos++;
-            }
-            r = r.Replace(" ", "");
-            thisnum = isnum(r);
-            if (thisnum)
-            {
-                BigInteger.TryParse(r, out b);
-                if (div)
-                {
-                    if (b == 0) sys.error("/0");
-                    rnum.mul(new num(1,new BigInteger(1),b)); 
-                } else {
-                    rnum.mul(new num(1,b,new BigInteger(1)));
-                }
-            }
-            return r;
+            int i0;
+            if (!more()) return "";
+            if (skp && (delim.IndexOf(now()) > -1)) pos++;
+            if (!more()) return "";
+            i0 = pos;
+            if (delim.IndexOf(now()) > -1) pos++;
+            else while (more() && (delim.IndexOf(now()) == -1)) pos++;
+            return val.Substring(i0, pos - i0);
         }
+        public num nnext(bool skp)
+        {
+            string s = snext(skp);
+            if (s.Length < 1) sys.error("nonum in calc");
+            if (s[0] == '(') return calc();
+            if (!isnum(s)) sys.error("nonum in calc");
+            return new num(s);
+        }
+        public num calc()
+        {
+            num ret = new num(0);
+            string st;
+            while (true)
+            {
+                st = snext(false);
+                if (st.Length < 1) sys.error("unfinished calc");
+                switch (st[0])
+                {
+                    case ')': ret.simple();  return ret;
+                    case '+':
+                        ret.add(nnext(false));
+                        break;
+                    case '-':
+                        ret.sub(nnext(false));
+                        break;
+                    case '*':
+                        ret.mul(nnext(false));
+                        break;
+                    case '/':
+                        ret.div(nnext(false));
+                        break;
+                    case '^':
+                        ret.exp(nnext(false));
+                        break;
+                    case '(':
+                        ret.set(calc());
+                        break;
+                    default:
+                        if (!isnum(st)) sys.error("nonum in calc");
+                        ret.set(st);
+                        break;
+                }
+            }
+        }
+        public num calc0() {pos++; return calc();}
 
     }
 
     static class Program
     {
-        static bool parseone(parse par, ids root, int i, List<one> data, bool hasone)
-        {
-          int fids;
-          string val;
-          val = par.get();
-          if (val.Length > 0)
-          {
-              if (par.thisnum)
-              {
-                  if ((par.last == '+') || (par.last == '-') || (par.last == ')') || (par.last == '\n'))
-                  {
-                      if (hasone && (data.Count < 1)) par.sys.error("AZAZA");
-                      if (!hasone) data.Add(new one(root.values[i], par.rnum));
-                      else data[data.Count - 1].mult.mul(par.rnum);
-                      hasone = false;  par.reset();
-                  }
-              } else {
-                  if ((fids = root.find(val)) < 0) par.sys.error("no name");
-                  if (hasone && (data.Count < 1)) par.sys.error("AZAZA");
-                  if (!hasone) data.Add(new one(root.values[i], par.rnum));
-                  else data[data.Count - 1].mult.mul(par.rnum);
-                  if (par.div) {par.reset(); par.rnum.neg();} else par.reset();
-                  if (par.last == '^')
-                  {
-                      val = par.get();
-                      if (par.last == '(') { while (par.last != ')') val = par.get(); par.last = ' ';}
-                  }
-                  if ((data.Count < 1)) par.sys.error("AZAZA");
-                  data[data.Count - 1].exps[fids].add(par.rnum);
-                  par.reset();
-                  if ((par.last == '+') || (par.last == '-') || (par.last == ')') || (par.last == '\n')) hasone = false; else hasone = true;
-              }
-          }
-          return hasone;
-        }
-
         static Form1 m0;
         static parse par;
+        static void parseone(parse par, ids root, int i, one data)
+        {
+          string s;
+          int var = -1;
+          bool div = false;
+          num tn;
+          if (par.now() == '+') par.pos++; else if (par.now() == '-') {par.pos++; data.mult.neg();}
+          while (true)
+          {
+              s = par.snext(false); if (s.Length < 1) return;
+              if (par.delim.IndexOf(s[0]) > -1)
+              {
+                  switch (s[0])
+                  {
+                      case '/':
+                          if (par.now() == '/') 
+                              return;
+                          div = true;
+                          break;
+                      case '*':
+                          div = false;
+                          break;
+                      case '+':
+                      case '-':
+                          par.pos--; return;
+                      case '(':
+                          if (div) data.mult.div(par.calc()); else data.mult.mul(par.calc());
+                          break;
+                      case '^':
+                          if (var < 0) par.sys.error("wrong exp");
+                          tn = ((par.now() == '(') ? par.calc0() : par.nnext(false));
+                          if (div) data.exps[var].sub(tn); else data.exps[var].add(tn);
+                          break;
+                      default:
+                          par.sys.error("wrong");
+                          break;
+                  }
+              }
+              else
+              {
+                  if (par.isnum(s))
+                  {
+                      if (div) data.mult.div(new num(s)); else data.mult.mul(new num(s));
+                      var = -1;
+                  }
+                  else
+                  {
+                      if ((var = root.find(s)) < 0) par.sys.error("var not found");
+                      if (par.now() != '^') data.exps[var].add(new num(div ? -1 : 1));
+                  }
+              }
+          }
+        }
+
 
         [STAThread]
         static int Main(string[] args)
         {
             int sx=0, sy=0;
             if (args.Length < 2) return 0;
-            par = new parse(args[0], args[1], "#!@$+-=*/^(),~");
-            par.next(); par.get(); sx = (int)par.rnum.get_up();
-            par.rnum.one(); par.get(); sy = (int)par.rnum.get_up();
+            par = new parse(args[0], args[1], "#&!@$+-=*/^(),~:");
+            par.next();
+            sx = (int)par.nnext(true).get_up();
+            sy = (int)par.nnext(true).get_up();
             if ((sx < 100) || (sy < 100)) return -1;
             Application.SetCompatibleTextRenderingDefault(false);
             Application.EnableVisualStyles();
@@ -1248,33 +1300,35 @@ namespace shard0
         }
         static void doit() {
             int i,i0,i1;
-            par.next(); par.rnum.one(); par.get();
-            ids root = new ids((int)par.rnum.get_up(),par.sys);
+            string val;
+            int x0,x1,f0,f1,c0,c1;
+            int[] xid = new int[6];
+            int _r0,_r1,_r2; double _d0,_d1,x2;
+            BigInteger prec;
+            par.next(); ids root = new ids((int)par.nnext(true).get_up(), par.sys);
             while (par.sys.has)
             {
                 if (par.next()) 
                 {
-                    if (par.thisnum) par.sys.error("num name");
-                    switch (par.last) 
+                    switch (par.now()) 
                     {
                      case '=':
                         if (root.find(par.name) > -1) par.sys.error("double name");
                         i = root.set_empty(par.name);
                         if (i < 0) par.sys.error("too many");
-                        bool hasone,nowdiv;
-                        string val;
-                        if (par.more) root.values[i] = new many(root,i);
-                        hasone = false; nowdiv = false; par.reset();
-                        while (par.more)
+                        int nowdiv = 0;
+                        par.snext(false);
+                        if (par.more()) root.values[i] = new many(root,i);
+                        while (par.more())
                         {
-                            hasone = parseone(par, root,i,(nowdiv ? root.values[i].data[1] : root.values[i].data[0]), hasone);
-                            if (par.last == ')')
+                            root.values[i].data[nowdiv].Add(new one(root.values[i], new num(1)));
+                            parseone(par, root,i,root.values[i].data[nowdiv][root.values[i].data[nowdiv].Count-1]);
+                            if (par.now() == '/')
                             {
-                                if (par.more)
+                                if ((par.more()) && (nowdiv == 0))
                                 {
-                                    if ((par.val[par.pos] != '/') || (par.val[par.pos+1] != '(') || (nowdiv)) par.sys.error("wrong");
-                                    nowdiv = true; root.values[i].data[1].RemoveAt(0);  par.pos += 2; par.reset();
-                                }
+                                    nowdiv = 1; root.values[i].data[1].RemoveAt(0);  par.pos++; 
+                                } else par.sys.error("wrong");
                             }
                         }
                         if (root.values[i] != null) { root.values[i].simple(); par.sys.wline(root.names[i] + " = " + root.values[i].print()); }
@@ -1286,15 +1340,15 @@ namespace shard0
                         {
                         many v = root.values[i];
                         List<int> _id = new List<int>();
-                        bool _div=false;
-                        while (par.more)
+                        bool _div = false;
+                        while (par.more())
                         {
-                            val = par.get(); if (val.Length == 0) break;
+                            val = par.snext(true); if (val.Length < 1) break;
                             if ((i0 = root.find(val)) < 0) par.sys.error("no name");
                             if (i0 == i) par.sys.error("recursion - look recursion");
                             v.revert(i0);
                             _id.Add(i0);
-                            if (par.last == '$') _div=true;
+                            if (par.now() == '$') _div=true;
                         }
                         for (int _i=0; _i < _id.Count; _i++) v.expand(_id[_i]);
                         if (_div && (v.data[1].Count == 1))
@@ -1312,14 +1366,13 @@ namespace shard0
                         if (root.values[i] == null) par.sys.error("empty name");
                         root.values[i].revert(i);
                         {
-                        par.get();
-                        mao_dict mdict = new mao_dict((int)par.rnum.get_up(),root.size,par.sys);
+                        mao_dict mdict = new mao_dict((int)par.nnext(true).get_up(),root.size,par.sys);
                         many_as_one[] mao_fr = new many_as_one[root.size];
                         List<int> _id = new List<int>();
                         bool _div = false;
-                        while (par.more)
+                        while (par.more())
                         {
-                            val = par.get(); if (val.Length == 0) break;
+                            val = par.snext(true); if (val.Length == 0) break; 
                             if ((i0 = root.find(val)) < 0) par.sys.error("no name");
                             if (i0 == i) par.sys.error("recursion - look recursion");
                             if (root.values[i0] != null) {
@@ -1327,7 +1380,7 @@ namespace shard0
                                 _id.Add(i0);
                                 mao_fr[i0] = new many_as_one(root.values[i0],mdict);
                             }
-                            if (par.last == '$') _div = true;
+                            if (par.now() == '$') _div = true;
                         }
                         many_as_one mao_to = new many_as_one(root.values[i],mdict);
                         bool r = true;
@@ -1355,8 +1408,8 @@ namespace shard0
                      case '@':
                         i0 = 0; val = "";
                         if ((i = root.find(par.name)) < 0) par.sys.error("no name");
-                        if ((!par.more) || ((i0 = root.find(val = par.get())) < 0)) par.sys.error("must be defined many");
-                        if ((par.last != '=') || (!par.more) || ((val = par.get()).Length < 1)) par.sys.error("must be equate");
+                        if ((!par.more()) || ((i0 = root.find(val = par.snext(true))) < 0)) par.sys.error("must be defined many");
+                        if ((par.now() != '=') || (!par.more()) || ((val = par.snext(true)).Length < 1)) par.sys.error("must be equate");
                         if (i0 == i) par.sys.error("recursion - look recursion");
                         {
                             string nn;
@@ -1375,8 +1428,9 @@ namespace shard0
                             _dv = new one(_ml);
                             _dv.div();
                             List<one> dv = new List<one>();
-                            one odv = new one(root.values[i0], (par.thisnum ? par.rnum : new num(1)));
-                            if (!par.thisnum)
+
+                            one odv = new one(root.values[i0], new num(par.isnum(val) ? val : "1"));
+                            if (!par.isnum(val))
                             {
                                 if ((i1 = root.find(val)) < 0) par.sys.error("no name");
                                 odv.exps[i1].one();
@@ -1410,19 +1464,16 @@ namespace shard0
                         }
                      break;
                      case '~':
-                        int x0,x1,f0,f1,c0,c1;
-                        int[] xid = new int[6];
-                        int _r0,_r1,_r2; double _d0,_d1,x2;
-                        par.get(); BigInteger prec = par.rnum.get_up();
-                        par.rnum.one(); par.get(); f0 = (int)(par.rnum.get_up());
-                        par.rnum.one(); par.get(); f1 = (int)(par.rnum.get_up());
-                        par.rnum.one(); par.get(); c0 = (int)(par.rnum.get_up());
-                        par.rnum.one(); par.get(); c1 = (int)(par.rnum.get_up());
+                        prec = par.nnext(true).get_up();
+                        f0 = (int)(par.nnext(true).get_up());
+                        f1 = (int)(par.nnext(true).get_up());
+                        c0 = (int)(par.nnext(true).get_up());
+                        c1 = (int)(par.nnext(true).get_up());
                         if ((f0 + c0 > m0.sx) || (f1 + c1 > m0.sy) || (c0 < 2) || (c1 < 2)) par.sys.error("wrong size");
                         i = 0; i0 = -1;
-                        while (par.more && (i < 6))
+                        while (par.more() && (i < 6))
                         {
-                            val = par.get(); if (val.Length == 0) break;
+                            val = par.snext(true); if (val.Length < 1) break;
                             if ((xid[i] = root.find(val)) < 0) par.sys.error("no name");
                             if (root.values[xid[i]] == null) i0 = i;
                             i++;
@@ -1485,6 +1536,28 @@ namespace shard0
                         m0.Set(0);
                         m0.rp = true;
                      break;
+                     case '&':
+                        prec = par.nnext(true).get_up();
+                        BigInteger _fr,_to,_one = 1,_res;
+                        _fr = par.nnext(true).get_up();
+                        _to = par.nnext(true).get_up();
+                        i = 0; while (par.more() && (i < 2))
+                        {
+                            val = par.snext(true); if (val.Length < 1) break;
+                            if ((xid[i] = root.find(val)) < 0) par.sys.error("no name");
+                            i++;
+                        }
+                        if ((root.values[xid[0]] != null) || (root.values[xid[1]] == null)) par.sys.error("wrong");
+                        while (_fr <= _to)
+                        {
+                            root.uncalc();
+                            root.calc[xid[0]].set(new num(1,_fr,_one));
+                            root.values[xid[1]].calc(prec);
+                            _res = root.calc[xid[1]].toint();
+                            par.sys.wline("& " + _res.ToString());
+                            _fr++;
+                        }
+                        break;
                     }
                 }
             }
