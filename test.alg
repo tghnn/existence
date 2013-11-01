@@ -3,7 +3,7 @@ m=40
 `screen xy, max variable number
 _fact#1*#0
 `macro, 1 parm
-fact#1(1#_fact(2:#0))
+fact#1(1#_fact(2:(#0)))
 `macro, loop
 f=#fact(100)
 a=
@@ -15,6 +15,13 @@ t1= 2*a+b-3*c+d
 t2= 6*d+c
 t3= t1^3/t2^4
 t4= t3^11 + t3^(-6)
+e=
+exp=^e+1+e+e^2/2+e^3/6
+`fast power serie on variable e 
+e1=/1000+e^100
+`precusion control, max = 1000 decimal
+`   use at graph and calc
+
 t4!11,t3,t2,t1
 `fast expand at t4, max vars in = 11
 `t4$t3,t2,t1
@@ -41,7 +48,7 @@ cr2=xca^2+yca^2
 cr=250-cr2^2/6000000
 gr=0
 a~1000000,0,0,600,600,xa,ya,br,cr,gr
-`graph(uper left(0,0), size(600,600)) (xa,ya) -> (br,cr)   input vars must be empty
+`graph(calc precusion,uper left(0,0), size(600,600)) (xa,ya) -> (br,cr)   input vars must be empty
 t=
 tt=t/600/3-3
 xt=t/6
@@ -49,3 +56,5 @@ ytt=tt^6 + 2*tt^5 + tt^4 + 6*tt^3 + tt^2
 yt=300+ytt*4
 a~10000,0,0,600,600,t,xt,yt
 `graph (t) -> (xt,yt)
+a&1000000,1,100,e,exp
+`calculate exp(e), e=1:100
