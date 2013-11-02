@@ -1129,14 +1129,16 @@ namespace shard0
     {
         StreamReader fin;
         StreamWriter fout;
+        StreamWriter fdat;
         parse head;
         int nline;
         string buf;
         public Boolean has, err;
-        public fileio(string nin, string nout, parse h)
+        public fileio(string nin, string nout, string ndat, parse h)
         {
             fin = new StreamReader(nin);
             fout = new StreamWriter(nout);
+            if (ndat != "") fdat = new StreamWriter(ndat);
             nline = 0; has = true; err = false;
             head = h; buf = "";
         }
@@ -1175,6 +1177,13 @@ namespace shard0
             fout.WriteLine(s);
             fout.Flush();
         }
+        public void wlined(string s)
+        {
+            if (fdat != null) {
+                fdat.WriteLine(s);
+                fdat.Flush();
+            }
+        }
     }
     class parse
     {
@@ -1183,9 +1192,9 @@ namespace shard0
         List<string> m_name, macro;
         List<int> m_nparm;
         public fileio sys;
-        public parse(string nin, string nout, string d)
+        public parse(string nin, string nout, string dat, string d)
         {
-            sys = new fileio(nin,nout,this); 
+            sys = new fileio(nin,nout,dat,this); 
             delim = d; val = ""; pos = 0;
             m_name = new List<string>(); macro = new List<string>(); m_nparm = new List<int>();
         }
@@ -1416,7 +1425,7 @@ namespace shard0
         {
             int sx=0, sy=0;
             if (args.Length < 2) return 0;
-            par = new parse(args[0], args[1], "#&!@$+-=*/^(),~:");
+            par = new parse(args[0], args[1], args[2], "#&!@$+-=*/^(),~:");
             par.next();
             sx = (int)par.nnext(true).get_up();
             sy = (int)par.nnext(true).get_up();
@@ -1446,8 +1455,7 @@ namespace shard0
                     {
                      case '=':
                         par.snext(false);
-                        if (root.find(par.name) > -1) par.sys.error("double name");
-                        i = root.set_empty(par.name);
+                        if ((i = root.find(par.name)) < 0) i = root.set_empty(par.name);
                         if (i < 0) par.sys.error("too many");
                         int nowdiv = 0;
                         if (par.more()) {
@@ -1703,6 +1711,7 @@ namespace shard0
                             root.values[xid[1]].calc(prec);
                             _res = root.calc[xid[1]].toint();
                             par.sys.wline(_fr.ToString() + " & " + _res.ToString() + " : " + root.calc[xid[1]].print("+","-","",""));
+                            par.sys.wlined(_res.ToString());
                             _fr++;
                         }
                         break;
