@@ -663,9 +663,16 @@ namespace shard0
             int i;
             if ((data[0].Count < 1) || (data[1].Count < 1)) return "AAAA";
             hasdiv = ((data[1].Count > 1) || (!data[1][0].mult.isone()) || (data[1][0].mult.get_sign() < 0));
-            for (i = 0; i < head.size; i++) if (data[1][0].exps[i].nonzero()) 
-                hasdiv = true;
-            s0 = (hasdiv ? print(data[0]) + "//" + print(data[1]) : print(data[0]));
+            for (i = 0; i < head.size; i++) if (data[1][0].exps[i].nonzero()) hasdiv = true;
+            s0 = (hasdiv ? print(data[0]) + "//" + print(data[1]) : ((data[0].Count == 1) && (!data[0][0].mult.nonzero()) ? "0" : print(data[0])));
+            switch (tfunc) {
+                case 0:
+                    s0 = "/" + pfunc.get_sup().ToString() + " " + s0;
+                    break;
+                case 1:
+                    s0 = "^" + head.names[(int)(pfunc.get_up())] + " " + s0;
+                    break;
+            }
             return s0;
         }
         static public string print(List<one> data)
@@ -1124,21 +1131,32 @@ namespace shard0
         StreamWriter fout;
         parse head;
         int nline;
+        string buf;
         public Boolean has, err;
         public fileio(string nin, string nout, parse h)
         {
             fin = new StreamReader(nin);
             fout = new StreamWriter(nout);
             nline = 0; has = true; err = false;
-            head = h;
+            head = h; buf = "";
+        }
+        public void addline(string add){
+            buf = add + buf;
         }
         public string rline()
         {
             string r;
-            nline++;
-            r = fin.ReadLine();
-            if (r == null) { has = false; return ""; }
-            else { has = true; return r; }
+            has = true;
+            if (buf.Length > 1) {
+                int i = buf.IndexOf("\n");
+                if (i < 0) i = buf.Length;
+                r = buf.Substring(0,i);
+                buf = (i < buf.Length ? buf.Substring(i+1) : "");
+            } else {
+                nline++; r = fin.ReadLine();
+                if (r == null) { has = false; r = ""; }
+            }
+            return r;
         }
         public void close()
         {
@@ -1188,9 +1206,9 @@ namespace shard0
             int i0,i1,i2,i3,i4,i5,i6, deep;
             val = sys.rline(); val = val.Replace(" ",""); pos = 0;
             if ((val.Length == 0) || (val[0] == '`')) return false;
-            name = snext(false);
-            if (now() == '#')
+            if (val.Substring(0,2) == "##")
             {
+                pos = 2; name = snext(false);
                 for (i0 = 0; i0 < m_name.Count; i0++) if (m_name[i0].IndexOf("#" + name + "(") > -1) sys.error("macro: name intersect");
                 if (!isnum(val, pos+1)) sys.error("macro: wrong num");
                 int _np = (int)(val[pos+1] - '0'); string _m = val.Substring(pos + 2);
@@ -1211,7 +1229,7 @@ namespace shard0
             while ((i1 = val.LastIndexOf("#")) > -1) {
                 for (i0 = 0; i0 < macro.Count; i0++) if (i1 == val.IndexOf(m_name[i0], i1)) break;
                 if (i0 == macro.Count) sys.error("macro: not found");
-                s0 = macro[i0];
+                s0 = macro[i0].Replace("#`","\n");
                 int ploop = -1,floop = 0,tloop = 0;
                 for (i2 = 0,i3 = i1 + m_name[i0].Length; i2 < m_nparm[i0]; i2++)
                 {
@@ -1219,7 +1237,7 @@ namespace shard0
                     if ((i5 < 0) || ((i5 > i6) && (i6 > -1))) i5 = i6;
                     if ((i4 > -1) && (i4 < i5)) {
                         if (ploop > -1) sys.error("macro: wrong loop");
-                        if (val[i3] == '(') { 
+                        if (val[i3] == '(') {
                             pos = i3 + 1;  floop = (int)(calc().get_sup()); 
                         }
                         else
@@ -1238,15 +1256,22 @@ namespace shard0
                         ploop = i2;
                         i4 = i5;
                     } else {
-                        i4 = i3; deep = 0; while (true)
+                        if (val[i3] == '(') {
+                            pos = i3 + 1;  s1 = calc().get_sup().ToString(); 
+                            i4 = pos;
+                        }
+                        else
                         {
-                            if (i4 >= val.Length) sys.error("macro: call wrong");
-                            if (val[i4] == '(') deep++;
-                            if (val[i4] == ')') { deep--; if (deep < 0) break; }
-                            if ((val[i4] == ',') && (deep == 0)) break;
-                            i4++;
-                         }
-                         s1 = val.Substring(i3,i4-i3);
+                            i4 = i3; deep = 0; while (true)
+                            {
+                                if (i4 >= val.Length) sys.error("macro: call wrong");
+                                if (val[i4] == '(') deep++;
+                                if (val[i4] == ')') { deep--; if (deep < 0) break; }
+                                if ((val[i4] == ',') && (deep == 0)) break;
+                                i4++;
+                            }
+                            s1 = val.Substring(i3,i4-i3);
+                        }
                          s0 = s0.Replace("#" + ((char)(i2 + '0')).ToString(), s1);
                     }
                     if (((i2 == m_nparm[i0] - 1) && (val[i4] != ')')) || ((i2 < m_nparm[i0] - 1) && (val[i4] != ','))) sys.error("macro: call nparm");
@@ -1259,6 +1284,10 @@ namespace shard0
                     for (s1 = "", i3 = floop; i3 <= tloop; i3++) s1 += s0.Replace("#" + ((char)(ploop + '0')).ToString(), i3.ToString().Trim());
                     val = sf + s1 + st;
                 }
+            }
+            i1 = val.IndexOf("\n");
+            if (i1 > -1) {
+                sys.addline(val.Substring(i1+1)); val = val.Substring(0,i1);
             }
             pos = 0; name = snext(false); return true;
         }
@@ -1421,9 +1450,10 @@ namespace shard0
                         i = root.set_empty(par.name);
                         if (i < 0) par.sys.error("too many");
                         int nowdiv = 0;
-                        if (par.more()) root.values[i] = new many(root,i);
-                        switch (par.now())
-                        {
+                        if (par.more()) {
+                            root.values[i] = new many(root,i);
+                            switch (par.now())
+                            {
                             case '/':
                                 par.snext(false); root.values[i].tfunc = 0;
                                 if (par.delim.IndexOf(par.now()) == -1) root.values[i].pfunc = par.nnext(false);
@@ -1432,21 +1462,19 @@ namespace shard0
                                 root.values[i].tfunc = 1; root.values[i].pfunc.set(root.find(par.snext(true)));
                                 if (root.values[i].pfunc.get_sup() < 0) par.sys.error("row: no var");
                                 break;
-                        }
-                        while (par.more())
-                        {
-                            root.values[i].data[nowdiv].Add(new one(root.values[i], new num(1)));
-                            parseone(par, root,i,root.values[i].data[nowdiv][root.values[i].data[nowdiv].Count-1]);
-                            if (par.now() == '/')
-                            {
-                                if ((par.more()) && (nowdiv == 0))
-                                {
-                                    nowdiv = 1; root.values[i].data[1].RemoveAt(0);  par.pos++; 
-                                } else par.sys.error("wrong");
                             }
-                        }
-                        if (root.values[i] != null) 
-                        {
+                            while (par.more())
+                            {
+                                root.values[i].data[nowdiv].Add(new one(root.values[i], new num(1)));
+                                parseone(par, root,i,root.values[i].data[nowdiv][root.values[i].data[nowdiv].Count-1]);
+                                if (par.now() == '/')
+                                {
+                                    if ((par.more()) && (nowdiv == 0))
+                                    {
+                                        nowdiv = 1; root.values[i].data[1].RemoveAt(0);  par.pos++; 
+                                    } else par.sys.error("wrong");
+                                }
+                            }
                             if (root.values[i].tfunc == 1) 
                                 root.values[i].revert_mult(0); 
                             else 

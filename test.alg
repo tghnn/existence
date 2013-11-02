@@ -1,11 +1,11 @@
 xy=600,600
 m=40
 `screen xy, max variable number
-_fact#1*#0
+##_fact#1*#0
 `macro, 1 parm
-fact#1(1#_fact(2:(#0)))
+##fact#1(1#_fact(2:(#0)))
 `macro, loop
-f=#fact(100)
+f=#fact(2+2)
 a=
 b=
 c=
