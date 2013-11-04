@@ -56,5 +56,5 @@ ytt=tt^6 + 2*tt^5 + tt^4 + 6*tt^3 + tt^2
 yt=300+ytt*4
 a~10000,0,0,600,600,t,xt,yt
 `graph (t) -> (xt,yt)
-a&1000000,1,100,e,exp
-`calculate exp(e), e=1:100
+a&1000000,1,100,e,exp""0
+`calculate exp(e), e=1:100, out to file 0 format ""

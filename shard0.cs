@@ -1128,17 +1128,17 @@ namespace shard0
     class fileio
     {
         StreamReader fin;
-        StreamWriter fout;
-        StreamWriter fdat;
+        StreamWriter[] fout;
         parse head;
         int nline;
-        string buf;
+        string buf,nout;
         public Boolean has, err;
-        public fileio(string nin, string nout, string ndat, parse h)
+        public fileio(string nin, string _nout, parse h)
         {
             fin = new StreamReader(nin);
-            fout = new StreamWriter(nout);
-            if (ndat != "") fdat = new StreamWriter(ndat);
+            nout = _nout;
+            fout = new StreamWriter[10];
+            fout[0] = new StreamWriter(nout + "0");
             nline = 0; has = true; err = false;
             head = h; buf = "";
         }
@@ -1163,26 +1163,20 @@ namespace shard0
         public void close()
         {
             fin.Close();
-            fout.Close();
+            foreach (StreamWriter _f in fout) if (_f != null) _f.Close();
         }
         public void error(string e)
         {
-            fout.WriteLine(head.val);
-            fout.WriteLine("Line {0:G} Pos {0:G}: " + e, nline, head.pos);
-            err = true; fout.Flush();
+            fout[0].WriteLine(head.val);
+            fout[0].WriteLine("Line {0:G} Pos {0:G}: " + e, nline, head.pos);
+            err = true; fout[0].Flush();
             Environment.Exit(-1);
         }
-        public void wline(string s)
+        public void wline(int n, string s)
         {
-            fout.WriteLine(s);
-            fout.Flush();
-        }
-        public void wlined(string s)
-        {
-            if (fdat != null) {
-                fdat.WriteLine(s);
-                fdat.Flush();
-            }
+            if (fout[n] == null) fout[n] = new StreamWriter(nout + n.ToString().Trim());
+            fout[n].WriteLine(s);
+            fout[n].Flush();
         }
     }
     class parse
@@ -1192,9 +1186,9 @@ namespace shard0
         List<string> m_name, macro;
         List<int> m_nparm;
         public fileio sys;
-        public parse(string nin, string nout, string dat, string d)
+        public parse(string nin, string nout, string d)
         {
-            sys = new fileio(nin,nout,dat,this); 
+            sys = new fileio(nin,nout,this); 
             delim = d; val = ""; pos = 0;
             m_name = new List<string>(); macro = new List<string>(); m_nparm = new List<int>();
         }
@@ -1309,9 +1303,14 @@ namespace shard0
             if (skp && (delim.IndexOf(now()) > -1)) pos++;
             if (!more()) return "";
             i0 = pos;
-            if (delim.IndexOf(now()) > -1) pos++;
-            else while (more() && (delim.IndexOf(now()) == -1)) pos++;
-            return val.Substring(i0, pos - i0);
+            if (now() == '"') {
+                pos++; while (more() && (now() != '"')) pos++; pos++;
+                return val.Substring(i0, pos - i0 - 1);
+            } else {
+                if (delim.IndexOf(now()) > -1) pos++;
+                else while (more() && (delim.IndexOf(now()) == -1)) pos++;
+                return val.Substring(i0, pos - i0);
+            }
         }
         public num nnext(bool skp)
         {
@@ -1425,7 +1424,7 @@ namespace shard0
         {
             int sx=0, sy=0;
             if (args.Length < 2) return 0;
-            par = new parse(args[0], args[1], args[2], "#&!@$+-=*/^(),~:");
+            par = new parse(args[0], args[1], "#&!@$+-=*/^(),~:\"");
             par.next();
             sx = (int)par.nnext(true).get_up();
             sy = (int)par.nnext(true).get_up();
@@ -1443,7 +1442,9 @@ namespace shard0
             int i,i0,i1;
             string val;
             int x0,x1,f0,f1,c0,c1;
-            int[] xid = new int[6];
+            int[] xid = new int[11];
+            int[] xout = new int[11];
+            string[] xstr = new string[11];
             int _r0,_r1,_r2; double _d0,_d1,x2;
             BigInteger prec;
             par.next(); ids root = new ids((int)par.nnext(true).get_up(), par.sys);
@@ -1487,7 +1488,7 @@ namespace shard0
                                 root.values[i].revert_mult(0); 
                             else 
                                 root.values[i].simple();
-                            par.sys.wline(root.names[i] + " = " + root.values[i].print()); 
+                            par.sys.wline(0,root.names[i] + " = " + root.values[i].print()); 
                         }
                      break;
                      case '$':
@@ -1514,7 +1515,7 @@ namespace shard0
                             v.data[1][0] = new one(v, 1);
                             v.simple();
                         }
-                        par.sys.wline(root.names[i] + " = " + v.print());
+                        par.sys.wline(0,root.names[i] + " = " + v.print());
                         }
                         break;
                      case '!':
@@ -1558,7 +1559,7 @@ namespace shard0
                             root.values[i].simple();
                         }
 
-                        par.sys.wline(root.names[i] + " = " + root.values[i].print());
+                        par.sys.wline(0,root.names[i] + " = " + root.values[i].print());
                         }                      
                         break;
                      case '@':
@@ -1616,7 +1617,7 @@ namespace shard0
                                 }
                                 e.zero(); root.values[i1].data[0].Add(new one(dv[i0])); many.simple(root.values[i1].data[0]);
                             }
-                            for (i0 = ip; i0 < root.last; i0++) par.sys.wline(root.names[i0] + " = " + root.values[i0].print());
+                            for (i0 = ip; i0 < root.last; i0++) par.sys.wline(0,root.names[i0] + " = " + root.values[i0].print());
                         }
                      break;
                      case '~':
@@ -1694,24 +1695,43 @@ namespace shard0
                      break;
                      case '&':
                         prec = par.nnext(true).get_up();
-                        BigInteger _fr,_to,_one = 1,_res;
+                        BigInteger _fr,_to,_one = 1,_res1,_res2;
                         _fr = par.nnext(true).get_up();
                         _to = par.nnext(true).get_up();
-                        i = 0; while (par.more() && (i < 2))
+                        if ((xid[0] = root.find(par.snext(true))) < 0) par.sys.error("no name");
+                        i = 1; while (par.more() && (i < 11))
                         {
-                            val = par.snext(true); if (val.Length < 1) break;
-                            if ((xid[i] = root.find(val)) < 0) par.sys.error("no name");
+                            par.snext(false);
+                            if (par.now() != '"') {
+                                val = par.snext(false); if (val.Length < 1) break;
+                                if ((xid[i] = root.find(val)) < 0) par.sys.error("no name");
+                            } else xid[i] = -1;
+                            val = par.snext(false); if (val.Length < 1) break;
+                            xstr[i] = val.Substring(1);
+                            xout[i] = (int)(par.nnext(false).get_up());
                             i++;
                         }
-                        if ((root.values[xid[0]] != null) || (root.values[xid[1]] == null)) par.sys.error("wrong");
+                        if (root.values[xid[0]] != null) par.sys.error("wrong");
+                        string[] _out = new string[11];
                         while (_fr <= _to)
                         {
                             root.uncalc();
                             root.calc[xid[0]].set(new num(1,_fr,_one));
-                            root.values[xid[1]].calc(prec);
-                            _res = root.calc[xid[1]].toint();
-                            par.sys.wline(_fr.ToString() + " & " + _res.ToString() + " : " + root.calc[xid[1]].print("+","-","",""));
-                            par.sys.wlined(_res.ToString());
+                            i0 = 0; while (i0 < 10) _out[i0++]="";
+                            i0 = 1; while (i0 < i) {
+                                if (xid[i0] > -1) {
+                                    root.values[xid[i0]].calc(prec);
+                                    _res1 = root.calc[xid[i0]].toint();
+                                    _out[xout[i0]] += _res1.ToString(xstr[i0]);
+                                } else {
+                                    _out[xout[i0]] += xstr[i0];
+                                }
+                                i0++;
+                            }
+                            i0 = 0; while (i0 < 10) {
+                                if (_out[i0]!="") par.sys.wline(i0,_out[i0]);
+                                i0++;
+                            }
                             _fr++;
                         }
                         break;
