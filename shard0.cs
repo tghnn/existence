@@ -152,6 +152,14 @@ namespace shard0
         {
             set(_s,_u,_d);
         }
+        public void set_up(BigInteger _u)
+        {
+            up = (_u > 0 ? _u: 0-_u);
+        }
+        public void set_down(BigInteger _d)
+        {
+            down = (_d > 0 ? _d: 0-_d);
+        }
         public void set(int _s, BigInteger _u, BigInteger _d)
         {
             sign = _s; up = _u; down = _d; exs = true;
@@ -247,7 +255,8 @@ namespace shard0
         }
         public void exp(num ex)
         {
-            exp((int)(ex.get_up()) * ex.get_sign());
+            int e = (int)ex.get_up();
+            if (e < 10000) exp(e*ex.get_sign());
         }
         public void mul(num a)
         {
@@ -670,6 +679,9 @@ namespace shard0
                     s0 = "/" + pfunc.get_sup().ToString() + " " + s0;
                     break;
                 case 1:
+                    s0 = "& " + s0;
+                    break;
+                case 2:
                     s0 = "^" + head.names[(int)(pfunc.get_up())] + " " + s0;
                     break;
             }
@@ -710,7 +722,7 @@ namespace shard0
         {
             if (!head.calc[id].exist())
             {
-                if (tfunc < 1)
+                if (tfunc < 2)
                 {
                     num t0 = calc(0, prec);
                     num t1 = calc(1, prec);
@@ -740,6 +752,11 @@ namespace shard0
                         break;
                     case 1:
                         {
+                            if (head.calc[id].nonzero()) head.calc[id].set_up(1); head.calc[id].set_down(1);
+                        }
+                        break;
+                    case 2:
+                        {
                             BigInteger[] ua, da;
                             int var = (int)(pfunc.get_up()),fe = 0, se,ne;
                             ne = data[0].Count;
@@ -763,7 +780,8 @@ namespace shard0
                             for (int i = 0; i < ne; i++)
                             {
                                 if (data[0][i].exps[var].get_sup() != fe + se*i) head.sys.error("row: wrong exp");
-                                if (data[0][i].mult.get_down() > 1) head.sys.error("row: wrong mul");
+                                if (data[0][i].mult.get_down() > 1) 
+                                    head.sys.error("row: wrong mul");
                                 _u += ua[i] * da[ne - i - 1] * data[0][i].mult.get_sup();
                             }
                             tn.set(head.calc[var]); tn.exp(fe);
@@ -772,6 +790,8 @@ namespace shard0
                         }
                         break;
                 }
+                head.calc[id].simple();
+                head.sys.wline(0,head.names[id] + " <- " + head.calc[id].print("","-","",""));
             }
             return head.calc[id];
         }
@@ -1277,9 +1297,14 @@ namespace shard0
                         }
                          s0 = s0.Replace("#" + ((char)(i2 + '0')).ToString(), s1);
                     }
-                    if (((i2 == m_nparm[i0] - 1) && (val[i4] != ')')) || ((i2 < m_nparm[i0] - 1) && (val[i4] != ','))) sys.error("macro: call nparm");
+                    if (((i2 == m_nparm[i0] - 1) && (val[i4] != ')')) || ((i2 < m_nparm[i0] - 1) && (val[i4] != ','))) 
+                        sys.error("macro: call nparm");
                     i3 = i4 + 1;
                 }
+                for (i3 = i1 + m_name[i0].Length, deep = 1; (i3 < val.Length) && (deep > 0); i3++) {
+                    if (val[i3] == '(') deep++;
+                    if (val[i3] == ')') deep--;
+                } //i3++;
                 sf = val.Substring(0, i1); st = (i3 < val.Length ? val.Substring(i3, val.Length - i3) : "");
                 if (ploop < 0) val = sf + s0 + st;
                 else
@@ -1467,8 +1492,11 @@ namespace shard0
                                 par.snext(false); root.values[i].tfunc = 0;
                                 if (par.delim.IndexOf(par.now()) == -1) root.values[i].pfunc = par.nnext(false);
                                 break;
+                            case '&':
+                                root.values[i].tfunc = 1; root.values[i].pfunc.set(0); par.snext(false);
+                                break;
                             case '^':
-                                root.values[i].tfunc = 1; root.values[i].pfunc.set(root.find(par.snext(true)));
+                                root.values[i].tfunc = 2; root.values[i].pfunc.set(root.find(par.snext(true)));
                                 if (root.values[i].pfunc.get_sup() < 0) par.sys.error("row: no var");
                                 break;
                             }
@@ -1484,7 +1512,7 @@ namespace shard0
                                     } else par.sys.error("wrong");
                                 }
                             }
-                            if (root.values[i].tfunc == 1) 
+                            if (root.values[i].tfunc == 2) 
                                 root.values[i].revert_mult(0); 
                             else 
                                 root.values[i].simple();
