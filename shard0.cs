@@ -734,11 +734,14 @@ namespace shard0
                 {
                     case 0:
                         {
-                            int l0, l1;
+                            int l0, l1,l = (int)(pfunc.get_up());
+                            if (l == 0) {
+                                head.calc[id].set(head.calc[id].get_sup()/head.calc[id].get_down(),1);
+                            } else {
                             l0 = head.calc[id].get_up().ToString().Length;
                             l1 = head.calc[id].get_down().ToString().Length;
                             if (l0 > l1) l0 = l1;
-                            l0 -= (int)(pfunc.get_up());
+                            l0 -= l;
                             if (l0 > 4)
                             {
                                 string _s = "1" + new string('0', l0);
@@ -747,6 +750,7 @@ namespace shard0
                                 _ad = head.calc[id].get_down() / _d; _bd = head.calc[id].get_down() % _d; _cd = _bd / _ad;
                                 _d += (_cu + _cd) / 2;
                                 head.calc[id].set(head.calc[id].get_sign(), head.calc[id].get_up() / _d, head.calc[id].get_down() / _d);
+                            }
                             }
                         }
                         break;
