@@ -1430,10 +1430,6 @@ namespace shard0
                     {
                         if (i0 >= _np) sys.error("macro: used nonparm");
                     }
-                    else
-                    {
-                        if (i0 < _np) sys.error("macro: nonused parm");
-                    }
                 }
                 return false;
             }
@@ -1482,6 +1478,11 @@ namespace shard0
                                 i4++;
                             }
                             s1 = val.Substring(i3,i4-i3);
+                            s1 = s1.Replace("&0", "#");
+                            s1 = s1.Replace("&1", "&0");
+                            s1 = s1.Replace("&2", "&1");
+                            s1 = s1.Replace("&3", "&2");
+                            s1 = s1.Replace("&4", "&3");
                         }
                          s0 = s0.Replace("#" + ((char)(i2 + '0')).ToString(), s1);
                     }
