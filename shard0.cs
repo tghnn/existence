@@ -1506,6 +1506,8 @@ namespace shard0
             if (i1 > -1) {
                 sys.addline(val.Substring(i1+1)); val = val.Substring(0,i1);
             }
+            val = val.Replace("&%","#");
+            val = val.Replace("&^"," ");
             pos = 0; name = snext(false); return true;
         }
         public bool more() { return pos < val.Length; }
@@ -1716,9 +1718,9 @@ namespace shard0
             int i,i0,i1;
             string val;
             int x0,x1,f0,f1,c0,c1;
-            int[] xid = new int[11];
-            int[] xout = new int[11];
-            string[] xstr = new string[11];
+            int[] xid = new int[42];
+            int[] xout = new int[42];
+            string[] xstr = new string[42];
             int _r0,_r1,_r2; double _d0,_d1,x2;
             BigInteger prec;
             par.next(); ids root = new ids((int)par.nnext(true).get_up(), par.sys);
@@ -1972,16 +1974,24 @@ namespace shard0
                      break;
                      case '&':
                         prec = par.nnext(true).get_up();
-                        BigInteger _fr,_to,_one = 1,_res1,_res2;
-                        _fr = par.nnext(true).get_up();
-                        _to = par.nnext(true).get_up();
-                        if ((xid[0] = root.find(par.snext(true))) < 0) par.sys.error("no name");
-                        i = 1; while (par.more() && (i < 11))
+                        BigInteger _fr,_to,_one = 1,_res1;
+                        par.snext(false); if (par.isnum(par.now())) _fr = par.nnext(false).get_up(); else 
+                        { 
+                            i = root.find(par.snext(false)); if ((i < 0) || (root.values[i] == null)) par.sys.error("loop: wrong var");
+                            root.values[i].calc(prec); _fr=root.calc[i].toint();
+                        }
+                        par.snext(false); if (par.isnum(par.now())) _to = par.nnext(false).get_up(); else 
+                        { 
+                            i = root.find(par.snext(false)); if ((i < 0) || (root.values[i] == null)) par.sys.error("loop: wrong var");
+                            root.values[i].calc(prec); _to=root.calc[i].toint();
+                        }
+                        if ((xid[0] = root.find(par.snext(true))) < 0) par.sys.error("loop: no name");
+                        i = 1; while (par.more() && (i < 42))
                         {
                             par.snext(false);
                             if (par.now() != '"') {
                                 val = par.snext(false); if (val.Length < 1) break;
-                                if ((xid[i] = root.find(val)) < 0) par.sys.error("no name");
+                                if ((xid[i] = root.find(val)) < 0) par.sys.error("loop: no name");
                             } else xid[i] = -1;
                             val = par.snext(false); if (val.Length < 1) break;
                             xstr[i] = val.Substring(1);
