@@ -65,7 +65,7 @@ namespace shard0
         public int size, last;
         public string[] names;
         public many[] values;
-        public num[] calc;
+        public num[] calc, dif;
         public fileio sys;
         public ids(int s, fileio f)
         {
@@ -74,6 +74,7 @@ namespace shard0
             names = new string[s];
             values = new many[s];
             calc = new num[s];
+            dif = new num[s];
         }
         public int set_empty(string nam)
         {
@@ -81,11 +82,12 @@ namespace shard0
             names[last] = nam;
             values[last] = null;
             calc[last] = new num();
+            dif[last] = new num();
             last++; return last - 1;
         }
         public void uncalc()
         {
-            for (int i = 0; i < last; i++) calc[i].unset();
+            for (int i = 0; i < last; i++) { dif[i].set(calc[i]); calc[i].unset(); }
         }
         public int find(string n)
         {
@@ -317,7 +319,7 @@ namespace shard0
         }
         public BigInteger toint()
         {
-            return sign * up / down;
+            return (down != 0 ? sign * up / down : 0);
         }
         public double todouble()
         {
@@ -586,6 +588,7 @@ namespace shard0
         public int id;
         public int tfunc;
         public num pfunc;
+        public bool isdif = false;
         public many(ids h, int i)
         {
             tfunc = -1; pfunc = new num(-1);
@@ -956,17 +959,20 @@ namespace shard0
                         break;
                 }
                 head.calc[id].simple();
-                head.sys.wline(0,head.names[id] + " <- " + head.calc[id].print("","-","",""));
+                head.dif[id].sub(head.calc[id]);
+                head.dif[id].simple();
+                head.sys.wline(0, head.names[id] + " <- " + head.calc[id].print("", "-", "", ""));
             }
-            return head.calc[id];
+            return (isdif ? head.dif[id] : head.calc[id]);
         }
-        void check_calc(int i, BigInteger prec)
+        public num check_calc(int i, BigInteger prec)
         {
            if (!head.calc[i].exist())
            {
                if (head.values[i] == null) head.sys.error("non is non");
-               head.values[i].calc(prec);
+               return head.values[i].calc(prec);
            }
+           else return (head.values[i] == null ? head.calc[i] : (head.values[i].isdif ? head.dif[i] : head.calc[i]));
         }
         public num calc(int ud,BigInteger prec)
         {
@@ -980,15 +986,13 @@ namespace shard0
                     exp ex = u.exps[i];
                     if (!ex.iszero())
                     {
-                        check_calc(i,prec);
-                        t1.set(head.calc[i]);
+                        t1.set(check_calc(i,prec));
                         num en = new num(ex.non);
                         if (ex.vars != null) for (int ii = 0; ii < head.size; ii++)
                         {
                             if (ex.vars[ii].nonzero()) 
                             {
-                                check_calc(ii,prec);
-                                num aa = new num(head.calc[ii]);
+                                num aa = new num(check_calc(ii,prec));
                                 aa.mul(ex.vars[ii]);
                                 en.add(aa);
                             }
@@ -1321,8 +1325,6 @@ namespace shard0
             return r0 | r1;
         }
     }
-
-
 
 
     class fileio
@@ -1700,7 +1702,7 @@ namespace shard0
         {
             int sx=0, sy=0;
             if (args.Length < 2) return 0;
-            par = new parse(args[0], args[1], "#&!@$+-=*/^(),~:\"");
+            par = new parse(args[0], args[1], "#&!@$+-=*/^(),~:\"`");
             par.next();
             sx = (int)par.nnext(true).get_up();
             sy = (int)par.nnext(true).get_up();
@@ -1737,6 +1739,9 @@ namespace shard0
                         int nowdiv = 0;
                         if (par.more()) {
                             root.values[i] = new many(root,i);
+                            if (par.now() == '`') { 
+                                root.values[i].isdif = true; par.snext(false);
+                            }
                             switch (par.now())
                             {
                             case '/':
@@ -1994,7 +1999,7 @@ namespace shard0
                                 if ((xid[i] = root.find(val)) < 0) par.sys.error("loop: no name");
                             } else xid[i] = -1;
                             val = par.snext(false); if (val.Length < 1) break;
-                            xstr[i] = val.Substring(1);
+                            xstr[i] = val.Substring(1); if (xstr[i] == "") xstr[i] = " ";
                             xout[i] = (int)(par.nnext(false).get_up());
                             i++;
                         }
@@ -2007,8 +2012,7 @@ namespace shard0
                             i0 = 0; while (i0 < 10) _out[i0++]="";
                             i0 = 1; while (i0 < i) {
                                 if (xid[i0] > -1) {
-                                    if (!root.calc[xid[i0]].exist()) root.values[xid[i0]].calc(prec);
-                                    _res1 = root.calc[xid[i0]].toint();
+                                    _res1 = root.values[xid[i0]].check_calc(xid[i0],prec).toint();
                                     _out[xout[i0]] += _res1.ToString(xstr[i0]);
                                 } else {
                                     _out[xout[i0]] += xstr[i0];
