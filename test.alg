@@ -1,6 +1,7 @@
 xy=600,600
-m=40
-`screen xy, max variable number
+m=50,4,1000000
+`screen xy
+`max variable number, variable deep, precusion for noninteger exponent
 ##_fact#1*#0
 `macro, 1 parm
 ##fact#1(1#_fact(2:(#0)))
@@ -19,21 +20,27 @@ t4!11,t3,t2,t1
 `fast expand at t4, max vars in = 11
 `t4$t3,t2,t1
 `slow expand (but faster on small expression)
-
 x=a^(b+1)
 y=2*a^(b+1)+x+x*x
 y$x$
 
-e=
-exp=^e+1+e+e^2/2+e^3/6
-`fast power serie on variable e 
-e1=/1000+e^100
-`precusion control, max = 1000 decimal
-`   use at graph and calc
-
 abc= a*b*c
 abc@t4=0
 `extract multiplier - may be single variable or monomial
+
+e=
+e1=/1000+e/10
+`precusion control, max = 1000 decimal
+exp=^e1+e1+e1^2/2+e1^3/4+e1^4/6
+`fast power serie on variable e 
+`   use at graph and calc
+exp_o=exp*1000000000
+calc_exp&1,100,e,exp_o""1
+`calculate exp(e), e=1:100, out to file 1 format ""
+v=
+v:4,3,2
+dv=v+'v+''v+'''v
+diff&0,10,v,dv""1
 
 xa=
 ya=
@@ -52,14 +59,12 @@ br=250-br2^(1/4)*11
 cr2=xca^2+yca^2
 cr=250-cr2^2/6000000
 gr=0
-a~1000000,0,0,600,600,xa,ya,br,cr,gr
-`graph(calc precusion,uper left(0,0), size(600,600)) (xa,ya) -> (br,cr)   input vars must be empty
+graph_2x2d~0,0,600,600,xa,ya,br,cr,gr
+`graph(uper left(0,0), size(600,600)) (xa,ya) -> (br,cr)   input vars must be empty
 t=
 tt=t/600/3-3
 xt=t/6
 ytt=tt^6 + 2*tt^5 + tt^4 + 6*tt^3 + tt^2
 yt=300+ytt*4
-a~10000,0,0,600,600,t,xt,yt
+graph_1d~0,0,600,600,t,xt,yt
 `graph (t) -> (xt,yt)
-a&1000000,1,100,e,exp""0
-`calculate exp(e), e=1:100, out to file 0 format ""
