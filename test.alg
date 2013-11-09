@@ -31,7 +31,7 @@ abc@t4=0
 e=
 e1=/1000+e/10
 `precusion control, max = 1000 decimal
-exp=^e1+e1+e1^2/2+e1^3/4+e1^4/6
+exp=^e1+e1+e1^2/#fact(2)+e1^3/#fact(4)+e1^4/#fact(6)
 `fast power serie on variable e 
 `   use at graph and calc
 exp_o=exp*1000000000
