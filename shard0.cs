@@ -438,10 +438,12 @@ namespace shard0
                 for (int i = 0; i < head.head.size; i++) vars[i] = new num(0);
             }
         }
-        public void addvar(string s, num n) {
-            int i = head.head.find_val(s);
+        public void addvar(int val, num n) {
             set_vars();
-            vars[i].add(n);
+            vars[val].add(n);
+        }
+        public void addvar(string s, num n) {
+            addvar(head.head.find_val(s),n);
         }
         public void addvar(string s, int n) {
             addvar(s,new num(n));
@@ -1447,31 +1449,42 @@ namespace shard0
         StreamReader fin;
         StreamWriter[] fout;
         parse head;
-        int nline,pr_was;
+        int nline,lines,pr_was,l_was;
         string buf,nout;
         public Boolean has, err;
         public fileio(string nin, string _nout, parse h)
         {
+            StreamReader fc;
+            fc = new StreamReader(nin);
+            lines = 0; while (fc.ReadLine() != null) lines++;
+            fc.Close();
             fin = new StreamReader(nin);
             nout = _nout;
             fout = new StreamWriter[10];
             fout[0] = new StreamWriter(nout + "0");
             nline = 0; has = true; err = false;
-            head = h; buf = ""; pr_was = 0;
+            head = h; buf = ""; pr_was = 0; l_was = 0;
         }
 
         public void progr (int now, int all) {
             if (all > 11) {
-                int pr_now = now*(Program.m0.sx-1)/all;
+                if (now > all) now = all;
+                bool flg = false;
+                int pr_now = now*(Program.m0.sx-1)/all, l_now = nline*(Program.m0.sx-1)/lines;
                 if (pr_now < pr_was) {
                     for (int i = 0; i < Program.m0.sx; i++) Program.m0.bm.SetPixel(i, 0, Color.FromArgb(0, 0, 255));
-                    pr_was = 0; if (pr_now==0) pr_now++;
+                    pr_was = 0; flg = true;
                 }
                 if (pr_now != pr_was) {
                     for (int i = pr_was; i < pr_now; i++) Program.m0.bm.SetPixel(i, 0, Color.FromArgb(255, 0, 0));
-                    Program.m0.Set(0);
+                    flg = true;
                 }
-                pr_was = pr_now;
+                if (l_now != l_was) {
+                    for (int i = 0; i < Program.m0.sx; i++) Program.m0.bm.SetPixel(i, 1, (i < l_now ? Color.FromArgb(255, 0, 0) : Color.FromArgb(0, 0, 255)));
+                    flg = true;
+                }
+                if (flg) Program.m0.Set(0);
+                pr_was = pr_now; l_was = l_now;
             }
         }
         public void addline(string add){
@@ -1784,41 +1797,78 @@ namespace shard0
                                       }
                                       i0++;
                                   }
-                                  if ((deep > 0) || (isdeep && isname)) par.sys.error("wrong exp");
+                                  if ((deep > 0)) par.sys.error("wrong exp");
                                   if (isname) {
                                       par.snext(false);
-                                      num ee = new num(1);
+                                      num _now = new num(), _add = new num(0);
                                       bool flg = true;
-                                      ee.unset();
+                                      int _sign = 0, _val = -1; _now.unset();
                                       while (flg) {
                                           if (par.isdelim(par.now())) {
                                               switch(par.now()){
                                                   case ')':
                                                       flg = false;
+                                                      par.snext(false);
                                                       break;
                                                   case '+':
-                                                      ee.set_sign(1);
+                                                      if (_now.exist()) {
+                                                          if (_val < 0) _add.add(_now); else tn.addvar(_val,_now);
+                                                          _now.unset();
+                                                      }
+                                                      _sign = 1; _val = -1; par.snext(false);
                                                       break;
                                                   case '-':
-                                                      ee.set_sign(-1);
+                                                      if (_now.exist()) {
+                                                          if (_val < 0) _add.add(_now); else tn.addvar(_val,_now);
+                                                          _now.unset();
+                                                      }
+                                                      _sign = -1; _val = -1; par.snext(false);
                                                       break;
                                                   case '*':
+                                                      par.snext(false);
+                                                      if (par.isnum(par.now())) {
+                                                            if (!_now.exist()) par.sys.error("wrong exp");
+                                                            _now.mul(par.nnext(false));
+                                                      } else if (par.now() == '(') {
+                                                            if (!_now.exist()) par.sys.error("wrong exp");
+                                                            _now.mul(par.calc0());
+                                                      } else {
+                                                            if (!_now.exist()) {
+                                                                if (_sign < 0) _now.set(-1); else _now.set(1);
+                                                                _sign = 0;
+                                                            }
+                                                            if (_val > -1) par.sys.error("wrong exp");
+                                                            _val = root.find_val(par.snext(false));
+                                                      }
+                                                      break;
+                                                  case '(':
+                                                      _now.set(par.calc0());
+                                                      if (_sign < 0) _now.neg();
+                                                      _sign = 0;
                                                       break;
                                                   default:
-                                                      par.sys.error("worng exp");
+                                                      par.sys.error("wrong exp");
                                                       break;
                                               }
-                                              par.snext(false);
                                           } else {
-                                              if (par.isnum(par.now())) ee.set_up(par.nnext(false).get_up());
-                                              else {
-                                                  if (!ee.exist()) ee.set_up(1); 
-                                                  tn.addvar(par.snext(false),ee);
-                                                  ee.unset();
+                                              if (par.isnum(par.now())) {
+                                                  _now.set(par.nnext(false));
+                                                  if (_sign < 0) _now.neg();
+                                                  _sign = 0;
+                                              } else {
+                                                  if (!_now.exist()) {
+                                                      _now.set_up(1); 
+                                                      if (_sign < 0) _now.neg();
+                                                  }
+                                                  if (_val > -1) par.sys.error("wrong exp");
+                                                  _val = root.find_val(par.snext(false));
                                               }
                                           }
                                       }
-                                      if (ee.exist()) tn.non.add(ee);
+                                      if (_now.exist()) {
+                                          if (_val < 0) _add.add(_now); else tn.addvar(_val,_now);
+                                      }
+                                      tn.non.add(_add);
                                   } else {
                                       tn.non.add(par.calc0());
                                   }
@@ -2126,7 +2176,7 @@ namespace shard0
                         m0.rp = true;
                      break;
                      case '&':
-                        BigInteger _fr,_to,_one = 1,_res1;
+                        BigInteger _fr,_fr0,_to,_one = 1,_res1;
                         par.snext(false); 
                         _fr = (par.isnum(par.now()) ? par.nnext(false).get_up() : root.get_val(root.find_val(par.snext(false))).toint());
                         par.snext(false);
@@ -2146,7 +2196,7 @@ namespace shard0
                         }
                         if (root.values[xid[0]] != null) par.sys.error("wrong");
                         string[] _out = new string[11];
-                        while (_fr <= _to)
+                        _fr0 = _fr; while (_fr <= _to)
                         {
                             root.uncalc();
                             root.set_var(xid[0],new num(1, _fr, _one));
@@ -2164,6 +2214,7 @@ namespace shard0
                                 if (_out[i0]!="") par.sys.wline(i0,_out[i0]);
                                 i0++;
                             }
+                            root.sys.progr((int)(_fr-_fr0),(int)(_to-_fr0));
                             _fr++;
                         }
                         break;
