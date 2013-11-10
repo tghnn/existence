@@ -1240,6 +1240,7 @@ namespace shard0
             for (i0 = 0; i0 < dict.nvars; i0++) ret.Key.key[i0] = 0;
             for (i0 = 0; i0 < dict.root.vars; i0++)
             {
+                if (o.exps[dict.root.var_to_val(i0)].vars != null) dict.root.sys.error("cant fast on complex exp");
                 if (o.exps[dict.root.var_to_val(i0)].non.nonzero()) 
                     ret.Key.key[dict.var(i0)] = dict.exp(o.exps[dict.root.var_to_val(i0)].non);
             }
@@ -1924,7 +1925,7 @@ namespace shard0
                      break;
                      case ':':
                         if ((i = root.find_var(par.name)) < 0) par.sys.error("var not exist");
-                        for (i0 = 1; par.more() && (i0 < root.deep); i0++) root.set_val(root.var_to_val(i) + i0,par.nnext(true));
+                        for (i0 = 0; par.more() && (i0 < root.deep); i0++) root.set_val(root.var_to_val(i) + i0,par.nnext(true));
                             break;
                      case '$':
                         if ((i = root.find_var(par.name)) < 0) par.sys.error("var not exist");
