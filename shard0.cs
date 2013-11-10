@@ -663,15 +663,14 @@ namespace shard0
         public void mul(ref one a)
         {
             int i;
-            bool rt = true;
             if (head.head != a.head.head) return;
             mult.mul(a.mult);
             if (a.islist) 
             for (i = 0; a.list[i] > -1; i++) { 
-                rt = rt && exps[a.list[i]].add(ref a.exps[a.list[i]],1);
+                exps[a.list[i]].add(ref a.exps[a.list[i]],1);
             } else
             for (i = 0; i < head.head.size; i++) { 
-                rt = rt && exps[i].add(ref a.exps[i],1);
+                exps[i].add(ref a.exps[i],1);
             }
             islist = false;
         }
@@ -889,6 +888,7 @@ namespace shard0
 
                         mtmp.data[1].RemoveAt(0); mtmp.add(1, ref id.data[_exp.non.get_sign() > 0 ? 1 : 0]);
                         for (j = (int)_exp.non.get_up(); j > 1; j--) mtmp.mul(1, ref id.data[_exp.non.get_sign() > 0 ? 1 : 0]);
+
                         mul(ud, ref mtmp.data[1]);
 
                         add(ud, ref mtmp.data[0]);
@@ -1288,7 +1288,7 @@ namespace shard0
             data[ud] = new SortedDictionary<mao_key, num>();
             foreach (KeyValuePair<mao_key, num> d in m0) muladd(ud, ref tmp, d);
         }
-        public void mul(int ud, SortedDictionary<mao_key, num> m0, SortedDictionary<mao_key, num> m1)
+        public void mul(int ud, ref SortedDictionary<mao_key, num> m0, ref SortedDictionary<mao_key, num> m1)
         {
             data[ud].Clear();
             foreach (KeyValuePair<mao_key, num> d in m0) muladd(ud, ref m1, d);
@@ -1310,9 +1310,10 @@ namespace shard0
         }
         public many to_many(ref ids h, int m)
         {
+            int i=0, cn = data[0].Count + data[1].Count;
             many ret = new many(ref h,m); ret.data[1].RemoveAt(0);
-            foreach (KeyValuePair<mao_key, num> d in data[0]) ret.data[0].Add(to_one(d, ref ret));
-            foreach (KeyValuePair<mao_key, num> d in data[1]) ret.data[1].Add(to_one(d, ref ret));
+            foreach (KeyValuePair<mao_key, num> d in data[0]) {ret.data[0].Add(to_one(d, ref ret)); dict.root.sys.progr(i++,cn);}
+            foreach (KeyValuePair<mao_key, num> d in data[1]) {ret.data[1].Add(to_one(d, ref ret)); dict.root.sys.progr(i++,cn);}
             return ret;
         }
 
@@ -1320,6 +1321,7 @@ namespace shard0
         {
             dict = _m.dict;
             many_as_one tmp = new many_as_one(ref dict);
+            many_as_one _tmp = new many_as_one(ref dict);
             many_as_one fr = new many_as_one(ref dict);
             num exp = dict.exps[_e], nexp = new num(0);
             int i0,_eu = (int)(exp.get_up());
@@ -1338,30 +1340,20 @@ namespace shard0
             _data_i();
             data[0].Add(new mao_key(ref dict), new num(1));
             data[1].Add(new mao_key(ref dict), new num(1));
-            switch (_eu)
-            {
-                case 0: return; 
-                case 1:
-                    set(ref fr);
-                    break;
-                case 2:
-                    mul(0,fr.data[0],fr.data[0]); mul(1,fr.data[1],fr.data[1]);
-                    break;
-                default:
-                    if ((_eu & 1) == 0)
-                    {
-                        mul(0, fr.data[0], fr.data[0]); mul(1, fr.data[1], fr.data[1]);
-                    }
-                    else set(ref fr);
-                    for (i0 = (_eu >> 1); i0 > 0; i0--) {
-                        for (int i = 0; i < 2; i++)
-                        {
-                            tmp.mul(i, data[i], fr.data[i]);
-                            mul(i, tmp.data[i], fr.data[i]);
-                        }
-                    }
-                    break;
+
+            tmp.set(ref fr);
+            for (int i = _eu; i > 0; i >>= 1) { 
+                if ((i&1) != 0) {
+                     mul(0,ref tmp.data[0]);
+                     mul(1,ref tmp.data[1]);
+                }
+                if (i > 1) {
+                    _tmp.set(ref tmp);
+                    tmp.mul(0,ref _tmp.data[0], ref _tmp.data[0]);
+                    tmp.mul(1,ref _tmp.data[1], ref _tmp.data[1]);
+                }
             }
+
             if (exp.get_sign() < 0) {tmp.data[0] = data[0]; data[0] = data[1]; data[1] = tmp.data[0];}
         }
         public bool expand(int n, ref many_as_one e, int id)
@@ -1375,7 +1367,7 @@ namespace shard0
             me[0] = new many_as_one(ref e,0);
             me[1] = new many_as_one(ref e,1);
             if ((e.data[0].Count < 1) || (e.data[1].Count < 1)) dict.root.sys.error("wrong");
-            int pall = data[n].Count, pnow = 0;
+            int pnow = 0;
             foreach (KeyValuePair<mao_key, num> u in data[n]) 
             {
                 tex=u.Key.key[ex];
@@ -1392,7 +1384,7 @@ namespace shard0
                 if (me[tex] != null) tu.Key.key[ex] = 0; else tex = 0;
                 if (ae[tex] == null) ae[tex] = new many_as_one(ref dict);
                 ae[tex].add(0,tu);
-                dict.root.sys.progr(pnow++,pall);
+                dict.root.sys.progr(pnow++,data[n].Count);
             }
             max_d.neg();
             for (tex = 0; tex < 254; tex++) 
@@ -1781,12 +1773,12 @@ namespace shard0
                                   if (par.isnum(par.now())) tn.non.set(par.nnext(false)); else tn.addvar(par.snext(false),1);
                               } else {
                                   int deep = 1, i0 = par.pos + 1;
-                                  bool isname = false, isdeep = false;
+                                  bool isname = false;
                                   while ((i0 < par.val.Length) && (deep > 0)) {
                                       if (par.isdelim(par.val[i0])) {
                                           switch (par.val[i0]) {
                                               case '(':
-                                                  deep++; isdeep = true;
+                                                  deep++;
                                                   break;
                                               case ')':
                                                   deep--;
@@ -2177,7 +2169,20 @@ namespace shard0
                      break;
                      case '&':
                         BigInteger _fr,_fr0,_to,_one = 1,_res1;
+                        int _typ = 0;
                         par.snext(false); 
+                        switch (par.now()) {
+                            case 'i':
+                                _typ = 0;
+                                break;
+                            case 'r':
+                                _typ = 1;
+                                break;
+                            default:
+                                root.sys.error("wrong & type");
+                                break;
+                        }
+                        par.pos++;
                         _fr = (par.isnum(par.now()) ? par.nnext(false).get_up() : root.get_val(root.find_val(par.snext(false))).toint());
                         par.snext(false);
                         _to = (par.isnum(par.now()) ? par.nnext(false).get_up() : root.get_val(root.find_val(par.snext(false))).toint());
@@ -2203,8 +2208,12 @@ namespace shard0
                             i0 = 0; while (i0 < 10) _out[i0++]="";
                             i0 = 1; while (i0 < i) {
                                 if (xid[i0] > -1) {
-                                    _res1 = root.get_val(xid[i0]).toint();
-                                    _out[xout[i0]] += _res1.ToString(xstr[i0]);
+                                    if (_typ == 0) {
+                                        _res1 = root.get_val(xid[i0]).toint();
+                                        _out[xout[i0]] += _res1.ToString(xstr[i0]);
+                                    } else {
+                                        _out[xout[i0]] += root.get_val(xid[i0]).print("","-","","");
+                                    }
                                 } else {
                                     _out[xout[i0]] += xstr[i0];
                                 }
