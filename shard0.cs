@@ -856,38 +856,38 @@ namespace shard0
             }
         }
 
-        public bool revert(int ud, int _id) //_id^(-x) -> /_id^(x)
+        public bool revert(int ud, int val) //_id^(-x) -> /_id^(x)
         {
             exp _min = null;
-            foreach (one u in data[ud]) {exp tmp = u.exps[_id]; if (_min == null) _min = new exp(ref tmp); else _min.min(ref tmp);}
+            foreach (one u in data[ud]) {exp tmp = u.exps[val]; if (_min == null) _min = new exp(ref tmp); else _min.min(ref tmp);}
             if (_min.iszero()) return false;
-            foreach (one u in data[ud]) u.exps[_id].add(ref _min,-1);
-            foreach (one d in data[1-ud]) d.exps[_id].add(ref _min,-1);
+            foreach (one u in data[ud]) u.exps[val].add(ref _min,-1);
+            foreach (one d in data[1-ud]) d.exps[val].add(ref _min,-1);
             return true;
         }
 
-        public bool expand(int ud, int _id)
+        public bool expand(int ud, int val)
         {
             int i,j;
             bool ret = false;
             exp _exp;
             num _dex = new num();
-            many id = head.values[_id];
+            many id = head.values[head.val_to_var(val)];
             for (i = 0; i < data[ud].Count; i++)
             {
-                _exp = new exp(ref data[ud][i].exps[_id]);
+                _exp = new exp(ref data[ud][i].exps[val]);
                 if ((_exp.vars == null) && _exp.non.nonzero()) {
                     if (_exp.non.get_down() == 1)
                     {
                         many mtmp = new many(ref head,0);
                         mtmp.add(0, ref id.data[_exp.non.get_sign() > 0 ? 0 : 1]);
                         for (j = (int)_exp.non.get_up(); j > 1; j--) mtmp.mul(0, ref id.data[_exp.non.get_sign() > 0 ? 0 : 1]);
-                        data[ud][i].exps[_id].zero();
+                        data[ud][i].exps[val].zero();
                         one otmp = data[ud][i];
                         mtmp.mul(0, ref otmp);
                         data[ud].RemoveAt(i);
 
-                        mtmp.add(1, ref id.data[_exp.non.get_sign() > 0 ? 1 : 0]);
+                        mtmp.data[1].RemoveAt(0); mtmp.add(1, ref id.data[_exp.non.get_sign() > 0 ? 1 : 0]);
                         for (j = (int)_exp.non.get_up(); j > 1; j--) mtmp.mul(1, ref id.data[_exp.non.get_sign() > 0 ? 1 : 0]);
                         mul(ud, ref mtmp.data[1]);
 
@@ -911,7 +911,7 @@ namespace shard0
                                 ru = new one(ref u); rd = new one(ref d);
                                 for (j = (int)_exp.non.get_up(); j > 1; j--) ru.mul(ref u);
                                 for (j = (int)_exp.non.get_up(); j > 1; j--) rd.mul(ref d);
-                                data[ud][i].exps[_id].zero();
+                                data[ud][i].exps[val].zero();
                                 d.div();
                                 data[ud][i].mul(ref u);
                                 data[ud][i].mul(ref d);
@@ -924,20 +924,20 @@ namespace shard0
             return ret;
         }
 
-        public void revert(int _id)
+        public void revert(int val)
         {
-            if (head.values[_id] == null) return;
-            revert(0,_id);
-            revert(1,_id);
+            if (head.values[head.val_to_var(val)] == null) return;
+            revert(0,val);
+            revert(1,val);
         }
-        public void expand(int _id)
+        public void expand(int val)
         {
             bool f,f0,f1;
-            if (head.values[_id] == null) return;
+            if (head.values[head.val_to_var(val)] == null) return;
             f = true; while ( f )
             {
-                f0 = expand(0,_id);
-                f1 = expand(1,_id);
+                f0 = expand(0,val);
+                f1 = expand(1,val);
                 f = f0 | f1;
                 if (f) simple();
                 f = false;
@@ -1857,8 +1857,8 @@ namespace shard0
                                                   _sign = 0;
                                               } else {
                                                   if (!_now.exist()) {
-                                                      _now.set_up(1); 
-                                                      if (_sign < 0) _now.neg();
+                                                      if (_sign < 0) _now.set(-1); else _now.set(1); 
+                                                      _sign = 0;
                                                   }
                                                   if (_val > -1) par.sys.error("wrong exp");
                                                   _val = root.find_val(par.snext(false));
@@ -1987,7 +1987,7 @@ namespace shard0
                         {
                             val = par.snext(true); if (val.Length < 1) break;
                             i0 = root.find_val(val);
-                            if (i0 == i) par.sys.error("recursion - look recursion");
+                            if (root.val_to_var(i0) == i) par.sys.error("recursion - look recursion");
                             root.values[i].revert(i0);
                             _id.Add(i0);
                             if (par.now() == '$') _div=true;
