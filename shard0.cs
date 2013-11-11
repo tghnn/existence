@@ -12,14 +12,14 @@ using System.Numerics;
 
 namespace shard0
 {
-    public partial class shard0 : Form
+    public partial class Form1 : Form
     {
         public System.Drawing.Bitmap bm;
         public int sx, sy;
         delegate void SetCallback(int i);
         System.Drawing.Graphics Gr;
         public bool rp;
-        public shard0(int x, int y)
+        public Form1(int x, int y)
         {
             int i0,i1;
             rp = true;
@@ -33,7 +33,7 @@ namespace shard0
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
             Gr = this.CreateGraphics();
-            Paint += new System.Windows.Forms.PaintEventHandler(this.shard0_Paint);
+            Paint += new System.Windows.Forms.PaintEventHandler(this.Form1_Paint);
             InitializeComponent();
         }
         public void Set(int i)
@@ -49,11 +49,11 @@ namespace shard0
                 Gr.DrawImageUnscaled(bm, 0, 0);
             }
         }
-        private void shard0_Shown(object sender, EventArgs e)
+        private void From1_Shown(object sender, EventArgs e)
         {
             if (rp) Gr.DrawImageUnscaled(bm, 0, 0);
         }
-        private void shard0_Paint(object sender, PaintEventArgs e)
+        private void Form1_Paint(object sender, PaintEventArgs e)
         {
             if (rp) Gr.DrawImageUnscaled(bm, 0, 0);
         }
@@ -128,10 +128,12 @@ namespace shard0
         }
         public void set_var(int var, num n)
         {
+           if (calc[var*deep].exist()) sys.error("already set");
            calc[var*deep].set(n);
         }
         public void set_val(int val, num n)
         {
+           if (calc[val].exist()) sys.error("already set");
            calc[val].set(n);
         }
         public void set_var_onval(int val, num n)
@@ -1573,10 +1575,10 @@ namespace shard0
             if (val.Substring(0,2) == "##")
             {
                 pos = 2; name = snext(false);
-                for (i0 = 0; i0 < m_name.Count; i0++) if (m_name[i0].IndexOf("#" + name + "(") > -1) sys.error("macro: name intersect");
                 if (!isnum(val, pos+1)) sys.error("macro: wrong num");
-                int _np = (int)(val[pos+1] - '0'); string _m = val.Substring(pos + 2);
-                m_name.Add("#" + name + "("); m_nparm.Add(_np); macro.Add(_m);
+                int _np = (int)(val[pos+1] - '0'), _nm = -1;
+                string _m = val.Substring(pos + 2);
+                for (i0 = 0; i0 < m_name.Count; i0++) if (m_name[i0].IndexOf("#" + name + "(") > -1) _nm = i0;
                 for (i0 = 0; i0 < 10; i0++)
                 {
                     if (_m.IndexOf("#" + ((char)(i0 + '0')).ToString()) > -1)
@@ -1584,12 +1586,18 @@ namespace shard0
                         if (i0 >= _np) sys.error("macro: used nonparm");
                     }
                 }
+                if (_nm < 0) {
+                    m_name.Add("#" + name + "("); m_nparm.Add(_np); macro.Add(_m);
+                } else {
+                    if (_np != m_nparm[_nm]) sys.error("macro: wrong num");
+                    macro[_nm] += "\n" + _m;
+                }
                 return false;
             }
             while ((i1 = val.LastIndexOf("#")) > -1) {
                 for (i0 = 0; i0 < macro.Count; i0++) if (i1 == val.IndexOf(m_name[i0], i1)) break;
                 if (i0 == macro.Count) sys.error("macro: not found");
-                s0 = macro[i0].Replace("#`","\n");
+                s0 = macro[i0].Replace("`\n","");
                 int ploop = -1,floop = 0,tloop = 0;
                 for (i2 = 0,i3 = i1 + m_name[i0].Length; i2 < m_nparm[i0]; i2++)
                 {
@@ -1734,7 +1742,7 @@ namespace shard0
 
     static class Program
     {
-        public static shard0 m0;
+        public static Form1 m0;
         static parse par;
         static void parseone(parse par, ids root, int i, one data)
         {
@@ -1901,7 +1909,7 @@ namespace shard0
             if ((sx < 100) || (sy < 100)) return -1;
             Application.SetCompatibleTextRenderingDefault(false);
             Application.EnableVisualStyles();
-            m0 = new shard0(sx, sy);
+            m0 = new Form1(sx, sy);
             Thread calc = new Thread(doit);
             calc.Start();
             Application.Run(m0);
@@ -2201,7 +2209,7 @@ namespace shard0
                         string[] _out = new string[11];
                         _fr0 = _fr; while (_fr <= _to)
                         {
-                            if ((_fr!=0) || (_to != 0)) root.uncalc();
+                            root.uncalc();
                             root.set_var(xid[0],new num(1, _fr, _one));
                             i0 = 0; while (i0 < 10) _out[i0++]="";
                             i0 = 1; while (i0 < i) {
