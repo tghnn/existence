@@ -695,6 +695,10 @@ namespace shard0
                 if (i == head.head.size) {list[n] = -1; islist = true;}
             }
         }
+        public void exp_zero(int val) {
+            islist = false;
+            exps[val].zero();
+        }
     }
     class many
     {
@@ -821,8 +825,8 @@ namespace shard0
             f_down.mult.one();
             for (i0 = 0; i0 < head.size; i0++)
             {
-                if (f_up.exps[i0].ispos()) f_up.exps[i0].zero();
-                if (f_down.exps[i0].ispos()) f_down.exps[i0].zero();
+                if (f_up.exps[i0].ispos()) f_up.exp_zero(i0);
+                if (f_down.exps[i0].ispos()) f_down.exp_zero(i0);
             }
             f_up.div();
             mul(0, ref f_up);
@@ -858,8 +862,8 @@ namespace shard0
             exp _min = null;
             foreach (one u in data[ud]) {exp tmp = u.exps[val]; if (_min == null) _min = new exp(ref tmp); else _min.min(ref tmp);}
             if (_min.iszero()) return false;
-            foreach (one u in data[ud]) u.exps[val].add(ref _min,-1);
-            foreach (one d in data[1-ud]) d.exps[val].add(ref _min,-1);
+            foreach (one u in data[ud]) {u.exps[val].add(ref _min,-1); u.islist = false; }
+            foreach (one d in data[1-ud]) {d.exps[val].add(ref _min,-1); d.islist = false; }
             return true;
         }
 
@@ -879,7 +883,7 @@ namespace shard0
                         many mtmp = new many(ref head,0);
                         mtmp.add(0, ref id.data[_exp.non.get_sign() > 0 ? 0 : 1]);
                         for (j = (int)_exp.non.get_up(); j > 1; j--) mtmp.mul(0, ref id.data[_exp.non.get_sign() > 0 ? 0 : 1]);
-                        data[ud][i].exps[val].zero();
+                        data[ud][i].exp_zero(val);
                         one otmp = data[ud][i];
                         mtmp.mul(0, ref otmp);
                         data[ud].RemoveAt(i);
@@ -909,7 +913,7 @@ namespace shard0
                                 ru = new one(ref u); rd = new one(ref d);
                                 for (j = (int)_exp.non.get_up(); j > 1; j--) ru.mul(ref u);
                                 for (j = (int)_exp.non.get_up(); j > 1; j--) rd.mul(ref d);
-                                data[ud][i].exps[val].zero();
+                                data[ud][i].exp_zero(val);
                                 d.div();
                                 data[ud][i].mul(ref u);
                                 data[ud][i].mul(ref d);
@@ -2075,9 +2079,9 @@ namespace shard0
                             odv.mult.neg();
                             if (odv.mult.nonzero()) {
                                 dv.mul(1, ref odv);
-                                dv.add(0, ref root.values[i].data[1]);
-                                dv.simple(0);
+                                dv.add(0, ref dv.data[1]);
                             }
+                            dv.data[1].RemoveRange(0,dv.data[1].Count); dv.data[1].Add(new one(dv,1)); dv.simple(0);
                             _ml.simple(); _dv.simple();
                             num e = new num(); 
                             for (i0 = 0; i0 < dv.data[0].Count; i0++)
