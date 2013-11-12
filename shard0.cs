@@ -1445,23 +1445,28 @@ namespace shard0
         parse head;
         int nline,lines,pr_was,l_was;
         string buf,nout;
-        public Boolean has, err;
+        public Boolean has, quit;
         public fileio(string nin, string _nout, parse h)
         {
-            StreamReader fc;
+            StreamReader fc; string ts;
             fc = new StreamReader(nin);
-            lines = 0; while (fc.ReadLine() != null) lines++;
-            if (lines > 11) lines--; fc.Close();
+            lines = 0; quit = false; while ((ts = fc.ReadLine()) != null)
+            {
+                if (ts == "`end") break;
+                if (ts == "`quit") { quit = true; break; }
+                lines++;
+            }
+            fc.Close();
             fin = new StreamReader(nin);
             nout = _nout;
             fout = new StreamWriter[10];
             fout[0] = new StreamWriter(nout + "0");
-            nline = 0; has = true; err = false;
+            nline = 0; has = true;
             head = h; buf = ""; pr_was = 0; l_was = 0;
         }
 
         public void progr (int now, int all) {
-            if (all > 11) {
+            if (all >= 11) {
                 if (now > all) now = all;
                 bool flg = false;
                 int pr_now = now*(Program.m0.sx-1)/all, l_now = nline*(Program.m0.sx-1)/lines;
@@ -1495,7 +1500,7 @@ namespace shard0
                 buf = (i < buf.Length ? buf.Substring(i+1) : "");
             } else {
                 nline++; r = fin.ReadLine();
-                if (r == null) { has = false; r = ""; }
+                if ((r == null) || (nline > lines)) { has = false; r = ""; }
             }
             return r;
         }
@@ -1503,12 +1508,13 @@ namespace shard0
         {
             fin.Close();
             foreach (StreamWriter _f in fout) if (_f != null) _f.Close();
+            if (quit) Environment.Exit(0);
         }
         public void error(string e)
         {
             fout[0].WriteLine(head.val);
             fout[0].WriteLine("Line {0:G} Pos {0:G}: " + e, nline, head.pos);
-            err = true; fout[0].Flush();
+            fout[0].Flush();
             Environment.Exit(-1);
         }
         public void wline(int n, string s)
@@ -1528,6 +1534,7 @@ namespace shard0
             if (fout[n] == null) fout[n] = new StreamWriter(nout + n.ToString().Trim());
             fout[n].Write(s);
             fout[n].Flush();
+
         }
         public void Dispose()
         {
