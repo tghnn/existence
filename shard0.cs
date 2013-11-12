@@ -288,7 +288,7 @@ namespace shard0
         public void simple()
         {
             BigInteger a;
-                if (up == 0) { sign = 1; down = 1; } else do
+                if (up == 0) { sign = 0; down = 1; } else do
                 {
                     a = BigInteger.GreatestCommonDivisor(up, down);
                     up = BigInteger.Divide(up, a);
@@ -2057,15 +2057,16 @@ namespace shard0
                         }                      
                         break;
                      case '@':
+                        bool equa;
                         i0 = 0; i = 0; val = "";
                         i0 = root.find_val(par.name);
                         if ((!par.more()) || ((i = root.find_var(val = par.snext(true))) < 0)) par.sys.error("must be defined many");
-                        if ((par.now() != '=') || (!par.more()) || ((val = par.snext(true)).Length < 1)) par.sys.error("must be equate");
+                        equa = (par.now() == '=');
                         if (root.val_to_var(i0) == i) par.sys.error("recursion - look recursion");
                         {
                             string nn;
                             int ip = root.last;
-                            one _dv,_ml;
+                            one _dv,_ml, odv;
                             if (root.values[root.val_to_var(i0)] == null)
                             {
                                 _ml = new one(ref root.values[i], 1);
@@ -2080,15 +2081,27 @@ namespace shard0
                             _dv = new one(ref _ml);
                             _dv.div();
                             many dv = new many(ref root.values[i]);
-
-                            one odv = new one(ref dv, new num(par.isnum(val) ? val : "1"));
-                            if (!par.isnum(val)) odv.exps[root.find_val(val)].non.set(1);
-                            odv.mult.neg();
-                            if (odv.mult.nonzero()) {
-                                dv.mul(1, ref odv);
-                                dv.add(0, ref dv.data[1]);
+                            
+                            if (equa)
+                            {
+                                val = par.snext(true);
+                                odv = new one(ref dv, new num(par.isnum(val) ? val : "1"));
+                                if (!par.isnum(val)) odv.exps[root.find_val(val)].non.set(1);
+                                odv.mult.neg();
+                                if (odv.mult.nonzero())
+                                {
+                                    dv.mul(1, ref odv);
+                                    dv.add(0, ref dv.data[1]);
+                                }
+                            }
+                            else
+                            {
+                                if (dv.data[1].Count != 1) par.sys.error("can't shard this many");
+                                odv = dv.data[1][0]; odv.div();
+                                dv.mul(0,ref odv);
                             }
                             dv.data[1].RemoveRange(0,dv.data[1].Count); dv.data[1].Add(new one(dv,1)); dv.simple(0);
+
                             _ml.simple(); _dv.simple();
                             num e = new num(); 
                             for (i0 = 0; i0 < dv.data[0].Count; i0++)
@@ -2101,7 +2114,7 @@ namespace shard0
                                     while (dv.data[0][i0].mul_t(ref _dv)) e.add(new num(1));
                                     dv.data[0][i0].mul(ref _ml);
                                 }
-                                nn = par.name + (e.nonzero() ? ((e.get_sign() < 0 ? "_" : "") + e.get_up().ToString().Trim() + (e.get_down() > 1 ? ("_" + e.get_down().ToString().Trim()) : "")) : "0");
+                                nn = par.name + (e.nonzero() ? ((e.get_sign() < 0 ? "m" : "p") + e.get_up().ToString().Trim() + (e.get_down() > 1 ? ("\\" + e.get_down().ToString().Trim()) : "")) : "0") + "_"+root.get_name(i);
                                 if ((i1 = root.find_var(nn)) < 0) { 
                                     i1 = root.set_empty(nn);
                                     if (i1 < 0) par.sys.error("too many");
