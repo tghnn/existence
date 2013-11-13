@@ -16,6 +16,7 @@ namespace shard0
     {
         public System.Drawing.Bitmap bm;
         public int sx, sy;
+        public int pr_now = 0, pr_was = 0, l_now = 0, l_was = 0;
         delegate void SetCallback(int i);
         System.Drawing.Graphics Gr;
         public bool rp;
@@ -46,7 +47,21 @@ namespace shard0
             }
             else
             {
-                Gr.DrawImageUnscaled(bm, 0, 0);
+            bool flg = false;
+                if (pr_now < pr_was) {
+                    for (int i0 = 0; i0 < sx; i0++) bm.SetPixel(i0, 0, Color.FromArgb(0, 0, 255));
+                    pr_was = 0; flg = true;
+                }
+                if (pr_now != pr_was) {
+                    for (int i0 = pr_was; i0 < pr_now; i0++) bm.SetPixel(i0, 0, Color.FromArgb(255, 0, 0));
+                    flg = true;
+                }
+                if (l_now != l_was) {
+                    for (int i0 = 0; i0 < sx; i0++) bm.SetPixel(i0, 1, (i0 < l_now ? Color.FromArgb(255, 0, 0) : Color.FromArgb(0, 0, 255)));
+                    flg = true;
+                }
+                pr_was = pr_now; l_was = l_now;
+                if ((i > 0) || (flg)) Gr.DrawImageUnscaled(bm, 0, 0);
             }
         }
         private void From1_Shown(object sender, EventArgs e)
@@ -81,7 +96,7 @@ namespace shard0
         }
         public int set_empty(string nam)
         {
-            if (last >= vars) return -1;
+            if (last >= vars) sys.error("too many vars");
             names[last] = nam;
             values[last] = null;
             for (int i = 0; i < deep; i++) calc[last*deep + i] = new num();
@@ -333,6 +348,13 @@ namespace shard0
         public void add_up(BigInteger a)
         {
             up += a;
+        }
+        public void add(int a)
+        {
+            if (sign == 0) set(a); else {
+                up += a;
+                if (up < 0) { up = -up; sign = -sign; } else if (up == 0) { sign = 0; down = 1; }
+            }
         }
         public void add(num a, int s)
         {
@@ -613,6 +635,13 @@ namespace shard0
             init(ref o.head);
             mult = new num(o.mult); mult.set_sign(mult.get_sign() * s);
             for (int i0 = 0; i0 < head.head.size; i0++) exps[i0] = new exp(ref o.exps[i0]);
+            if (o.islist)
+            {
+                int i;
+                islist = true;
+                for (i = 0; o.list[i] > -1; i++) list[i] = o.list[i];
+                list[i] = -1;
+            }
         }
         void init(ref many h)
         {
@@ -690,6 +719,7 @@ namespace shard0
         public void simple()
         {
             int i,n;
+            mult.simple();
             if (!islist) {
                 for (i = 0,n=0; (i < head.head.size) && (n < max_list-1); i++) if (!exps[i].iszero()) list[n++]=i;
                 if (i == head.head.size) {list[n] = -1; islist = true;}
@@ -707,10 +737,10 @@ namespace shard0
         public int id;
         public int tfunc;
         public num pfunc;
-        public many(ref ids h, int i)
+        public many(ref ids h, int var)
         {
             tfunc = -1; pfunc = new num(-1);
-            head = h; id = i;
+            head = h; id = var;
             data = new List<one>[2];
             data[0] = new List<one>();
             data[1] = new List<one>();
@@ -726,12 +756,21 @@ namespace shard0
             foreach (one m0 in m.data[0]) {one tmp = m0; data[0].Add(new one(ref tmp));}
             foreach (one m1 in m.data[1]) {one tmp = m1; data[1].Add(new one(ref tmp));}
         }
+        public many(ref many m, int ud)
+        {
+            tfunc = -1; pfunc = new num(0);
+            head = m.head; id = m.id;
+            data = new List<one>[2];
+            data[0] = new List<one>();
+            data[1] = new List<one>();
+            foreach (one m0 in m.data[ud]) { one tmp = m0; data[0].Add(new one(ref tmp)); }
+            data[1].Add(new one(this, 1));
+        }
         public int simple(int num)
         {
             int i, j,sm=0;
             for (i = 0; i < data[num].Count; i++)
             {
-                data[num][i].mult.simple();
                 if (data[num][i].mult.iszero()) {data[num].RemoveAt(i); i--; }
                 else {
                     for (j = i + 1; j < data[num].Count; j++)
@@ -857,7 +896,7 @@ namespace shard0
             }
         }
 
-        public bool revert(int ud, int val) //_id^(-x) -> /_id^(x)
+        public bool revert(int ud, int val) //_val^(-x) -> /_val^(x)
         {
             exp _min = null;
             foreach (one u in data[ud]) {exp tmp = u.exps[val]; if (_min == null) _min = new exp(ref tmp); else _min.min(ref tmp);}
@@ -928,9 +967,16 @@ namespace shard0
 
         public void revert(int val)
         {
-            if (head.values[head.val_to_var(val)] == null) return;
             revert(0,val);
             revert(1,val);
+        }
+        public bool revert()
+        {
+            if (data[1].Count > 1) return false;
+            one tmp = data[1][0]; tmp.div();
+            mul(0, ref tmp);
+            data[1][0] = new one(this, 1);
+            return true;
         }
         public void expand(int val)
         {
@@ -1134,26 +1180,26 @@ namespace shard0
 
     class mao_dict {
         public ids root;
-        public int nvars;
+        public int nvals;
         public num[] exps;
-        public int[] vars, to_var;
-        byte[] eadd;
-        int lexp, lvar;
+        public int[] vals, to_val;
+        byte[] eadd; bool[] eflg_a;
+        int lexp, lval;
         public mao_dict(int v, ref ids r)
         {
-            nvars = v; root = r;
+            nvals = v; root = r;
             exps = new num[256];
-            vars = new int[nvars];
-            to_var = new int[root.vars];
-            for (int i = 0; i < root.vars; i++) to_var[i] = -1;
-            eadd = new byte[256*256];
-            for (int i = 0; i < 256*256; i++) eadd[i] = 255;
+            vals = new int[nvals];
+            to_val = new int[root.size];
+            for (int i = 0; i < root.size; i++) to_val[i] = -1;
+            eadd = new byte[256*256]; eflg_a = new bool[256*256];
+            for (int i = 0; i < 256*256; i++) {eadd[i] = 255;}
             for (int i = 0; i < 256; i++) {
                 eadd[i] = (byte)i;
                 eadd[i << 8] = (byte)i;
             }
             lexp = 2; exps[0] = new num(0); exps[1] = new num(1);
-            lvar = 0;
+            lval = 0;
         }
         public byte exp(num e)
         {
@@ -1165,17 +1211,17 @@ namespace shard0
             exps[lexp++] = new num(e);
             return (byte)(lexp - 1);
         }
-        public int var(int v)
+        public int val(int v)
         {
-            if (to_var[v] < 0)
+            if (to_val[v] < 0)
             {
-                if (lvar >= nvars) return -1;
-                to_var[v] = lvar;
-                vars[lvar++] = v;
+                if (lval >= nvals) return -1;
+                to_val[v] = lval;
+                vals[lval++] = v;
             }
-            return to_var[v];
+            return to_val[v];
         }
-        public byte add(byte e0, byte e1)
+        public bool add(byte e0, byte e1, out byte res)
         {
             int ee = (int)e0 + (((int)e1) << 8);
             if (eadd[ee] == 255)
@@ -1184,8 +1230,9 @@ namespace shard0
                 sum.add(exps[e1]);
                 sum.simple();
                 eadd[ee] = exp(sum);
+                eflg_a[ee] = ((sum.get_sign() == 0) || (sum.get_sign() != exps[e1].get_sign()));
             }
-            return eadd[ee];
+            res = eadd[ee]; return eflg_a[ee];
         }
     }
     class mao_key :IComparable {
@@ -1194,29 +1241,29 @@ namespace shard0
         public mao_key(ref mao_dict d)
         {
             dict = d;
-            key = new byte[d.nvars];
-            for (int i = 0; i < d.nvars; i++) key[i]=0;
+            key = new byte[d.nvals];
+            for (int i = 0; i < d.nvals; i++) key[i]=0;
         }
         public mao_key(ref mao_dict d, byte[] k)
         {
             dict = d;
-            key = new byte[dict.nvars];
-            for (int i = 0; i < d.nvars; i++) key[i] = k[i];
+            key = new byte[dict.nvals];
+            for (int i = 0; i < d.nvals; i++) key[i] = k[i];
         }
         public mao_key(mao_key k)
         {
             dict = k.dict;
-            key = new byte[dict.nvars];
+            key = new byte[dict.nvals];
             set(k);
         }
         public void set(mao_key k)
         {
-            for (int i = 0; i < dict.nvars; i++) key[i] = k.key[i];
+            for (int i = 0; i < dict.nvals; i++) key[i] = k.key[i];
         }
         public int CompareTo(object obj) {
             if (obj == null) return 1;
             mao_key k = obj as mao_key;
-            for (int i = 0; i < dict.nvars; i++) {
+            for (int i = 0; i < dict.nvals; i++) {
                 if (key[i] > k.key[i]) return -1;
                 if (key[i] < k.key[i]) return 1;
             }
@@ -1241,25 +1288,25 @@ namespace shard0
         {
             int i0;
             KeyValuePair<mao_key, num> ret = new KeyValuePair<mao_key,num>(new mao_key(ref dict), new num(o.mult));
-            for (i0 = 0; i0 < dict.nvars; i0++) ret.Key.key[i0] = 0;
-            for (i0 = 0; i0 < dict.root.vars; i0++)
+            for (i0 = 0; i0 < dict.nvals; i0++) ret.Key.key[i0] = 0;
+            for (i0 = 0; i0 < dict.root.size; i0++)
             {
-                if (o.exps[dict.root.var_to_val(i0)].vars != null) dict.root.sys.error("cant fast on complex exp");
-                if (o.exps[dict.root.var_to_val(i0)].non.nonzero()) 
-                    ret.Key.key[dict.var(i0)] = dict.exp(o.exps[dict.root.var_to_val(i0)].non);
+                if (o.exps[i0].vars != null) dict.root.sys.error("cant fast on complex exp");
+                if (o.exps[i0].non.nonzero()) 
+                    ret.Key.key[dict.val(i0)] = dict.exp(o.exps[i0].non);
             }
             return ret;
         }
         public one to_one(KeyValuePair<mao_key, num> fr, ref many m)
         {
             int i;
-            fr.Value.simple();
             one ret = new one(ref m, fr.Value);
-            for (i = 0; i < dict.nvars; i++)
+            for (i = 0; i < dict.nvals; i++)
             {
                 if (fr.Key.key[i] != 0) 
-                    ret.exps[dict.root.var_to_val(dict.vars[i])].non.set(dict.exps[fr.Key.key[i]]);
+                    ret.exps[dict.vals[i]].non.set(dict.exps[fr.Key.key[i]]);
             }
+            ret.simple();
             return ret;
         }
 
@@ -1276,8 +1323,9 @@ namespace shard0
             int i;
             KeyValuePair<mao_key,num> tmp = new KeyValuePair<mao_key,num>(new mao_key(ref dict), new num(0));
             foreach (KeyValuePair<mao_key,num> d in fr) {
-                for (i = 0; i < dict.nvars; i++) {
-                    tmp.Key.key[i] = dict.add(a.Key.key[i],d.Key.key[i]);
+                for (i = 0; i < dict.nvals; i++) {
+//                    tmp.Key.key[i]; 
+                    dict.add(a.Key.key[i],d.Key.key[i], out tmp.Key.key[i]);
                 }
                 tmp.Value.set(a.Value); tmp.Value.mul(d.Value);
                 add(ud,tmp);
@@ -1310,10 +1358,10 @@ namespace shard0
             foreach (one o in m.data[0]) {one tmp = o; add(0, fr_one(ref tmp));}
             foreach (one o in m.data[1]) {one tmp = o; add(1, fr_one(ref tmp));}
         }
-        public many to_many(ref ids h, int m)
+        public many to_many(ref ids h, int var)
         {
             int i=0, cn = data[0].Count + data[1].Count;
-            many ret = new many(ref h,m); ret.data[1].RemoveAt(0);
+            many ret = new many(ref h,var); ret.data[1].RemoveAt(0);
             foreach (KeyValuePair<mao_key, num> d in data[0]) {ret.data[0].Add(to_one(d, ref ret)); dict.root.sys.progr(i++,cn);}
             foreach (KeyValuePair<mao_key, num> d in data[1]) {ret.data[1].Add(to_one(d, ref ret)); dict.root.sys.progr(i++,cn);}
             return ret;
@@ -1332,7 +1380,7 @@ namespace shard0
                 if ((fr.data[0].Count > 1) || (fr.data[1].Count > 1)) return;
                 if (! fr.data[0].ToArray()[0].Value.root((int)exp.get_down())) return;
                 if (! fr.data[1].ToArray()[0].Value.root((int)exp.get_down())) return;
-                for (i0 = 0; i0 < dict.nvars; i0++) 
+                for (i0 = 0; i0 < dict.nvals; i0++) 
                 {
                     nexp.set(dict.exps[fr.data[0].ToArray()[0].Key.key[i0]]);
                     nexp.mul(new num(1,new BigInteger(1),exp.get_down()));
@@ -1358,10 +1406,10 @@ namespace shard0
 
             if (exp.get_sign() < 0) {tmp.data[0] = data[0]; data[0] = data[1]; data[1] = tmp.data[0];}
         }
-        public bool expand(int n, ref many_as_one e, int id)
+        public bool expand(int n, ref many_as_one e, int val)
         {
             bool ret = false;
-            int ex = dict.var(id),ee; byte tex;
+            int ex = dict.val(val),ee; byte tex;
             num max_u = new num(0), max_d = new num(0), now_u = new num(0), now_d = new num(0);
             many_as_one[] me = new many_as_one[254], ae = new many_as_one[254];
             mao_key z = new mao_key(ref dict);
@@ -1466,25 +1514,12 @@ namespace shard0
         }
 
         public void progr (int now, int all) {
-            if (all >= 11) {
-                if (now > all) now = all;
-                bool flg = false;
-                int pr_now = now*(Program.m0.sx-1)/all, l_now = nline*(Program.m0.sx-1)/lines;
-                if (pr_now < pr_was) {
-                    for (int i = 0; i < Program.m0.sx; i++) Program.m0.bm.SetPixel(i, 0, Color.FromArgb(0, 0, 255));
-                    pr_was = 0; flg = true;
-                }
-                if (pr_now != pr_was) {
-                    for (int i = pr_was; i < pr_now; i++) Program.m0.bm.SetPixel(i, 0, Color.FromArgb(255, 0, 0));
-                    flg = true;
-                }
-                if (l_now != l_was) {
-                    for (int i = 0; i < Program.m0.sx; i++) Program.m0.bm.SetPixel(i, 1, (i < l_now ? Color.FromArgb(255, 0, 0) : Color.FromArgb(0, 0, 255)));
-                    flg = true;
-                }
-                if (flg) Program.m0.Set(0);
-                pr_was = pr_now; l_was = l_now;
-            }
+            if (now < 11) return;
+            if (now > all) now = all;
+            int pr_now = now*(Program.m0.sx-1)/all, l_now = nline*(Program.m0.sx-1)/lines;
+            if ((pr_now == Program.m0.pr_now) && (l_now == Program.m0.l_now)) return;
+            Program.m0.pr_now = pr_now; Program.m0.l_now = l_now; 
+            Program.m0.Set(0);
         }
         public void addline(string add){
             buf = add + buf;
@@ -1926,7 +1961,7 @@ namespace shard0
             return 0;
         }
         static void doit() {
-            int i,i0,i1;
+            int var0,var1,var2,val0;
             string val;
             int x0,x1,f0,f1,c0,c1;
             int[] xid = new int[99];
@@ -1942,79 +1977,75 @@ namespace shard0
                     {
                      case '=':
                         par.snext(false);
-                        if ((i = root.find_var(par.name)) < 0) i = root.set_empty(par.name);
-                        if (i < 0) par.sys.error("too many");
+                        if ((var0 = root.find_var(par.name)) < 0) var0 = root.set_empty(par.name);
                         int nowdiv = 0;
                         if (par.more()) {
-                            root.values[i] = new many(ref root,i);
+                            root.values[var0] = new many(ref root,var0);
                             switch (par.now())
                             {
                             case '/':
-                                par.snext(false); root.values[i].tfunc = 0;
-                                if (!par.isdelim(par.now())) root.values[i].pfunc = par.nnext(false);
+                                par.snext(false); root.values[var0].tfunc = 0;
+                                if (!par.isdelim(par.now())) root.values[var0].pfunc = par.nnext(false);
                                 break;
                             case '&':
-                                root.values[i].tfunc = 1; root.values[i].pfunc.set(0); par.snext(false);
+                                root.values[var0].tfunc = 1; root.values[var0].pfunc.set(0); par.snext(false);
                                 break;
                             case '^':
-                                root.values[i].tfunc = 2; root.values[i].pfunc.set(root.find_val(par.snext(true)));
-                                if (root.values[i].pfunc.get_sup() < 0) par.sys.error("row: no var");
+                                root.values[var0].tfunc = 2; root.values[var0].pfunc.set(root.find_val(par.snext(true)));
+                                if (root.values[var0].pfunc.get_sup() < 0) par.sys.error("row: no var");
                                 break;
                             }
                             while (par.more())
                             {
-                                root.values[i].data[nowdiv].Add(new one(ref root.values[i], new num(1)));
-                                parseone(par, root,i,root.values[i].data[nowdiv][root.values[i].data[nowdiv].Count-1]);
+                                root.values[var0].data[nowdiv].Add(new one(ref root.values[var0], new num(1)));
+                                parseone(par, root,var0,root.values[var0].data[nowdiv][root.values[var0].data[nowdiv].Count-1]);
                                 if (par.now() == '/')
                                 {
                                     if ((par.more()) && (nowdiv == 0))
                                     {
-                                        nowdiv = 1; root.values[i].data[1].RemoveAt(0);  par.pos++; 
+                                        nowdiv = 1; root.values[var0].data[1].RemoveAt(0);  par.pos++; 
                                     } else par.sys.error("wrong");
                                 }
                             }
-                            if (root.values[i].tfunc == 2) 
-                                root.values[i].revert_mult(0); 
-                            else 
-                                root.values[i].simple();
-                            par.sys.wstr(0,root.get_name(i) + " = "); root.values[i].print(0); 
+                            if (root.values[var0].tfunc == 2) root.values[var0].revert_mult(0); 
+                            else root.values[var0].simple();
+                            par.sys.wstr(0,root.get_name(var0) + " = "); root.values[var0].print(0); 
                         }
                      break;
                      case ':':
-                        if ((i = root.find_var(par.name)) < 0) par.sys.error("var not exist");
-                        for (i0 = 0; par.more() && (i0 < root.deep); i0++) root.set_val(root.var_to_val(i) + i0,par.nnext(true));
+                        if ((var0 = root.find_var(par.name)) < 0) par.sys.error("var not exist");
+                        for (int i = 0; par.more() && (i < root.deep); i++) root.set_val(root.var_to_val(var0) + i,par.nnext(true));
                             break;
                      case '$':
-                        if ((i = root.find_var(par.name)) < 0) par.sys.error("var not exist");
-                        if (root.values[i] == null) par.sys.error("empty name");
+                        if ((var0 = root.find_var(par.name)) < 0) par.sys.error("var not exist");
+                        if (root.values[var0] == null) par.sys.error("empty name");
                         {
                         List<int> _id = new List<int>();
                         bool _div = false;
                         while (par.more())
                         {
                             val = par.snext(true); if (val.Length < 1) break;
-                            i0 = root.find_val(val);
-                            if (root.val_to_var(i0) == i) par.sys.error("recursion - look recursion");
-                            root.values[i].revert(i0);
-                            _id.Add(i0);
+                            val0 = root.find_val(val);
+                            if (root.val_to_var(val0) == var0) par.sys.error("recursion - look recursion");
+                            root.values[var0].revert(val0);
+                            _id.Add(val0);
                             if (par.now() == '$') _div=true;
                         }
-                        for (int _i=0; _i < _id.Count; _i++) root.values[i].expand(_id[_i]);
-                        if (_div && (root.values[i].data[1].Count == 1))
+                        for (int i=0; i < _id.Count; i++) root.values[var0].expand(_id[i]);
+                        if (_div && (root.values[var0].data[1].Count == 1))
                         {
-                            root.values[i].data[1][0].div();
-                            one tmp = root.values[i].data[1][0];
-                            root.values[i].mul(0, ref tmp);
-                            root.values[i].data[1][0] = new one(ref root.values[i], 1);
-                            root.values[i].simple();
+                            root.values[var0].data[1][0].div();
+                            one tmp = root.values[var0].data[1][0];
+                            root.values[var0].mul(0, ref tmp);
+                            root.values[var0].data[1][0] = new one(ref root.values[var0], 1);
+                            root.values[var0].simple();
                         }
-                        par.sys.wstr(0,root.get_name(i) + " = "); root.values[i].print(0);
+                        par.sys.wstr(0,root.get_name(var0) + " = "); root.values[var0].print(0);
                         }
                         break;
                      case '!':
-                        if ((i = root.find_var(par.name)) < 0) par.sys.error("var not exist");
-                        if (root.values[i] == null) par.sys.error("empty name");
-                        root.values[i].revert(i);
+                        if ((var0 = root.find_var(par.name)) < 0) par.sys.error("var not exist");
+                        if (root.values[var0] == null) par.sys.error("empty name");
                         {
                         mao_dict mdict = new mao_dict((int)par.nnext(true).get_up(),ref root);
                         many_as_one[] mao_fr = new many_as_one[root.vars];
@@ -2022,68 +2053,54 @@ namespace shard0
                         bool _div = false;
                         while (par.more())
                         {
-                            val = par.snext(true); if (val.Length == 0) break; 
-                            if ((i0 = root.find_var(val)) < 0) par.sys.error("var not found");
-                            if (i0 == i) par.sys.error("recursion - look recursion");
-                            if (root.values[i0] != null) {
-                                root.values[i].revert(i0);
-                                _id.Add(i0);
-                                mao_fr[i0] = new many_as_one(ref root.values[i0],ref mdict);
+                            val = par.snext(true); if (val.Length < 1) break; 
+                            val0 = root.find_val(val);
+                            if (root.val_to_var(val0) == var0) par.sys.error("recursion - look recursion");
+                            if (root.values[root.val_to_var(val0)] != null) {
+                                root.values[var0].revert(val0);
+                                _id.Add(val0);
+                                mao_fr[val0] = new many_as_one(ref root.values[root.val_to_var(val0)],ref mdict);
                             }
                             if (par.now() == '$') _div = true;
                         }
-                        many_as_one mao_to = new many_as_one(ref root.values[i],ref mdict);
+                        many_as_one mao_to = new many_as_one(ref root.values[var0],ref mdict);
                         bool r = true;
                         while (r)
                         {
                             r = false;
-                            for (int _i = 0; _i < _id.Count; _i++)
+                            for (int i = 0; i < _id.Count; i++)
                             {
-                                r = mao_to.expand(ref mao_fr[_id[_i]], _id[_i]) || r;
+                                r = mao_to.expand(ref mao_fr[_id[i]], _id[i]) || r;
                             }
                             
                         }
-                        root.values[i] = mao_to.to_many(ref root,i);
-                        if (_div && (root.values[i].data[1].Count == 1))
+                        root.values[var0] = mao_to.to_many(ref root,var0);
+                        if (_div && (root.values[var0].data[1].Count == 1))
                         {
-                            root.values[i].data[1][0].div();
-                            one tmp = root.values[i].data[1][0];
-                            root.values[i].mul(0, ref tmp);
-                            root.values[i].data[1][0] = new one(ref root.values[i], 1);
-                            root.values[i].simple();
+                            root.values[var0].data[1][0].div();
+                            one tmp = root.values[var0].data[1][0];
+                            root.values[var0].mul(0, ref tmp);
+                            root.values[var0].data[1][0] = new one(ref root.values[var0], 1);
+                            root.values[var0].simple();
                         }
 
-                        par.sys.wstr(0,root.get_name(i) + " = "); root.values[i].print(0);
+                        par.sys.wstr(0,root.get_name(var0) + " = "); root.values[var0].print(0);
                         }                      
+                        GC.Collect();
                         break;
                      case '@':
-                        bool equa;
-                        i0 = 0; i = 0; val = "";
-                        i0 = root.find_val(par.name);
-                        if ((!par.more()) || ((i = root.find_var(val = par.snext(true))) < 0)) par.sys.error("must be defined many");
-                        equa = (par.now() == '=');
-                        if (root.val_to_var(i0) == i) par.sys.error("recursion - look recursion");
                         {
-                            string nn;
-                            int ip = root.last;
+                            char _c;
+                            string nn, nall = "", s_val;
                             one _dv,_ml, odv;
-                            if (root.values[root.val_to_var(i0)] == null)
-                            {
-                                _ml = new one(ref root.values[i], 1);
-                                _ml.exps[i0].non.set(1);
-                            }
-                            else
-                            {
-                                if ((root.values[root.val_to_var(i0)].data[0].Count != 1) || (root.values[root.val_to_var(i0)].data[1].Count != 1)) par.sys.error("one only");
-                                one tmp = root.values[root.val_to_var(i0)].data[0][0];
-                                _ml = new one(ref tmp);
-                            }
-                            _dv = new one(ref _ml);
-                            _dv.div();
-                            many dv = new many(ref root.values[i]);
-                            
-                            if (equa)
-                            {
+                            par.snext(false);
+                            var0 = root.val_to_var(root.find_val(par.name));
+                            if (root.values[var0] == null) par.sys.error("@ empty");
+                            x0 = 0; if (par.now() == '!') x0 = (int)par.nnext(true).get_up();
+                            mao_dict mdict = new mao_dict((x0 > 0 ? x0 : 6),ref root);
+                            many_as_one mdv = (x0 > 0 ? new many_as_one(ref root.values[var0], ref mdict) : new many_as_one(ref mdict));
+                            many dv = (x0 > 0 ? new many(ref root,0) : new many(ref root.values[var0]));
+                            if (par.now() == '=') {
                                 val = par.snext(true);
                                 odv = new one(ref dv, new num(par.isnum(val) ? val : "1"));
                                 if (!par.isnum(val)) odv.exps[root.find_val(val)].non.set(1);
@@ -2092,60 +2109,102 @@ namespace shard0
                                 {
                                     dv.mul(1, ref odv);
                                     dv.add(0, ref dv.data[1]);
+                                    dv.simple(0);
                                 }
+                                dv.data[1].RemoveRange(0, dv.data[1].Count); dv.data[1].Add(new one(ref dv, 1));
                             }
                             else
                             {
-                                if (dv.data[1].Count != 1) par.sys.error("can't shard this many");
-                                odv = dv.data[1][0]; odv.div();
-                                dv.mul(0,ref odv);
+                                if (!dv.revert()) par.sys.error("@ can't shard this many");
                             }
-                            dv.data[1].RemoveRange(0,dv.data[1].Count); dv.data[1].Add(new one(dv,1)); dv.simple(0);
+                            _c = par.now(); s_val = par.snext(true);
+                            if (_c == '/')
+                            {
+                                nn = par.name + "p1"; if(root.find_var(nn) > -1) par.sys.error("@ overwrite " + nn);
+                                var1 = root.set_empty(nn);
+                                nn = par.name + "m1"; if (root.find_var(nn) > -1) par.sys.error("@ overwrite " + nn);
+                                var2 = root.set_empty(nn);
+                                if (root.values[var0].data[1].Count > 1)
+                                {
+                                    root.values[var1] = new many(ref root.values[var0], 0);
+                                    root.values[var2] = new many(ref root.values[var0], 1);
+                                }
+                                else
+                                {
+                                    root.values[var1] = new many(ref root.values[var0]);
+                                    root.values[var1].revert();
+                                    root.values[var2] = new many(ref root, 1);
+                                }
 
+                                break;
+                            }
+                            switch (_c) {
+                                case '&':
+                                    _ml = new one(ref dv, 1);
+                                    _ml.exps[root.find_val(s_val)].non.set(1);
+                                    break;
+                                case '$':
+                                    var1 = root.val_to_var(root.find_val(s_val));
+                                    if (root.values[var1] == null) par.sys.error("@ empty $");
+                                    if ((root.values[var1].data[0].Count != 1) || (root.values[var1].data[1].Count != 1)) par.sys.error("one only");
+                                    one tmp = root.values[var1].data[0][0], tmp1 = root.values[var1].data[1][0];
+                                    tmp.mul(ref tmp1);
+                                    _ml = new one(ref tmp);
+                                    break;
+                                default:
+                                    par.sys.error("@ wrong shard opt");
+                                    _ml = new one(ref dv, 1);
+                                    break;
+                            }
+                            _dv = new one(ref _ml); _dv.div();
                             _ml.simple(); _dv.simple();
-                            num e = new num(); 
-                            for (i0 = 0; i0 < dv.data[0].Count; i0++)
+                            num e = new num(); int ip = root.last;
+                            for (int i0 = 0; i0 < dv.data[0].Count; i0++)
                             {
                                 e.zero();
                                 if (dv.data[0][i0].test_mul(ref _ml)) {
-                                    while (dv.data[0][i0].mul_t(ref _ml)) e.add(new num(-1));
+                                    while (dv.data[0][i0].mul_t(ref _ml)) e.add(-1);
                                     dv.data[0][i0].mul(ref _dv);
                                 } else if (dv.data[0][i0].test_mul(ref _dv)) {
-                                    while (dv.data[0][i0].mul_t(ref _dv)) e.add(new num(1));
+                                    while (dv.data[0][i0].mul_t(ref _dv)) e.add(1);
                                     dv.data[0][i0].mul(ref _ml);
                                 }
-                                nn = par.name + (e.nonzero() ? ((e.get_sign() < 0 ? "m" : "p") + e.get_up().ToString().Trim() + (e.get_down() > 1 ? ("\\" + e.get_down().ToString().Trim()) : "")) : "0") + "_"+root.get_name(i);
-                                if ((i1 = root.find_var(nn)) < 0) { 
-                                    i1 = root.set_empty(nn);
-                                    if (i1 < 0) par.sys.error("too many");
-                                    root.values[i1] = new many(ref root,i1);
+                                nn = s_val + (e.nonzero() ? ((e.get_sign() < 0 ? "m" : "p") + e.get_up().ToString().Trim() + (e.get_down() > 1 ? ("\\" + e.get_down().ToString().Trim()) : "")) : "_0") + "_" + par.name;
+                                if ((var1 = root.find_var(nn)) < 0) { 
+                                    var1 = root.set_empty(nn);
+                                    root.values[var1] = new many(ref root,var1);
+                                    nall += nn + ",";
+                                } else {
+                                    if (nall.IndexOf(nn + ",") < 0) par.sys.error("@ overwrite " + nn);
                                 }
-                                e.zero(); 
-                                one tmp = dv.data[0][i0];
-                                root.values[i1].data[0].Add(new one(ref tmp));
+                                e.zero();
+                                odv = dv.data[0][i0];
+                                root.values[var1].data[0].Add(new one(ref odv));
                                 root.sys.progr(i0,dv.data[0].Count);
                             }
-                            for (i0 = ip; i0 < root.last; i0++) {
+                            for (int i0 = ip; i0 < root.last; i0++) {
                                 par.sys.wstr(0,root.get_name(i0) + " = "); root.values[i0].print(0);
                             }
                         }
+                        GC.Collect();
                      break;
                      case '~':
+                        {
                         f0 = (int)(par.nnext(true).get_up());
                         f1 = (int)(par.nnext(true).get_up());
                         c0 = (int)(par.nnext(true).get_up());
                         c1 = (int)(par.nnext(true).get_up());
                         if ((f0 + c0 > m0.sx) || (f1 + c1 > m0.sy) || (c0 < 2) || (c1 < 2)) par.sys.error("wrong size");
-                        i = 0; i0 = -1;
-                        while (par.more() && (i < 6))
+                        int _all=0, _nul = -1;
+                        while(par.more() && (_all < 6))
                         {
                             val = par.snext(true); if (val.Length < 1) break;
-                            xid[i] = root.find_val(val);
-                            if (root.values[root.val_to_var(xid[i])] == null) i0 = i;
-                            i++;
+                            xid[_all] = root.find_val(val);
+                            if (root.values[root.val_to_var(xid[_all])] == null) _nul = _all;
+                            _all++;
                         }
                         m0.rp = false;
-                        if ((i0 == 0) && (i == 3)) for (x0 = 0; x0 < c0 * 6; x0++)
+                        if ((_nul == 0) && (_all == 3)) for (x0 = 0; x0 < c0 * 6; x0++)
                             {
                                 root.uncalc();
                                 root.set_var_onval(xid[0],new num(x0));
@@ -2154,8 +2213,8 @@ namespace shard0
                                 if (_r0 < 0) _r0 = 0; if (_r1 < 0) _r1 = 0;
                                 m0.bm.SetPixel((int)(_r0 % c0) + f0, (int)(_r1 % c1) + f1, Color.FromArgb(255, 255, 255));
                             }
-                        else if (i0 == 1) {
-                            if (i == 4)  for (x0 = 22; x0 < c0-22; x0 += 11)
+                        else if (_nul == 1) {
+                            if (_all == 4)  for (x0 = 22; x0 < c0-22; x0 += 11)
                             {
                                 for (x1 = 22; x1 < c1-22; x1 += 11)
                                 {
@@ -2177,10 +2236,10 @@ namespace shard0
                                 root.set_var_onval(xid[0],new num(x0));
                                 root.set_var_onval(xid[1],new num(x1));
                                 _r0 = (int)root.get_val(xid[2]).toint(); _r1 = _r0; _r2 = _r0;
-                                if (i > 3)
+                                if (_all > 3)
                                 {
                                     _r1 = (int)root.get_val(xid[3]).toint(); _r2 = 0;
-                                    if (i == 5)
+                                    if (_all == 5)
                                     {
                                         _r2 = (int)root.get_val(xid[4]).toint();
                                     }
@@ -2194,10 +2253,12 @@ namespace shard0
                         }
                         m0.Set(0);
                         m0.rp = true;
+                        }
                      break;
                      case '&':
+                         {
                         BigInteger _fr,_fr0,_to,_one = 1,_res1;
-                        int _typ = 0;
+                        int _typ = 0, _all, i0;
                         par.snext(false); 
                         switch (par.now()) {
                             case 'i':
@@ -2215,17 +2276,16 @@ namespace shard0
                         par.snext(false);
                         _to = (par.isnum(par.now()) ? par.nnext(false).get_up() : root.get_val(root.find_val(par.snext(false))).toint());
                         if ((xid[0] = root.find_var(par.snext(true))) < 0) par.sys.error("loop: no name");
-                        i = 1; while (par.more() && (i < xout.Length))
+                        for (_all = 1; par.more() && (_all < xout.Length); _all++)
                         {
                             par.snext(false);
                             if (par.now() != '"') {
                                 val = par.snext(false); if (val.Length < 1) break;
-                                xid[i] = root.find_val(val);
-                            } else xid[i] = -1;
+                                xid[_all] = root.find_val(val);
+                            } else xid[_all] = -1;
                             val = par.snext(false); if (val.Length < 1) break;
-                            xstr[i] = val.Substring(1);
-                            xout[i] = (int)(par.nnext(false).get_up());
-                            i++;
+                            xstr[_all] = val.Substring(1);
+                            xout[_all] = (int)(par.nnext(false).get_up());
                         }
                         if (root.values[xid[0]] != null) par.sys.error("wrong");
                         string[] _out = new string[11];
@@ -2234,7 +2294,7 @@ namespace shard0
                             if (_to != 0) root.uncalc();
                             root.set_var(xid[0],new num(1, _fr, _one));
                             i0 = 0; while (i0 < 10) _out[i0++]="";
-                            i0 = 1; while (i0 < i) {
+                            i0 = 1; while (i0 < _all) {
                                 if (xid[i0] > -1) {
                                     if (_typ == 0) {
                                         _res1 = root.get_val(xid[i0]).toint();
@@ -2254,6 +2314,7 @@ namespace shard0
                             root.sys.progr((int)(_fr-_fr0),(int)(_to-_fr0));
                             _fr++;
                         }
+                         }
                         break;
                     }
                 }
