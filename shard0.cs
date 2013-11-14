@@ -1016,7 +1016,7 @@ namespace shard0
         public void print(int f)
         {
             bool hasdiv;
-            string s0 = "";
+            string s0 = head.get_name(id) + " = ";
             int i;
             switch (tfunc) {
                 case 0:
@@ -2094,7 +2094,7 @@ namespace shard0
                             }
                             if (root.values[var0].tfunc == 2) root.values[var0].revert_mult(0); 
                             else root.values[var0].simple();
-                            par.sys.wstr(0,root.get_name(var0) + " = "); root.values[var0].print(0); 
+                            root.values[var0].print(0); 
                         }
                      break;
                      case ':':
@@ -2127,7 +2127,6 @@ namespace shard0
                             root.values[var0].data[1][0] = new one(ref root.values[var0], 1);
                             root.values[var0].simple();
                         }
-                        par.sys.wstr(0,root.get_name(var0) + " = "); root.values[var0].print(0);
                         }
                         else
                         {
@@ -2166,9 +2165,8 @@ namespace shard0
                             root.values[var0].data[1][0] = new one(ref root.values[var0], 1);
                             root.values[var0].simple();
                         }
-
-                        par.sys.wstr(0,root.get_name(var0) + " = "); root.values[var0].print(0);
                         }                      
+                        root.values[var0].print(0); 
                         GC.Collect();
                         break;
                      case '@':
@@ -2196,6 +2194,8 @@ namespace shard0
                                     root.values[var1].revert();
                                     root.values[var2] = new many(ref root, 1);
                                 }
+                                root.values[var1].id = var1; root.values[var2].id = var2;
+                                root.values[var1].print(0); root.values[var2].print(0);
                                 break;
                             }
                             x0 = -1; if (par.now() == '!') x0 = (int)par.nnext(true).get_up();
@@ -2339,10 +2339,8 @@ namespace shard0
                                     else par.sys.error("@ overwrite " + nn);
                                 }
                             }
-                            for (int i0 = ip; i0 < root.last; i0++)
-                            {
-                                par.sys.wstr(0, root.get_name(i0) + " = "); root.values[i0].print(0);
-                            }
+                            for (int i0 = ip; i0 < root.last; i0++) root.values[i0].print(0);
+                            
                         }
                         GC.Collect();
                         break;
