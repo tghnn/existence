@@ -17,7 +17,6 @@ x=a^(b+1)
 y=2*a^(b+1)*a + x^2 + x
 y$x$
 `slow expand (faster on small expression)
-
 t1= 2*a+b-3*c+d
 t2= 6*d+c
 t3= t1^3/t2^4
@@ -31,7 +30,6 @@ t4$!11,t3,t2,t1
 `fast expand at t4, max vars in = 11
 test2&r0,0,t,t3""1
 `calculate t4, out (r)ational to file 1 format ""
-
 t1@=0&a
 `ap1_t1*a^1 + a_0_t1*a^0
 abc= 1*a*b*c
@@ -39,7 +37,6 @@ t4@!6=0$abc
 `(fast) extract multiplier(single variable or monomial) from equation or expression
 t4@/
 `t4=t4p1/t4m1
-
 e=
 e1=/1000+e/10
 `precusion control, max = 1000 decimal
