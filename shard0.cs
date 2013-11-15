@@ -215,16 +215,16 @@ namespace shard0
         }
         public void set(num n)
         {
-            sign = n.get_sign();
-            up = BigInteger.Abs(n.get_up());
-            down = BigInteger.Abs(n.get_down());
+            sign = n.sign;
+            up = BigInteger.Abs(n.up);
+            down = BigInteger.Abs(n.down);
             exs = true;
         }
         public void set(num n,int s)
         {
-            sign = n.get_sign() * s;
-            up = BigInteger.Abs(n.get_up());
-            down = BigInteger.Abs(n.get_down());
+            sign = n.sign * s;
+            up = BigInteger.Abs(n.up);
+            down = BigInteger.Abs(n.down);
             exs = true;
         }
         public void set(string s)
@@ -301,14 +301,14 @@ namespace shard0
         }
         public bool great(num a)
         {
-            if (sign == a.get_sign())
+            if (sign == a.sign)
             {
-                return (a.get_up()*down > up*a.get_down());
-            } else return (a.get_sign() > 0);
+                return (a.up*down*sign > up*a.down*sign);
+            } else return (a.sign > 0);
         }
         public bool cmp(num a)
         {
-            return ((sign == a.get_sign()) && (up == a.get_up()) && (down == a.get_down()));
+            return ((sign == a.sign) && (up == a.up) && (down == a.down));
         }
 
         public bool isone()
@@ -325,7 +325,7 @@ namespace shard0
                     down = BigInteger.Divide(down, a);
                 } while (a != 1);
         }
-        public void revert()
+        public void div()
         {
             BigInteger t = up;
             up = down; down = t;
@@ -341,24 +341,40 @@ namespace shard0
                 if ((i&1) != 0) {up *= u0; down *= d0;} 
                 u0 *= u0;  d0 *= d0;
             }
-            if (ex < 0) revert();
+            if (ex < 0) div();
         }
         public void exp(num ex)
         {
-            int e = (int)ex.get_up();
-            if (e < 10000) exp(e*ex.get_sign());
+            int e = (int)ex.up;
+            if (e < 10000) exp(e*ex.sign);
+        }
+        public void mul(int a)
+        {
+            if (a < 0)
+            {
+                sign = -sign;
+                up *= -a;
+            }
+            else if (a > 0) up *= a;
+            else zero();
+        }
+        public void pow2()
+        {
+            sign *= sign;
+            up *= up;
+            down *= down;
         }
         public void mul(num a)
         {
-            sign *= a.get_sign();
-            up *= a.get_up();
-            down *= a.get_down();
+            sign *= a.sign;
+            up *= a.up;
+            down *= a.down;
         }
         public void div(num a)
         {
-            sign *= a.get_sign();
-            up *= a.get_down();
-            down *= a.get_up();
+            sign *= a.sign;
+            up *= a.down;
+            down *= a.up;
         }
         public void add_up(BigInteger a)
         {
@@ -374,15 +390,15 @@ namespace shard0
         public void add(num a, int s)
         {
             if (sign == 0) set(a,s); else {
-            if (sign * (a.get_sign() * s) < 0)
+            if (sign * (a.sign * s) < 0)
             {
-                up = up * a.get_down() - a.get_up() * down;
+                up = up * a.down - a.up * down;
             }
             else
             {
-                up = up * a.get_down() + a.get_up() * down;
+                up = up * a.down + a.up * down;
             }
-            down *= a.get_down();
+            down *= a.down;
             if (up < 0) { up = -up; sign = -sign; } else if (up == 0) { sign = 0; down = 1; }
             }
         }
@@ -431,6 +447,86 @@ namespace shard0
             if ((sign == k.sign) && (up == k.up) && (down == k.down)) return 0;
             if (great(k)) return -1; else return 1;
         }
+    }
+    class complex
+    {
+        num k, i;
+        public complex(num _k, num _i) 
+        {
+            k = new num(_k);
+            i = new num(_i);
+        }
+        public complex(num _k)
+        {
+            k = new num(_k);
+            i = new num(0);
+        }
+        public complex(complex _k)
+        {
+            k = new num(_k.k);
+            i = new num(_k.i);
+        }
+        public void simple()
+        {
+            k.simple(); i.simple();
+        }
+        public void set(complex a)
+        {
+            k.set(a.k); i.set(a.i);
+        }
+        public bool cmp(complex a)
+        {
+            return k.cmp(a.k) && i.cmp(a.i);
+        }
+        public void neg()
+        {
+            k.neg(); i.neg();
+        }
+        public void add(complex a)
+        {
+            k.add(a.k); i.add(a.i);
+        }
+        public void div()
+        {
+            num x0, x1;
+            x0 = new num(k); x0.pow2();
+            x1 = new num(i); x1.pow2();
+            x0.add(x1); x0.div();
+            k.mul(x0); i.mul(x0);
+        }
+        public void mul(complex a)
+        {
+            num x,_k;
+            _k = new num(k); _k.mul(a.k);
+            x = new num(i); x.mul(a.i);
+            x.neg(); _k.add(x);
+            i.mul(a.k); k.mul(a.i);
+            i.add(k); k.set(_k);
+        }
+        public void pow2()
+        {
+            //k^2-i^2 : 2*k*i
+            num k2,i2;
+            k2 = new num(k); k2.pow2();
+            i2 = new num(i); i2.pow2();
+            i2.neg(); k2.add(i2);
+            i.mul(k); i.mul(2);
+            k.set(k2);
+        }
+        public void exp(int ex)
+        {
+            int _e;
+            _e = ((ex < 0) ? -ex : ex);
+            complex t = new complex(this);
+            k.set(1); i.set(0);
+            for (int i0 = _e; i0 > 0; i0 >>= 1)
+            {
+                if ((i0 & 1) != 0) mul(t);
+                t.pow2();
+            }
+            if (ex < 0) div();
+        }
+
     }
     class exp
     {
@@ -725,7 +821,7 @@ namespace shard0
         public bool div()
         {
             int i0;
-            if (mult.iszero()) return false; mult.revert();
+            if (mult.iszero()) return false; mult.div();
             if (islist) for (i0 = 0; list[i0] > -1; i0++) exps[list[i0]].neg();
             else for (i0 = 0; i0 < head.head.size; i0++) exps[i0].neg();
             return true;
@@ -1078,7 +1174,7 @@ namespace shard0
         public num calc()
         {
             num rt = new num(0);
-                if (head.calc_flg[id]) head.sys.error("recursion look recursion");
+                if (head.calc_flg[id]) head.sys.error(head.get_name(id) + " recursion look recursion");
                 head.calc_flg[id] = true;
                 if (tfunc < 2)
                 {
@@ -1179,7 +1275,9 @@ namespace shard0
                     aa.mul(ex.vars[ii]);
                     en.add(aa);
                 }
+                en.simple();
             }
+            if ((en.get_down() > 42) && (en.get_up() > 1000)) head.sys.error(head.get_name(id) + " in wrong exp = " + en.print("-", "+", "", ""));
             t1.exp((int)(en.get_up()));
             if (en.get_down() > 1)
             {
@@ -1194,7 +1292,7 @@ namespace shard0
                     t1.set(t1.get_sign(),t1._sq(t1.get_up(), _sq),t1._sq(t1.get_down(), _sq));
                 }
             }
-            if (en.get_sign() < 0) t1.revert();
+            if (en.get_sign() < 0) t1.div();
             return t1;
         }
     }
@@ -2113,7 +2211,7 @@ namespace shard0
                         {
                             val = par.snext(false); if (val.Length < 1) break;
                             par.snext(false);  val0 = root.find_val(val);
-                            if (root.val_to_var(val0) == var0) par.sys.error("recursion - look recursion");
+                            if (root.val_to_var(val0) == var0) par.sys.error(root.get_name(var0) + " $recursion - look recursion");
                             root.values[var0].revert(val0);
                             _id.Add(val0);
                             if (par.now() == '$') _div=true;
@@ -2137,7 +2235,7 @@ namespace shard0
                         {
                             val = par.snext(true); if (val.Length < 1) break;
                             val0 = root.find_val(val); var1 = root.val_to_var(val0);
-                            if (var1 == var0) par.sys.error("recursion - look recursion");
+                            if (var1 == var0) par.sys.error(root.get_name(var0) + " $recursion - look recursion");
                             if (root.values[var1] != null) {
                                 root.values[var0].revert(val0);
                                 _id.Add(val0);
