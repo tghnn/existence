@@ -14,6 +14,7 @@ namespace shard0
 {
     public partial class shard0 : Form
     {
+        private System.ComponentModel.IContainer components = null;
         public System.Drawing.Bitmap bm;
         public int sx, sy;
         public int pr_now = 0, pr_was = 0, l_now = 0, l_was = 0;
@@ -35,19 +36,6 @@ namespace shard0
             Gr = this.CreateGraphics();
             Paint += new System.Windows.Forms.PaintEventHandler(this.shard0_Paint);
             InitializeComponent();
-            this.SuspendLayout();
-            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.AutoValidate = System.Windows.Forms.AutoValidate.Disable;
-            this.CausesValidation = false;
-            this.ClientSize = new System.Drawing.Size(sx, sy);
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-            this.Name = "shard0";
-            this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Hide;
-            this.Text = "shard0";
-            this.ResumeLayout(false);
         }
         public void Set(int i)
         {
@@ -93,6 +81,34 @@ namespace shard0
         private void shard0_Paint(object sender, PaintEventArgs e)
         {
             if (rp) Gr.DrawImageUnscaled(bm, 0, 0);
+        }
+        private void InitializeComponent()
+        {
+            this.SuspendLayout();
+            // 
+            // shard0
+            // 
+            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.AutoValidate = System.Windows.Forms.AutoValidate.Disable;
+            this.CausesValidation = false;
+//            this.ClientSize = new System.Drawing.Size(282, 255);
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
+            this.Name = "shard0";
+            this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Hide;
+            this.Text = "shard0";
+            this.ResumeLayout(false);
+
+        }
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null))
+            {
+                components.Dispose();
+            }
+            base.Dispose(disposing);
         }
     }
 
