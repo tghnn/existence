@@ -35,6 +35,19 @@ namespace shard0
             Gr = this.CreateGraphics();
             Paint += new System.Windows.Forms.PaintEventHandler(this.shard0_Paint);
             InitializeComponent();
+            this.SuspendLayout();
+            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.AutoValidate = System.Windows.Forms.AutoValidate.Disable;
+            this.CausesValidation = false;
+            this.ClientSize = new System.Drawing.Size(sx, sy);
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
+            this.Name = "shard0";
+            this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Hide;
+            this.Text = "shard0";
+            this.ResumeLayout(false);
         }
         public void Set(int i)
         {
@@ -431,14 +444,15 @@ namespace shard0
         {
             return (double)(sign * up) / (double)(down);
         }
-        public string print(string pos, string neg, string b0, string b1)
+        public string print(string plus, string minus, string non_one)
         {
-            string s0;
-            s0 = "";
-            if (down > 1) s0 += b0;
-            s0 += (sign < 0 ? neg : pos);
-            s0 += up.ToString().Trim();
-            if (down > 1) s0 += "/" + down.ToString().Trim() + b1;
+            string s0; 
+            s0 = ((sign < 0) ? minus : plus);
+            if ((non_one == "") || (!isone())) {
+                s0 += up.ToString().Trim();
+                if (down > 1) s0 += "/" + down.ToString().Trim();
+                s0 +=  non_one;
+            }
             return s0;
         }
         public int CompareTo(object obj) {
@@ -526,7 +540,11 @@ namespace shard0
             }
             if (ex < 0) div();
         }
-
+        public string print(string plus, string minus, string non_one)
+        {
+            if (i.iszero()) return k.print(plus,minus,non_one);
+            return "[" + k.print("","-","") + "," + i.print("","-","") + "]" + non_one;
+        }
     }
     class exp
     {
@@ -696,22 +714,24 @@ namespace shard0
                 }
             }
         }
-        public string print(string b0, string b1,string b2)
+        public string print(string name)
         {
+            string r;
             if (vars == null)
             {
-                if ((non.isone() || non.iszero()) && (non.get_sign() > -1)) return "";
-                return b2 + non.print("", "-", b0, b1);
+                if (non.iszero()) return "";
+                r = ((non.get_sign() > -1) ? "" : "/") + name;
+                if (non.isone()) return r;
+                if (non.get_down() > 1) return r + "^(" + non.print("","","") + ")"; else return r + "^" + non.print("","","");
             }
             else
             {
-                string r = b2 + b0;
-                bool first = true;
+                r = "" + name + "^("; bool first = true;
                 for (int i = 0; i < head.head.size; i++) if (vars[i].nonzero()) {
-                    r += (vars[i].get_sign() > 0 ? (first ? "" : "+") : "-") + (vars[i].isone() ? "" : vars[i].print("", "", "", "") + "*") + head.head.get_name_onval(i);
+                    r += vars[i].print((first ? "" : "+"),"-","*") + head.head.get_name_onval(i);
                     first = false;
                 }
-                return r + (non.iszero() ? "" : non.print("+","-","","")) + b1;
+                return r + (non.iszero() ? "" : non.print("+","-","")) + ")";
             }
         }
 
@@ -1141,30 +1161,28 @@ namespace shard0
         public void print(int f, int n)
         {
             int i0, i1;
-            bool oneout;
-            string s0;
+            bool f_one, f_many = true;
+            string s0, s1;
             for (s0 = "", i0 = 0; i0 < data[n].Count; i0++)
             {
                 if (data[n][i0].mult.nonzero())
                 {
-                    oneout = false;
+                    f_one = true;
                     for (i1 = 0; i1 < data[n][i0].head.head.size; i1++)
                     {
                         if (!data[n][i0].exps[i1].iszero())
                         {
-                            if (!oneout) 
-                            {
-                                if (data[n][i0].mult.isone())  {
-                                    s0 += (i0 > 0 ? (data[n][i0].mult.get_sign() < 0 ? "-" : "+") : (data[n][i0].mult.get_sign() < 0 ? "-": ""));
-                                } else {
-                                    s0 += data[n][i0].mult.print((i0 > 0 ? "+" : ""), "-", "", "");
-                                }
-                            }
-                            s0 += (oneout || (!data[n][i0].mult.isone()) ? "*" : "") + data[n][i0].head.head.get_name_onval(i1) + data[n][i0].exps[i1].print("(",")","^");
-                            oneout = true;
+                            s1 =  data[n][i0].exps[i1].print(data[n][i0].head.head.get_name_onval(i1));
+                            if (f_one) 
+                                s0 += data[n][i0].mult.print((f_many ? "" : "+"),"-",(s1[0] == '/') ? "" : "*") + s1;
+                             else 
+                                s0 += ((s1[0] == '/') ? "" : "*") + s1;
+                            
+                            f_one = false;
                         }
                     }
-                    if (!oneout) s0 += data[n][i0].mult.print((i0 > 0 ? "+" : ""), "-", "", "");
+                    if (f_one) s0 += data[n][i0].mult.print((f_many ? "" : "+"),"-", "");
+                    f_many = false;
                 }
                 head.sys.progr(i0,data[n].Count);
                 if (s0.Length > 666) {head.sys.wstr(f,ref s0); s0 = "";}
@@ -1277,7 +1295,7 @@ namespace shard0
                 }
                 en.simple();
             }
-            if ((en.get_down() > 42) && (en.get_up() > 1000)) head.sys.error(head.get_name(id) + " in wrong exp = " + en.print("-", "+", "", ""));
+            if ((en.get_down() > 42) && (en.get_up() > 1000)) head.sys.error(head.get_name(id) + " in wrong exp = " + en.print("","-", ""));
             t1.exp((int)(en.get_up()));
             if (en.get_down() > 1)
             {
@@ -2127,7 +2145,7 @@ namespace shard0
         {
             int sx=0, sy=0;
             if (args.Length < 2) return 0;
-            par = new parse(args[0], args[1], "#&!@$+-=*/^(),~:\"");
+            par = new parse(args[0], args[1], "#&!@$+-=*/^(),~:\"[]");
             par.next();
             sx = (int)par.nnext(true).get_up();
             sy = (int)par.nnext(true).get_up();
@@ -2391,7 +2409,6 @@ namespace shard0
                                     {
                                         mdv.mul(1, ref tkey);
                                         mdv.add(0, ref mdv.data[1]);
-//                                        mdv.simple(0);
                                     }
                                 }
                                 else
@@ -2555,7 +2572,7 @@ namespace shard0
                                         _res1 = root.get_val(xid[i0]).toint();
                                         _out[xout[i0]] += _res1.ToString(xstr[i0]);
                                     } else {
-                                        _out[xout[i0]] += root.get_val(xid[i0]).print("","-","","");
+                                        _out[xout[i0]] += root.get_val(xid[i0]).print("","-","");
                                     }
                                 } else {
                                     _out[xout[i0]] += xstr[i0];
