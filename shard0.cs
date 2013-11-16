@@ -1148,17 +1148,20 @@ namespace shard0
         public void print(int f)
         {
             bool hasdiv;
-            string s0 = head.get_name(id) + " = ";
+            string s0 = head.get_name(id) + " =";
             int i;
             switch (tfunc) {
                 case 0:
-                    s0 = "/" + pfunc.get_sup().ToString() + " ";
+                    s0 += "/" + (pfunc.get_sup() > 0 ? pfunc.get_sup().ToString() : "") + " ";
                     break;
                 case 1:
-                    s0 = "& " + s0;
+                    s0 += "& " + s0;
                     break;
                 case 2:
-                    s0 = "^" + head.get_name_onval((int)(pfunc.get_up())) + " ";
+                    s0 += "^" + head.get_name_onval((int)(pfunc.get_up())) + " ";
+                    break;
+                default:
+                    s0 += " " ;
                     break;
             }
             head.sys.wstr(f,ref s0); s0 = "";
@@ -1220,8 +1223,8 @@ namespace shard0
                 {
                     case 0:
                         {
-                            int l0, l1,l = (int)(pfunc.get_up());
-                            if (l == 0) {
+                            int l0, l1,l = (int)(pfunc.get_sup());
+                            if (l < 1) {
                                 rt.set(rt.get_sup()/rt.get_down(),1);
                             } else {
                             l0 = rt.get_up().ToString().Length;
