@@ -175,10 +175,10 @@ namespace shard0
            if (id >= last) sys.error("nonexisted var");
            if (!calc[val0].exist())
            {
-               if (values[id] == null) sys.error("non is non");
+               if (values[id] == null) sys.error(names[id] + " non is non");
                calc[val0] = values[id].calc();
            }
-           if (!calc[val].exist()) sys.error("non is non");
+           if (!calc[val].exist()) sys.error(names[id] + " non is non");
            return (calc[val]);
         }
         public num get_var(int var)
@@ -1127,7 +1127,7 @@ namespace shard0
         {
             if (data[1].Count > 1) return false;
             one tmp = data[1][0]; tmp.div();
-            mul(0, ref tmp);
+            mul(0, ref tmp); simple(0);
             data[1][0] = new one(this, 1);
             return true;
         }
@@ -1731,7 +1731,7 @@ namespace shard0
 
         public void progr (int now, int all) {
             if (Program.m0.IsDisposed) Environment.Exit(-1);
-            if (now < 11) return;
+            if (all < 6) return;
             if (now > all) now = all;
             int pr_now = now*(Program.m0.sx-1)/all, l_now = nline*(Program.m0.sx-1)/lines;
             if ((pr_now == Program.m0.pr_now) && (l_now == Program.m0.l_now)) return;
