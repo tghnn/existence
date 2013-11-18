@@ -76,7 +76,10 @@ namespace shard0
         }
         private void From1_Shown(object sender, EventArgs e)
         {
-            if (rp) Gr.DrawImageUnscaled(bm, 0, 2);
+            if (rp) {
+                Gr.DrawImageUnscaled(bp, 0, 0);
+                Gr.DrawImageUnscaled(bm, 0, 2);
+            }
         }
         private void shard0_Paint(object sender, PaintEventArgs e)
         {
@@ -86,6 +89,7 @@ namespace shard0
                 {
                     this.Width = sx; this.Height = sy+2;
                 }
+                Gr.DrawImageUnscaled(bp, 0, 0);
                 Gr.DrawImageUnscaled(bm, 0, 2);
             }
         }
@@ -2572,9 +2576,9 @@ namespace shard0
                                 break;
                         }
                         par.pos++;
-                        _fr = (par.isnum(par.now()) ? par.nnext(false).get_up() : root.get_val(root.find_val(par.snext(false))).toint());
+                        _fr = ((par.isnum(par.now()) || (par.now() == '(')) ? par.nnext(false).get_up() : root.get_val(root.find_val(par.snext(false))).toint());
                         par.snext(false);
-                        _to = (par.isnum(par.now()) ? par.nnext(false).get_up() : root.get_val(root.find_val(par.snext(false))).toint());
+                        _to = ((par.isnum(par.now()) || (par.now() == '(')) ? par.nnext(false).get_up() : root.get_val(root.find_val(par.snext(false))).toint());
                         if ((xid[0] = root.find_var(par.snext(true))) < 0) par.sys.error("loop: no name");
                         for (_all = 1; par.more() && (_all < xout.Length); _all++)
                         {
@@ -2591,7 +2595,7 @@ namespace shard0
                         string[] _out = new string[11];
                         _fr0 = _fr; while (_fr <= _to)
                         {
-                            if (_to != 0) root.uncalc();
+                            if (_to != -1) root.uncalc();
                             root.set_var(xid[0],new num(1, _fr, _one));
                             i0 = 0; while (i0 < 10) _out[i0++]="";
                             i0 = 1; while (i0 < _all) {
