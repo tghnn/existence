@@ -15,7 +15,7 @@ namespace shard0
     public partial class shard0 : Form
     {
         private System.ComponentModel.IContainer components = null;
-        public System.Drawing.Bitmap bm;
+        public System.Drawing.Bitmap bm,bp;
         public int sx, sy;
         public int pr_now = 0, pr_was = 0, l_now = 0, l_was = 0;
         delegate void SetCallback(int i);
@@ -25,13 +25,13 @@ namespace shard0
         {
             rp = true;
             sx = x; sy = y;
-            bm = new System.Drawing.Bitmap(x, y);
+            bm = new System.Drawing.Bitmap(sx, sy);
             for (int i0 = 0; i0 < sx; i0++) for (int i1 = 0; i1 < sy; i1++) bm.SetPixel(i0, i1, Color.FromArgb(0, 0, 0));
-            this.Width = sx;
-            this.Height = sy;
+            bp = new System.Drawing.Bitmap(sx, 2);
+            for (int i0 = 0; i0 < sx; i0++) for (int i1 = 0; i1 < 2; i1++) bp.SetPixel(i0, i1, Color.FromArgb(0, 0, 255));
+            this.Width = sx; this.Height = sy + 2;
             FormBorderStyle = FormBorderStyle.None;
-            MaximizeBox = false;
-            MinimizeBox = false;
+            MaximizeBox = false; MinimizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
             Gr = this.CreateGraphics();
             Paint += new System.Windows.Forms.PaintEventHandler(this.shard0_Paint);
@@ -51,22 +51,22 @@ namespace shard0
             switch (i) {
                 case 0:
                 if (pr_now < pr_was) {
-                    for (int i0 = 0; i0 < sx; i0++) bm.SetPixel(i0, 0, Color.FromArgb(0, 0, 255));
+                    for (int i0 = 0; i0 < sx; i0++) bp.SetPixel(i0, 0, Color.FromArgb(0, 0, 255));
                     pr_was = 0; flg = true;
                 }
                 if (pr_now != pr_was) {
-                    for (int i0 = pr_was; i0 < pr_now; i0++) bm.SetPixel(i0, 0, Color.FromArgb(255, 0, 0));
+                    for (int i0 = pr_was; i0 < pr_now; i0++) bp.SetPixel(i0, 0, Color.FromArgb(255, 0, 0));
                     flg = true;
                 }
                 if (l_now != l_was) {
-                    for (int i0 = 0; i0 < sx; i0++) bm.SetPixel(i0, 1, (i0 < l_now ? Color.FromArgb(255, 0, 0) : Color.FromArgb(0, 0, 255)));
+                    for (int i0 = 0; i0 < sx; i0++) bp.SetPixel(i0, 1, (i0 < l_now ? Color.FromArgb(255, 0, 0) : Color.FromArgb(0, 0, 255)));
                     flg = true;
                 }
                 pr_was = pr_now; l_was = l_now;
-                if (flg) Gr.DrawImageUnscaled(bm, 0, 0);
+                if (flg) Gr.DrawImageUnscaled(bp, 0, 0);
                     break;
                 case 1:
-                Gr.DrawImageUnscaled(Program.bm1, 0, 0);
+                Gr.DrawImageUnscaled(Program.bm1, 0, 2);
                     break;
                 case 2:
                 bm = Program.bm1.Clone(new Rectangle(0, 0, sx, sy),bm.PixelFormat);
@@ -76,7 +76,7 @@ namespace shard0
         }
         private void From1_Shown(object sender, EventArgs e)
         {
-            if (rp) Gr.DrawImageUnscaled(bm, 0, 0);
+            if (rp) Gr.DrawImageUnscaled(bm, 0, 2);
         }
         private void shard0_Paint(object sender, PaintEventArgs e)
         {
@@ -84,10 +84,9 @@ namespace shard0
             {
                 if ((this.Width != sx) || (this.Height != sy))
                 {
-                    this.Width = sx;
-                    this.Height = sy;
+                    this.Width = sx; this.Height = sy+2;
                 }
-                Gr.DrawImageUnscaled(bm, 0, 0);
+                Gr.DrawImageUnscaled(bm, 0, 2);
             }
         }
         private void InitializeComponent()
@@ -102,13 +101,11 @@ namespace shard0
             this.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowOnly;
             this.CausesValidation = false;
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
+            this.MaximizeBox = false; this.MinimizeBox = false;
             this.Name = "shard0";
             this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Hide;
             this.Text = "shard0";
-            this.Width = sx;
-            this.Height = sy;
+            this.Width = sx; this.Height = sy+2;
             this.ResumeLayout(false);
         }
         protected override void Dispose(bool disposing)
@@ -1722,6 +1719,7 @@ namespace shard0
         public fileio(string nin, string _nout, parse h)
         {
             StreamReader fc; string ts;
+            if (!File.Exists(nin)) Environment.Exit(-1);
             fc = new StreamReader(nin);
             clines++; lines = 0; quit = false; while ((ts = fc.ReadLine()) != null)
             {
@@ -2549,7 +2547,7 @@ namespace shard0
                                 if (_r0 > 255) _r0 = 255; if (_r1 > 255) _r1 = 255; if (_r2 > 255) _r2 = 255;
                                 bm1.SetPixel(f0 + x0, f1 + x1, Color.FromArgb(_r0,_r2,_r1));
                             }
-                            m0.Set(1);
+                            if (c1 > 90) m0.Set(1);
                         }
                         }
                         m0.Set(1);
