@@ -26,9 +26,9 @@ namespace shard0
             rp = true;
             sx = x; sy = y;
             bm = new System.Drawing.Bitmap(x, y);
-            for (int i0 = 0; i0 < sx; i0++) for (int i1 = 0; i1 < sy; i1++) bm.SetPixel(i0, i1, Color.FromArgb(6, 6, 6));
-            this.Width = sx + 0;
-            this.Height = sy + 0;
+            for (int i0 = 0; i0 < sx; i0++) for (int i1 = 0; i1 < sy; i1++) bm.SetPixel(i0, i1, Color.FromArgb(0, 0, 0));
+            this.Width = sx;
+            this.Height = sy;
             FormBorderStyle = FormBorderStyle.None;
             MaximizeBox = false;
             MinimizeBox = false;
@@ -80,7 +80,15 @@ namespace shard0
         }
         private void shard0_Paint(object sender, PaintEventArgs e)
         {
-            if (rp) Gr.DrawImageUnscaled(bm, 0, 0);
+            if (rp)
+            {
+                if ((this.Width != sx) || (this.Height != sy))
+                {
+                    this.Width = sx;
+                    this.Height = sy;
+                }
+                Gr.DrawImageUnscaled(bm, 0, 0);
+            }
         }
         private void InitializeComponent()
         {
@@ -91,16 +99,17 @@ namespace shard0
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.AutoValidate = System.Windows.Forms.AutoValidate.Disable;
+            this.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowOnly;
             this.CausesValidation = false;
-//            this.ClientSize = new System.Drawing.Size(282, 255);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.Name = "shard0";
             this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Hide;
             this.Text = "shard0";
+            this.Width = sx;
+            this.Height = sy;
             this.ResumeLayout(false);
-
         }
         protected override void Dispose(bool disposing)
         {
@@ -1707,25 +1716,26 @@ namespace shard0
         StreamReader fin;
         StreamWriter[] fout;
         parse head;
-        int nline,lines;
+        int nline,ncline, lines, clines;
         string buf,nout;
         public Boolean has, quit;
         public fileio(string nin, string _nout, parse h)
         {
             StreamReader fc; string ts;
             fc = new StreamReader(nin);
-            lines = 0; quit = false; while ((ts = fc.ReadLine()) != null)
+            clines++; lines = 0; quit = false; while ((ts = fc.ReadLine()) != null)
             {
                 if (ts == "`end") break;
                 if (ts == "`quit") { quit = true; break; }
                 lines++;
+                if ((ts.Length > 4) && (ts[0] != '`') && ((ts[0] != '#') || (ts[1] != '#'))) clines++;
             }
             fc.Close();
             fin = new StreamReader(nin);
             nout = _nout;
             fout = new StreamWriter[10];
             fout[0] = new StreamWriter(nout + "0");
-            nline = 0; has = true;
+            nline = 0; ncline = 0; has = true;
             head = h; buf = "";
         }
 
@@ -1733,7 +1743,7 @@ namespace shard0
             if (Program.m0.IsDisposed) Environment.Exit(-1);
             if (all < 6) return;
             if (now > all) now = all;
-            int pr_now = now*(Program.m0.sx-1)/all, l_now = nline*(Program.m0.sx-1)/lines;
+            int pr_now = now*(Program.m0.sx-1)/all, l_now = ncline*(Program.m0.sx-1)/clines;
             if ((pr_now == Program.m0.pr_now) && (l_now == Program.m0.l_now)) return;
             Program.m0.pr_now = pr_now; Program.m0.l_now = l_now; 
             Program.m0.Set(0);
@@ -1753,6 +1763,7 @@ namespace shard0
             } else {
                 nline++; r = fin.ReadLine();
                 if ((r == null) || (nline > lines)) { has = false; r = ""; }
+                if ((r.Length > 4) && (r[0] != '`') && ((r[0] != '#') || (r[1] != '#'))) ncline++;
             }
             return r;
         }
@@ -2173,7 +2184,7 @@ namespace shard0
             Application.EnableVisualStyles();
             m0 = new shard0(sx, sy);
             bm1 = new System.Drawing.Bitmap(sx, sy);
-            for (int i0 = 0; i0 < sx; i0++) for (int i1 = 0; i1 < sy; i1++) bm1.SetPixel(i0, i1, Color.FromArgb(6, 6, 6));
+            for (int i0 = 0; i0 < sx; i0++) for (int i1 = 0; i1 < sy; i1++) bm1.SetPixel(i0, i1, Color.FromArgb(0, 0, 0));
             Thread calc = new Thread(doit);
             calc.Start();
             Application.Run(m0);
