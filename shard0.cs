@@ -421,10 +421,7 @@ namespace shard0
         }
         public void add(int a)
         {
-            if (sign == 0) set(a); else {
-                up += a;
-                if (up < 0) { up = -up; sign = -sign; } else if (up == 0) { sign = 0; down = 1; }
-            }
+            add(new num(a),1);
         }
         public void add(num a, int s)
         {
@@ -2260,11 +2257,12 @@ namespace shard0
                         while (par.more())
                         {
                             val = par.snext(false); if (val.Length < 1) break;
-                            par.snext(false);  val0 = root.find_val(val);
+                            val0 = root.find_val(val);
                             if (root.val_to_var(val0) == var0) par.sys.error(root.get_name(var0) + " $recursion - look recursion");
                             root.values[var0].revert(val0);
                             _id.Add(val0);
                             if (par.now() == '$') _div=true;
+                            par.snext(false);
                         }
                         for (int i=0; i < _id.Count; i++) root.values[var0].expand(_id[i]);
                         if (_div && (root.values[var0].data[1].Count == 1))
@@ -2273,7 +2271,6 @@ namespace shard0
                             one tmp = root.values[var0].data[1][0];
                             root.values[var0].mul(0, ref tmp);
                             root.values[var0].data[1][0] = new one(ref root.values[var0], 1);
-                            root.values[var0].simple();
                         }
                         }
                         else
