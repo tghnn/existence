@@ -1930,7 +1930,8 @@ namespace shard0
                 if (ploop < 0) val = sf + s0 + st;
                 else
                 {
-                    for (s1 = "", i3 = floop; i3 <= tloop; i3++) s1 += s0.Replace("#" + ((char)(ploop + '0')).ToString(), i3.ToString().Trim());
+                    if (floop < tloop) for (s1 = "", i3 = floop; i3 <= tloop; i3++) s1 += s0.Replace("#" + ((char)(ploop + '0')).ToString(), i3.ToString().Trim());
+                    else for (s1 = "", i3 = floop; i3 >= tloop; i3--) s1 += s0.Replace("#" + ((char)(ploop + '0')).ToString(), i3.ToString().Trim());
                     val = sf + s1 + st;
                 }
             }
