@@ -1831,6 +1831,22 @@ namespace shard0
             if (s.Length <= i) return false;
             return isnum(s[i]);
         }
+        public int find_deep(int from, int deep) {
+            int d = deep, i = from;
+            while (i < val.Length) {
+                switch (val[i]) {
+                    case '(':
+                        d++;
+                        break;
+                    case ')':
+                        d--;
+                        break;
+                }
+                if (d < 0) return i;
+                i++;
+            }
+            return -1;
+        }
         public bool isnum(string s)
         {
             if (s.Length < 1) return false;
@@ -1841,6 +1857,7 @@ namespace shard0
         {
             string s0,s1,st,sf;
             int i0,i1,i2,i3,i4,i5,i6, deep;
+            bool l_add = true;
             val = sys.rline(); val = val.Replace(" ",""); pos = 0;
             if ((val.Length == 0) || (val[0] == '`')) return false;
             if (val.Substring(0,2) == "##")
@@ -1872,9 +1889,12 @@ namespace shard0
                 int ploop = -1,floop = 0,tloop = 0;
                 for (i2 = 0,i3 = i1 + m_name[i0].Length; i2 < m_nparm[i0]; i2++)
                 {
-                    i4 = val.IndexOf(":",i3); i5 = val.IndexOf(",",i3); i6 = val.IndexOf(")",i3);
+                    i4 = val.IndexOf("<",i3); i5 = val.IndexOf(">",i3);
+                    if ((i4 < 0) || ((i4 > i5) && (i5 > -1))) i4 = i5;
+                    i5 = val.IndexOf(",",i3); i6 = find_deep(i3,0);
                     if ((i5 < 0) || ((i5 > i6) && (i6 > -1))) i5 = i6;
                     if ((i4 > -1) && (i4 < i5)) {
+                        l_add = (val[i4] == '<');
                         if (ploop > -1) sys.error("macro: wrong loop");
                         if (val[i3] == '(') {
                             pos = i3 + 1;  floop = (int)(calc().get_sup()); 
@@ -1885,7 +1905,7 @@ namespace shard0
                             int.TryParse(val.Substring(i3, i4 - i3), out floop);
                         }
                         if (val[i4 + 1] == '(') { 
-                            pos = i4 + 2;  tloop = (int)(calc().get_sup()); i5++;
+                            pos = i4 + 2;  tloop = (int)(calc().get_sup());
                         }
                         else
                         {
@@ -1930,7 +1950,7 @@ namespace shard0
                 if (ploop < 0) val = sf + s0 + st;
                 else
                 {
-                    if (floop < tloop) for (s1 = "", i3 = floop; i3 <= tloop; i3++) s1 += s0.Replace("#" + ((char)(ploop + '0')).ToString(), i3.ToString().Trim());
+                    if (l_add) for (s1 = "", i3 = floop; i3 <= tloop; i3++) s1 += s0.Replace("#" + ((char)(ploop + '0')).ToString(), i3.ToString().Trim());
                     else for (s1 = "", i3 = floop; i3 >= tloop; i3--) s1 += s0.Replace("#" + ((char)(ploop + '0')).ToString(), i3.ToString().Trim());
                     val = sf + s1 + st;
                 }
@@ -2175,7 +2195,7 @@ namespace shard0
         {
             int sx=0, sy=0;
             if (args.Length < 2) return 0;
-            par = new parse(args[0], args[1], "#&!@$+-=*/^(),~:\"[]");
+            par = new parse(args[0], args[1], "#&!@$+-=*/^(),~:<>\"[]");
             par.next();
             sx = (int)par.nnext(true).get_up();
             sy = (int)par.nnext(true).get_up();
