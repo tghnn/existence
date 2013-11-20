@@ -145,7 +145,7 @@ namespace shard0
         public int set_empty(string nam)
         {
             if (last >= vars) sys.error("too many vars");
-            names[last] = nam;
+            names[last] = nam.Replace("'","");
             values[last] = null;
             for (int i = 0; i < deep; i++) calc[last*deep + i] = new num();
             last++; return last - 1;
@@ -1831,7 +1831,7 @@ namespace shard0
             if (s.Length <= i) return false;
             return isnum(s[i]);
         }
-        public int find_deep(int from, int deep) {
+        public int find_deep(int from, int deep, string _delim) {
             int d = deep, i = from;
             while (i < val.Length) {
                 switch (val[i]) {
@@ -1843,6 +1843,7 @@ namespace shard0
                         break;
                 }
                 if (d < 0) return i;
+                if ((d == 0) && (_delim.IndexOf(val[i]) > -1)) return i;
                 i++;
             }
             return -1;
@@ -1853,10 +1854,30 @@ namespace shard0
             for (int i = 0; i < s.Length; i++) if (!isnum(s, i)) return false;
             return true;
         }
+        public string m_parm(){
+            string s1 = "";
+            int i1;
+            if (now() == '(') {
+                s1 = calc0().get_sup().ToString(); 
+            }
+            else
+            {
+                i1 = find_deep(pos, 0,",<>");
+                if (i1 < pos) sys.error("wrong parm");
+                s1 = val.Substring(pos,i1-pos);
+                s1 = s1.Replace("&0", "#");
+                s1 = s1.Replace("&1", "&0");
+                s1 = s1.Replace("&2", "&1");
+                s1 = s1.Replace("&3", "&2");
+                s1 = s1.Replace("&4", "&3");
+                pos = i1;
+            }
+            return s1;
+        }
         public bool next()
         {
             string s0,s1,st,sf;
-            int i0,i1,i2,i3,i4,i5,i6, deep;
+            int i0,i1,i2;//,i3,i4,i5,i6, deep;
             bool l_add = true;
             val = sys.rline(); val = val.Replace(" ",""); pos = 0;
             if ((val.Length == 0) || (val[0] == '`')) return false;
@@ -1887,71 +1908,28 @@ namespace shard0
                 if (i0 == macro.Count) sys.error("macro: not found");
                 s0 = macro[i0].Replace("`\n","");
                 int ploop = -1,floop = 0,tloop = 0;
-                for (i2 = 0,i3 = i1 + m_name[i0].Length; i2 < m_nparm[i0]; i2++)
+                for (i2 = 0, pos = i1 + m_name[i0].Length; i2 < m_nparm[i0]; i2++, snext(false))
                 {
-                    i4 = val.IndexOf("<",i3); i5 = val.IndexOf(">",i3);
-                    if ((i4 < 0) || ((i4 > i5) && (i5 > -1))) i4 = i5;
-                    i5 = val.IndexOf(",",i3); i6 = find_deep(i3,0);
-                    if ((i5 < 0) || ((i5 > i6) && (i6 > -1))) i5 = i6;
-                    if ((i4 > -1) && (i4 < i5)) {
-                        l_add = (val[i4] == '<');
+                    s1 = m_parm();
+                    if ("<>".IndexOf(now()) > -1) { 
+                        l_add = (snext(false) == "<");
                         if (ploop > -1) sys.error("macro: wrong loop");
-                        if (val[i3] == '(') {
-                            pos = i3 + 1;  floop = (int)(calc().get_sup()); 
-                        }
-                        else
-                        {
-                            if (!isnum(val.Substring(i3, i4 - i3))) sys.error("macro: wrong loop");
-                            int.TryParse(val.Substring(i3, i4 - i3), out floop);
-                        }
-                        if (val[i4 + 1] == '(') { 
-                            pos = i4 + 2;  tloop = (int)(calc().get_sup());
-                        }
-                        else
-                        {
-                            if (!isnum(val.Substring(i4 + 1, i5 - i4 - 1))) sys.error("macro: wrong loop");
-                            int.TryParse(val.Substring(i4 + 1, i5 - i4 - 1), out tloop);
-                        }
+                        if (! int.TryParse(s1, out floop)) sys.error("macro: wrong loop");
+                        if (!int.TryParse(m_parm(), out tloop)) sys.error("macro: wrong loop");
                         ploop = i2;
-                        i4 = i5;
                     } else {
-                        if (val[i3] == '(') {
-                            pos = i3 + 1;  s1 = calc().get_sup().ToString(); 
-                            i4 = pos;
-                        }
-                        else
-                        {
-                            i4 = i3; deep = 0; while (true)
-                            {
-                                if (i4 >= val.Length) sys.error("macro: call wrong");
-                                if (val[i4] == '(') deep++;
-                                if (val[i4] == ')') { deep--; if (deep < 0) break; }
-                                if ((val[i4] == ',') && (deep == 0)) break;
-                                i4++;
-                            }
-                            s1 = val.Substring(i3,i4-i3);
-                            s1 = s1.Replace("&0", "#");
-                            s1 = s1.Replace("&1", "&0");
-                            s1 = s1.Replace("&2", "&1");
-                            s1 = s1.Replace("&3", "&2");
-                            s1 = s1.Replace("&4", "&3");
-                        }
-                         s0 = s0.Replace("#" + ((char)(i2 + '0')).ToString(), s1);
+                        s0 = s0.Replace("#" + ((char)(i2 + '0')).ToString(), s1);
                     }
-                    if (((i2 == m_nparm[i0] - 1) && (val[i4] != ')')) || ((i2 < m_nparm[i0] - 1) && (val[i4] != ','))) 
+                    if (((i2 == m_nparm[i0] - 1) && (now() != ')')) || ((i2 < m_nparm[i0] - 1) && (now() != ','))) 
                         sys.error("macro: call nparm");
-                    i3 = i4 + 1;
                 }
-                for (i3 = i1 + m_name[i0].Length, deep = 1; (i3 < val.Length) && (deep > 0); i3++) {
-                    if (val[i3] == '(') deep++;
-                    if (val[i3] == ')') deep--;
-                } //i3++;
-                sf = val.Substring(0, i1); st = (i3 < val.Length ? val.Substring(i3, val.Length - i3) : "");
+                if (m_nparm[i0] == 0) snext(false);
+                sf = val.Substring(0, i1); st = (pos < val.Length ? val.Substring(pos, val.Length - pos) : "");
                 if (ploop < 0) val = sf + s0 + st;
                 else
                 {
-                    if (l_add) for (s1 = "", i3 = floop; i3 <= tloop; i3++) s1 += s0.Replace("#" + ((char)(ploop + '0')).ToString(), i3.ToString().Trim());
-                    else for (s1 = "", i3 = floop; i3 >= tloop; i3--) s1 += s0.Replace("#" + ((char)(ploop + '0')).ToString(), i3.ToString().Trim());
+                    if (l_add) for (s1 = "", i2 = floop; i2 <= tloop; i2++) s1 += s0.Replace("#" + ((char)(ploop + '0')).ToString(), i2.ToString().Trim());
+                    else for (s1 = "", i2 = floop; i2 >= tloop; i2--) s1 += s0.Replace("#" + ((char)(ploop + '0')).ToString(), i2.ToString().Trim());
                     val = sf + s1 + st;
                 }
             }
