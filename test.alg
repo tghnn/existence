@@ -4,7 +4,7 @@ m=66,4,1000000
 `max variable number, variable deep, precusion for noninteger exponent
 ##_fact#1*#0
 `macro, 1 parm
-##fact#1(1#_fact(2:(#0)))
+##fact#1(1#_fact(2<(#0)))
 `macro, loop
 f=#fact(2+2)
 t=
