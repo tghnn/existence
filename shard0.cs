@@ -1006,6 +1006,21 @@ namespace shard0
             }
             return res;
         }
+        public void diff(int ud, int val) {
+            num neg = new num(-1);
+            foreach (one u in data[ud]) 
+            {
+                if (u.exps[val].iszero()) u.mult.zero(); else {
+                    if (u.exps[val].vars != null) head.sys.error("cant derivate nonconst exp");
+                    u.mult.mul(u.exps[val].non);
+                    u.exps[val].non.add(neg);
+                }
+            }
+        }
+        public void neg(int ud) {
+            foreach (one u in data[ud]) u.mult.neg();
+        }
+
         public int simple()
         {
             List<one> _up = data[0], _dw = data[1];
@@ -2320,6 +2335,24 @@ namespace shard0
                         root.values[var0].print(0); 
                         GC.Collect();
                         break;
+                     case '"':
+                         {
+                            var0 = root.find_var_ex(par.name);
+                            if (root.values[var0] == null) par.sys.error("\" empty");
+                            val0 = root.find_val(par.snext(true));
+                            many tmp = new many(ref root.values[var0]);
+                            root.values[var0].diff(0,val0);
+                            tmp.diff(1,val0);
+                            root.values[var0].mul(0,ref root.values[var0].data[1]);
+                            tmp.mul(0,ref tmp.data[1]);
+                            tmp.neg(0);
+                            root.values[var0].add(0,ref tmp.data[0]);
+                            tmp = new many(ref root.values[var0]);
+                            root.values[var0].mul(1,ref tmp.data[1]);
+                            root.values[var0].simple();
+                            root.values[var0].print(0);
+                         }
+                            break;
                      case '@':
                         {
                             char _c;
@@ -2490,7 +2523,6 @@ namespace shard0
                                 }
                             }
                             for (int i0 = ip; i0 < root.last; i0++) root.values[i0].print(0);
-                            
                         }
                         GC.Collect();
                         break;
