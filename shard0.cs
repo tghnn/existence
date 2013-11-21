@@ -2008,6 +2008,13 @@ namespace shard0
         {
             sys.Dispose();
         }
+        public BigInteger get_parm(ref ids root)
+        {
+            num tmp;
+            if (isnum(now()) || (now() == '(')) tmp = nnext(false); else  tmp =  root.get_val(root.find_val(snext(false)));
+            return tmp.toint();
+        }
+
     }
 
     static class Program
@@ -2557,8 +2564,9 @@ namespace shard0
                      break;
                      case '&':
                          {
-                        BigInteger _fr,_fr0,_to,_one = 1,_res1;
+                        BigInteger _fr = 0,_fr0,_to = 0,_one = 1,_res1;
                         int _typ = 0, _all, i0;
+                        bool _singl = false, l_add = true;
                         par.snext(false); 
                         switch (par.now()) {
                             case 'i':
@@ -2572,10 +2580,27 @@ namespace shard0
                                 break;
                         }
                         par.pos++;
-                        _fr = ((par.isnum(par.now()) || (par.now() == '(')) ? par.nnext(false).get_up() : root.get_val(root.find_val(par.snext(false))).toint());
-                        par.snext(false);
-                        _to = ((par.isnum(par.now()) || (par.now() == '(')) ? par.nnext(false).get_up() : root.get_val(root.find_val(par.snext(false))).toint());
-                        if ((xid[0] = root.find_var(par.snext(true))) < 0) par.sys.error("loop: no name");
+                        if (par.now() == '=') _singl = true;
+                        else
+                        {
+                            _fr = par.get_parm(ref root);
+                            switch (par.now())
+                            {
+                                case '<':
+                                    l_add = true;
+                                    break;
+                                case '>':
+                                    l_add = false;
+                                    break;
+                                default:
+                                    par.sys.error("loop: wrong");
+                                    break;
+                            }
+                            par.snext(false);
+                            _to = par.get_parm(ref root);
+                            if ((xid[0] = root.find_var(par.snext(true))) < 0) par.sys.error("loop: no name");
+                            if (root.values[xid[0]] != null) par.sys.error("loop: must non");
+                        }
                         for (_all = 1; par.more() && (_all < xout.Length); _all++)
                         {
                             par.snext(false);
@@ -2587,12 +2612,15 @@ namespace shard0
                             xstr[_all] = val.Substring(1);
                             xout[_all] = (int)(par.nnext(false).get_up());
                         }
-                        if (root.values[xid[0]] != null) par.sys.error("wrong");
                         string[] _out = new string[11];
-                        _fr0 = _fr; while (_fr <= _to)
+                        _fr0 = _fr; while (true)
                         {
-                            if (_to != -1) root.uncalc();
-                            root.set_var(xid[0],new num(1, _fr, _one));
+                            if (!_singl)
+                            {
+                                if (l_add) { if (_fr > _to) break; } else { if (_fr < _to) break; }
+                                root.uncalc();
+                                root.set_var(xid[0], new num(1, _fr, _one));
+                            }
                             i0 = 0; while (i0 < 10) _out[i0++]="";
                             i0 = 1; while (i0 < _all) {
                                 if (xid[i0] > -1) {
@@ -2611,8 +2639,8 @@ namespace shard0
                                 if (_out[i0]!="") par.sys.wline(i0,_out[i0]);
                                 i0++;
                             }
-                            root.sys.progr((int)(_fr-_fr0),(int)(_to-_fr0));
-                            _fr++;
+                            if (_singl) break; else { if (l_add) _fr++; else _fr--; }
+                            root.sys.progr((int)(_fr - _fr0), (int)(_to - _fr0));
                         }
                          }
                         break;
