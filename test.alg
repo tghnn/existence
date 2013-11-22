@@ -17,6 +17,8 @@ x=a^(b+1)
 y=2*a^(b+1)*a + x^2 + x
 y$x$
 `slow expand (faster on small expression)
+y"a
+`derivative y on a
 t1= 2*a+b-3*c+d
 t2= 6*d+c
 t3= t1^3/t2^4
