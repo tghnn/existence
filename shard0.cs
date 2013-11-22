@@ -1007,13 +1007,30 @@ namespace shard0
             return res;
         }
         public void diff(int ud, int val) {
-            num neg = new num(-1);
-            foreach (one u in data[ud]) 
+            num neg = new num(-1), tmp = new num(0), vexp;
+            int i = 0, ii = data[ud].Count; while (i < ii) 
             {
-                if (u.exps[val].iszero()) u.mult.zero(); else {
-                    if (u.exps[val].vars != null) head.sys.error("cant derivate nonconst exp");
-                    u.mult.mul(u.exps[val].non);
-                    u.exps[val].non.add(neg);
+                if (data[ud][i].exps[val].iszero()) { data[ud].RemoveAt(i); ii--; }
+                else
+                {
+                    tmp.set(data[ud][i].exps[val].non);
+                    data[ud][i].exps[val].non.add(neg);
+                    if (data[ud][i].exps[val].vars != null)
+                    {
+                        one otmp, oadd;
+                        for (int i0 = 0; i0 < head.size; i0++)
+                        {
+                            vexp = data[ud][i].exps[val].vars[i0];
+                            if (vexp.nonzero())
+                            {
+                                otmp = data[ud][i]; oadd = new one(ref otmp);
+                                oadd.exps[i0].non.add(vexp);
+                                data[ud].Add(oadd);
+                            }
+                        }
+                    }
+                    data[ud][i].mult.mul(tmp);
+                    i++;
                 }
             }
         }
@@ -2342,13 +2359,12 @@ namespace shard0
                             val0 = root.find_val(par.snext(true));
                             many tmp = new many(ref root.values[var0]);
                             root.values[var0].diff(0,val0);
-                            tmp.diff(1,val0);
-                            root.values[var0].mul(0,ref root.values[var0].data[1]);
-                            tmp.mul(0,ref tmp.data[1]);
+                            root.values[var0].mul(1, ref tmp.data[1]); //d^2
+                            root.values[var0].mul(0, ref tmp.data[1]); //u'*d
+                            tmp.diff(1, val0);
+                            tmp.mul(0, ref tmp.data[1]); //u*d'
                             tmp.neg(0);
-                            root.values[var0].add(0,ref tmp.data[0]);
-                            tmp = new many(ref root.values[var0]);
-                            root.values[var0].mul(1,ref tmp.data[1]);
+                            root.values[var0].add(0,ref tmp.data[0]);//u'*d-u*d'
                             root.values[var0].simple();
                             root.values[var0].print(0);
                          }
