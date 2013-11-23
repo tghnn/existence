@@ -178,22 +178,24 @@ namespace shard0
             return f*deep+i;
         }
 
-        public num get_val(int val)
+        public num get_val(int val, bool fcalc)
         {
            int val0, id; 
            id = val / deep; val0 = id * deep;
            if (id >= last) sys.error("nonexisted var");
-           if (!calc[val0].exist())
-           {
+           if ((val0 == val) || fcalc) {
+            if (!calc[val0].exist())
+            {
                if (values[id] == null) sys.error(names[id] + " non is non");
                calc[val0] = values[id].calc();
+            }
            }
            if (!calc[val].exist()) sys.error(names[id] + " non is non");
            return (calc[val]);
         }
         public num get_var(int var)
         {
-            return get_val(var*deep);
+            return get_val(var*deep,false);
         }
         public void set_var(int var, num n)
         {
@@ -1299,9 +1301,9 @@ namespace shard0
                             se = (int)(data[0][1].exps[val].non.get_up()) - fe;
                             if ((fe < 0) || (se < 0) || (se > 11)) head.sys.error("row: wrong exp");
                             BigInteger _u,_d,_um, _dm;
-                            num tn = new num(head.get_val(val)); tn.exp(fe);
+                            num tn = new num(head.get_val(val,false)); tn.exp(fe);
                             _u = tn.get_sup(); _d = 1;
-                            tn.set(head.get_val(val)); tn.exp(se);
+                            tn.set(head.get_val(val,false)); tn.exp(se);
                             _um = tn.get_sup(); _dm = tn.get_down();
                             for (int i = 0; i < ne; i++)
                             {
@@ -1315,7 +1317,7 @@ namespace shard0
                                     head.sys.error("row: wrong mul");
                                 _u += ua[i] * da[ne - i - 1] * data[0][i].mult.get_sup();
                             }
-                            tn.set(head.get_val(val)); tn.exp(fe);
+                            tn.set(head.get_val(val,false)); tn.exp(fe);
                             _d = da[ne-1] * tn.get_down() * head.values[id].data[1][0].mult.get_sup();
                             rt.set(_u, _d);
                         }
@@ -1341,13 +1343,13 @@ namespace shard0
         }
         num calc_exp(ref exp ex, int i)
         {
-            num t1 = new num(head.get_val(i));
+            num t1 = new num(head.get_val(i,false));
             num en = new num(ex.non);
             if (ex.vars != null) for (int ii = 0; ii < head.size; ii++)
             {
                 if (ex.vars[ii].nonzero()) 
                 {
-                    num aa = new num(head.get_val(ii));
+                    num aa = new num(head.get_val(ii,false));
                     aa.mul(ex.vars[ii]);
                     en.add(aa);
                 }
@@ -2043,7 +2045,7 @@ namespace shard0
         public BigInteger get_parm(ref ids root)
         {
             num tmp;
-            if (isnum(now()) || (now() == '(')) tmp = nnext(false); else  tmp =  root.get_val(root.find_val(snext(false)));
+            if (isnum(now()) || (now() == '(')) tmp = nnext(false); else  tmp =  root.get_val(root.find_val(snext(false)),false);
             return tmp.toint();
         }
 
@@ -2562,8 +2564,8 @@ namespace shard0
                             {
                                 root.uncalc();
                                 root.set_var_onval(xid[0],new num(x0));
-                                _r0 = (int)root.get_val(xid[1]).toint();
-                                _r1 = (int)root.get_val(xid[2]).toint();
+                                _r0 = (int)root.get_val(xid[1],true).toint();
+                                _r1 = (int)root.get_val(xid[2],true).toint();
                                 if (_r0 < 0) _r0 = 0; if (_r1 < 0) _r1 = 0;
                                 bm1.SetPixel((int)(_r0 % c0) + f0, (int)(_r1 % c1) + f1, Color.FromArgb(255, 255, 255));
                             }
@@ -2575,8 +2577,8 @@ namespace shard0
                                     root.uncalc();
                                     root.set_var_onval(xid[0],new num(x0));
                                     root.set_var_onval(xid[1],new num(x1));
-                                    _d0 = root.get_val(xid[2]).todouble();
-                                    _d1 = root.get_val(xid[3]).todouble();
+                                    _d0 = root.get_val(xid[2],true).todouble();
+                                    _d1 = root.get_val(xid[3],true).todouble();
                                     for (x2 = 0; x2 < 10; x2++) m0.bm.SetPixel(f0 + x0 + (int)(_d0 * x2), f1 + x1 + (int)(_d1 * x2), Color.FromArgb(255,2,2));
                                     bm1.SetPixel(f0 + x0, f1 + x1, Color.FromArgb(255,255,255));
                                 }
@@ -2589,13 +2591,13 @@ namespace shard0
                                 root.uncalc();
                                 root.set_var_onval(xid[0],new num(x0));
                                 root.set_var_onval(xid[1],new num(x1));
-                                _r0 = (int)root.get_val(xid[2]).toint(); _r1 = _r0; _r2 = _r0;
+                                _r0 = (int)root.get_val(xid[2],true).toint(); _r1 = _r0; _r2 = _r0;
                                 if (_all > 3)
                                 {
-                                    _r1 = (int)root.get_val(xid[3]).toint(); _r2 = 0;
+                                    _r1 = (int)root.get_val(xid[3],true).toint(); _r2 = 0;
                                     if (_all == 5)
                                     {
-                                        _r2 = (int)root.get_val(xid[4]).toint();
+                                        _r2 = (int)root.get_val(xid[4],true).toint();
                                     }
                                 }
                                 if (_r0 < 0) _r0 = 0; if (_r1 < 0) _r1 = 0; if (_r2 < 0) _r2 = 0;
@@ -2673,10 +2675,10 @@ namespace shard0
                             i0 = 1; while (i0 < _all) {
                                 if (xid[i0] > -1) {
                                     if (_typ == 0) {
-                                        _res1 = root.get_val(xid[i0]).toint();
+                                        _res1 = root.get_val(xid[i0],true).toint();
                                         _out[xout[i0]] += _res1.ToString(xstr[i0]);
                                     } else {
-                                        _out[xout[i0]] += root.get_val(xid[i0]).print("","-","");
+                                        _out[xout[i0]] += root.get_val(xid[i0],true).print("","-","");
                                     }
                                 } else {
                                     _out[xout[i0]] += xstr[i0];
