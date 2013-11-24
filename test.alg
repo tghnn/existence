@@ -27,10 +27,10 @@ a=3
 b=4
 c=1
 d=2
-test1&r0<0,t,t3""1
+test1&r0<0(t)t4""1
 t4$!11,t3,t2,t1
 `fast expand at t4, max vars in = 11
-test2&r0<0,t,t3""1
+test2&r0<0(t)t4""1
 `calculate t4, out (r)ational to file 1 format ""
 t1@=0&a
 `ap1_t1*a^1 + a_0_t1*a^0
@@ -45,12 +45,12 @@ e1=/1000+e/10
 exp=^e1+e1+e1^2/#fact(2)+e1^3/#fact(4)+e1^4/#fact(6)
 `fast power serie on variable e 
 `   use at graph and calc
-calc_exp&r1<100,e,exp""1
+calc_exp&r1<100(e)exp""1
 `calculate exp(e), e=1:100, out (r)ational to file 1 format ""
 v=
 v:4,3,2
 dv=v+'v+''v+'''v
-diff&i0<10,v,dv""1
+diff&i0<10(v)dv""1
 `out (i)nteger
 xa=
 ya=
