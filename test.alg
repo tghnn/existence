@@ -1,11 +1,19 @@
 xy=600,600
-m=66,4,1000000
+m=73,4,1000000
 `screen xy
 `max variable number, variable deep, precusion for noninteger exponent
 ##_fact#1*#0
 `macro, 1 parm
 ##fact#1(1#_fact(2<(#0)))
 `macro, loop
+##equ2#3#0@=#1&#2
+##equ2#3_d_#0=#2p1_#0^2-4*#2p2_#0*#2_0_#0
+##equ2#3#2_0=-#2p1_#0+_d_#0^(1/2)//2*#2p2_#0
+##equ2#3#2_1=-#2p1_#0-_d_#0^(1/2)//2*#2p2_#0
+##equ2#3_d_#0$#2_0_#0,#2p1_#0,#2p2_#0$
+##equ2#3#2_0$#2_0_#0,#2p1_#0,#2p2_#0$
+##equ2#3#2_1$#2_0_#0,#2p1_#0,#2p2_#0$
+`long (not so) macro
 f=#fact(2+2)
 t=
 a=
@@ -19,6 +27,11 @@ y$x$
 `slow expand (faster on small expression)
 y"a
 `derivative y on a
+z=5*a^2-6*a+1
+#equ2(z,0,a)
+a_0$_d_z$
+a_1$_d_z$
+`^_^
 t1= 2*a+b-3*c+d
 t2= 6*d+c
 t3= t1^3/t2^4
