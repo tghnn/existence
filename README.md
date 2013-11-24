@@ -9,4 +9,4 @@ platform: win64
 this is set of threads and mediums;
 dataflow medium is set of created->linked->unlinked->destroyed sources and destinations, exchanging data in tasks
 
-shard¹0 - simple symbolic and numberic calculator, language: C# (x64 only)
+shard'0 - macroprogrammed symbolic and numberic calculator, language: C# (x64 only)
