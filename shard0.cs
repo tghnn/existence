@@ -125,38 +125,36 @@ namespace shard0
 
     class ids
     {
-        public int vars, deep,size, last;
+        public int vars, deep,size, last, stat_uncalc, stat_calc;
         public num prec;
         string[] names;
         public many[] values;
         num[] calc;
-        public bool[] calc_flg;
+        public int[] calc_stat;
         public fileio sys;
         public ids(BigInteger _v, BigInteger _d, BigInteger p, fileio f)
         {
             if ((_v < 11) || (_v > 6666) || (_d < 1) || (_d > 6) || (p < 11)) sys.error("wrong init");
             vars = (int)_v; deep = (int)_d; size = vars*deep;
-            prec = new num(1,p,p); sys = f; last = 0;
+            prec = new num(1,p,p); sys = f; last = 0; stat_uncalc = 1; stat_calc = 2;
             names = new string[vars];
             values = new many[vars];
             calc = new num[size];
-            calc_flg = new bool[vars];
+            calc_stat = new int[vars];
         }
         public int set_empty(string nam)
         {
             if (last >= vars) sys.error("too many vars");
             names[last] = nam.Replace("'","");
-            values[last] = null;
+            values[last] = null; calc_stat[last] = 0;
             for (int i = 0; i < deep; i++) calc[last*deep + i] = new num();
             last++; return last - 1;
         }
-        public void uncalc()
+        public void uncalc() { stat_uncalc+=2; stat_calc+=2;}
+        private void uncalc_var(int var)
         {
-            for (int i = 0; i < last; i++) {
-                for (int ii = deep - 1; ii > 0; ii--) calc[i*deep + ii].set(calc[i*deep + ii-1]);
-                calc[i*deep].unset();
-                calc_flg[i] = false;
-            }
+            for (int ii = deep - 1; ii > 0; ii--) calc[var*deep + ii].set(calc[var*deep + ii-1]);
+            calc[var*deep].unset(); calc_stat[var] = stat_uncalc;
         }
         public int find_var(string n)
         {
@@ -177,28 +175,35 @@ namespace shard0
             if ((f = find_var(n.Substring(i))) < 0) sys.error(n.Substring(i) + " var not found"); 
             return f*deep+i;
         }
-
-        public num get_val(int val, bool fcalc)
+//          val           var
+//old    uncalc,calc  uncalc,calc
+//uncalc  get           recurs
+//calc    get             get
+        public num get_val(int val)
         {
-           int val0, id; 
-           id = val / deep; val0 = id * deep;
-           if (id >= last) sys.error("nonexisted var");
-           if ((val0 == val) || fcalc) {
-            if (!calc[val0].exist())
-            {
-               if (values[id] == null) sys.error(names[id] + " non is non");
-               calc[val0] = values[id].calc();
-            }
+           int var, nowdeep; bool isvar;
+           var = val / deep; isvar = (var * deep == val); nowdeep = val - var*deep;
+           if (var >= last) sys.error("nonexisted var");
+           if (calc_stat[var] == stat_calc) { 
+           } else if (calc_stat[var] == stat_uncalc) {
+               if (isvar) sys.error(names[var] + " recursion");
+           } else {
+               if (values[var] == null) sys.error(names[var] + " var: non is non");
+               uncalc_var(var); calc[var*deep].set(values[var].calc()); calc_stat[var] = stat_calc;
            }
-           if (!calc[val].exist()) sys.error(names[id] + " non is non");
+           if (!calc[val].exist()) sys.error(names[var] + " val: non is non");
            return (calc[val]);
         }
         public num get_var(int var)
         {
-            return get_val(var*deep,false);
+            return get_val(var*deep);
         }
         public void set_var(int var, num n)
         {
+           if (calc_stat[var] != stat_calc) {
+               if (calc_stat[var] != stat_uncalc) uncalc_var(var);
+               calc_stat[var] = stat_calc;
+           }
            calc[var*deep].set(n);
         }
         public void set_val(int val, num n)
@@ -1252,8 +1257,6 @@ namespace shard0
         public num calc()
         {
             num rt = new num(0);
-                if (head.calc_flg[id]) head.sys.error(head.get_name(id) + " recursion look recursion");
-                head.calc_flg[id] = true;
                 if (tfunc < 2)
                 {
                     rt.set(calc(0));
@@ -1301,9 +1304,9 @@ namespace shard0
                             se = (int)(data[0][1].exps[val].non.get_up()) - fe;
                             if ((fe < 0) || (se < 0) || (se > 11)) head.sys.error("row: wrong exp");
                             BigInteger _u,_d,_um, _dm;
-                            num tn = new num(head.get_val(val,false)); tn.exp(fe);
+                            num tn = new num(head.get_val(val)); tn.exp(fe);
                             _u = tn.get_sup(); _d = 1;
-                            tn.set(head.get_val(val,false)); tn.exp(se);
+                            tn.set(head.get_val(val)); tn.exp(se);
                             _um = tn.get_sup(); _dm = tn.get_down();
                             for (int i = 0; i < ne; i++)
                             {
@@ -1317,7 +1320,7 @@ namespace shard0
                                     head.sys.error("row: wrong mul");
                                 _u += ua[i] * da[ne - i - 1] * data[0][i].mult.get_sup();
                             }
-                            tn.set(head.get_val(val,false)); tn.exp(fe);
+                            tn.set(head.get_val(val)); tn.exp(fe);
                             _d = da[ne-1] * tn.get_down() * head.values[id].data[1][0].mult.get_sup();
                             rt.set(_u, _d);
                         }
@@ -1343,13 +1346,13 @@ namespace shard0
         }
         num calc_exp(ref exp ex, int i)
         {
-            num t1 = new num(head.get_val(i,false));
+            num t1 = new num(head.get_val(i));
             num en = new num(ex.non);
             if (ex.vars != null) for (int ii = 0; ii < head.size; ii++)
             {
                 if (ex.vars[ii].nonzero()) 
                 {
-                    num aa = new num(head.get_val(ii,false));
+                    num aa = new num(head.get_val(ii));
                     aa.mul(ex.vars[ii]);
                     en.add(aa);
                 }
@@ -1717,10 +1720,10 @@ namespace shard0
                 }
                 dict.root.sys.progr(tex,254);
             }
-            ee = dict.exp(now_u);
+            ee = dict.exp(max_u);
             if (me[ee] == null) me[ee] = new many_as_one(ref e,ee);
             mul(1-n, ref me[ee].data[1]);
-            ee = dict.exp(now_d);
+            ee = dict.exp(max_d);
             if (me[ee] == null) me[ee] = new many_as_one(ref e,ee);
             mul(1-n, ref me[ee].data[0]);
             data[n].Clear();
@@ -2045,7 +2048,7 @@ namespace shard0
         public BigInteger get_parm(ref ids root)
         {
             num tmp;
-            if (isnum(now()) || (now() == '(')) tmp = nnext(false); else  tmp =  root.get_val(root.find_val(snext(false)),false);
+            if (isnum(now()) || (now() == '(')) tmp = nnext(false); else  tmp =  root.get_val(root.find_val(snext(false)));
             return tmp.toint();
         }
 
@@ -2214,7 +2217,7 @@ namespace shard0
         {
             int sx=0, sy=0;
             if (args.Length < 2) return 0;
-            par = new parse(args[0], args[1], "#&!@$+-=*/^(),~:<>\"[]");
+            par = new parse(args[0], args[1], "#&!@$+-=*/^(),~:<>\"[];");
             par.next();
             sx = (int)par.nnext(true).get_up();
             sy = (int)par.nnext(true).get_up();
@@ -2230,13 +2233,18 @@ namespace shard0
 
             return 0;
         }
+        struct calc_out {
+            public readonly string str;
+            public readonly int val,nout;
+            public calc_out(string s, int v, int o) {
+                str = s; val = v; nout = o;
+            }
+        };
         static void doit() {
             int var0,var1,var2,val0;
             string val;
             int x0,x1,f0,f1,c0,c1;
             int[] xid = new int[99];
-            int[] xout = new int[99];
-            string[] xstr = new string[99];
             int _r0,_r1,_r2; double _d0,_d1,x2;
             par.next(); ids root = new ids(par.nnext(true).get_up(),par.nnext(true).get_up(),par.nnext(true).get_up(), par.sys);
             while (par.sys.has)
@@ -2564,8 +2572,8 @@ namespace shard0
                             {
                                 root.uncalc();
                                 root.set_var_onval(xid[0],new num(x0));
-                                _r0 = (int)root.get_val(xid[1],true).toint();
-                                _r1 = (int)root.get_val(xid[2],true).toint();
+                                _r0 = (int)root.get_val(xid[1]).toint();
+                                _r1 = (int)root.get_val(xid[2]).toint();
                                 if (_r0 < 0) _r0 = 0; if (_r1 < 0) _r1 = 0;
                                 bm1.SetPixel((int)(_r0 % c0) + f0, (int)(_r1 % c1) + f1, Color.FromArgb(255, 255, 255));
                             }
@@ -2577,8 +2585,8 @@ namespace shard0
                                     root.uncalc();
                                     root.set_var_onval(xid[0],new num(x0));
                                     root.set_var_onval(xid[1],new num(x1));
-                                    _d0 = root.get_val(xid[2],true).todouble();
-                                    _d1 = root.get_val(xid[3],true).todouble();
+                                    _d0 = root.get_val(xid[2]).todouble();
+                                    _d1 = root.get_val(xid[3]).todouble();
                                     for (x2 = 0; x2 < 10; x2++) m0.bm.SetPixel(f0 + x0 + (int)(_d0 * x2), f1 + x1 + (int)(_d1 * x2), Color.FromArgb(255,2,2));
                                     bm1.SetPixel(f0 + x0, f1 + x1, Color.FromArgb(255,255,255));
                                 }
@@ -2591,13 +2599,13 @@ namespace shard0
                                 root.uncalc();
                                 root.set_var_onval(xid[0],new num(x0));
                                 root.set_var_onval(xid[1],new num(x1));
-                                _r0 = (int)root.get_val(xid[2],true).toint(); _r1 = _r0; _r2 = _r0;
+                                _r0 = (int)root.get_val(xid[2]).toint(); _r1 = _r0; _r2 = _r0;
                                 if (_all > 3)
                                 {
-                                    _r1 = (int)root.get_val(xid[3],true).toint(); _r2 = 0;
+                                    _r1 = (int)root.get_val(xid[3]).toint(); _r2 = 0;
                                     if (_all == 5)
                                     {
-                                        _r2 = (int)root.get_val(xid[4],true).toint();
+                                        _r2 = (int)root.get_val(xid[4]).toint();
                                     }
                                 }
                                 if (_r0 < 0) _r0 = 0; if (_r1 < 0) _r1 = 0; if (_r2 < 0) _r2 = 0;
@@ -2614,8 +2622,10 @@ namespace shard0
                      break;
                      case '&':
                          {
+                        List<int> no_calc = new List<int>();
+                        List<calc_out> c_out = new List<calc_out>();
                         BigInteger _fr = 0,_fr0,_to = 0,_one = 1,_res1;
-                        int _typ = 0, _all, i0;
+                        int _typ = 0, i0;
                         bool _singl = false, l_add = true;
                         par.snext(false); 
                         switch (par.now()) {
@@ -2648,19 +2658,25 @@ namespace shard0
                             }
                             par.snext(false);
                             _to = par.get_parm(ref root);
-                            if ((xid[0] = root.find_var(par.snext(true))) < 0) par.sys.error("loop: no name");
+                            val = par.snext(true);
+                            if ((xid[0] = root.find_var(val)) < 0) par.sys.error("loop: no name");
                             if (root.values[xid[0]] != null) par.sys.error("loop: must non");
+                            while (par.now() != ')') {
+                                if ((var1 = root.find_var(par.snext(true))) < 0) par.sys.error("loop: no name");
+                                if (no_calc.Contains(var1)) par.sys.error("loop: double var");
+                                if (root.values[var1] == null) par.sys.error("loop: must not non");
+                                no_calc.Add(var1);
+                            }
                         }
-                        for (_all = 1; par.more() && (_all < xout.Length); _all++)
+                        while (par.more())
                         {
-                            par.snext(false);
+                            par.snext(false); 
                             if (par.now() != '"') {
                                 val = par.snext(false); if (val.Length < 1) break;
-                                xid[_all] = root.find_val(val);
-                            } else xid[_all] = -1;
+                                val0 = root.find_val(val);
+                            } else val0 = -1;
                             val = par.snext(false); if (val.Length < 1) break;
-                            xstr[_all] = val.Substring(1);
-                            xout[_all] = (int)(par.nnext(false).get_up());
+                            c_out.Add(new calc_out(val.Substring(1),val0,(int)(par.nnext(false).get_up())));
                         }
                         string[] _out = new string[11];
                         _fr0 = _fr; while (true)
@@ -2669,19 +2685,20 @@ namespace shard0
                             {
                                 if (l_add) { if (_fr > _to) break; } else { if (_fr < _to) break; }
                                 root.uncalc();
+                                foreach (int nc in no_calc) root.calc_stat[nc] = root.stat_calc;
                                 root.set_var(xid[0], new num(1, _fr, _one));
                             }
                             i0 = 0; while (i0 < 10) _out[i0++]="";
-                            i0 = 1; while (i0 < _all) {
-                                if (xid[i0] > -1) {
+                            foreach (calc_out _c in c_out) {
+                                if (_c.val > -1) {
                                     if (_typ == 0) {
-                                        _res1 = root.get_val(xid[i0],true).toint();
-                                        _out[xout[i0]] += _res1.ToString(xstr[i0]);
+                                        _res1 = root.get_val(_c.val).toint();
+                                        _out[_c.nout] += _res1.ToString(_c.str);
                                     } else {
-                                        _out[xout[i0]] += root.get_val(xid[i0],true).print("","-","");
+                                        _out[_c.nout] += root.get_val(_c.val).print("","-","");
                                     }
                                 } else {
-                                    _out[xout[i0]] += xstr[i0];
+                                    _out[_c.nout] += _c.str;
                                 }
                                 i0++;
                             }
