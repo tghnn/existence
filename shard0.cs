@@ -943,6 +943,14 @@ namespace shard0
             foreach (one m0 in m.data[0]) {one tmp = m0; data[0].Add(new one(ref tmp));}
             foreach (one m1 in m.data[1]) {one tmp = m1; data[1].Add(new one(ref tmp));}
         }
+        public void set(ref many m)
+        {
+            head = m.head; id = m.id;
+            data[0].Clear(); data[1].Clear();
+            foreach (one m0 in m.data[0]) { one tmp = m0; data[0].Add(new one(ref tmp)); }
+            foreach (one m1 in m.data[1]) { one tmp = m1; data[1].Add(new one(ref tmp)); }
+        }
+
         public many(ref many m, int ud)
         {
             tfunc = -1; pfunc = new num(0);
@@ -2277,6 +2285,72 @@ namespace shard0
                 str = s; val = v; nout = o;
             }
         };
+        static void slice(ref ids root, ref many dv, ref one _ml, string s_val)
+        {
+            num e = new num(); int ip = root.last;
+            one odv = null;
+            one _dv = new one(ref _ml); _dv.div();
+            SortedDictionary<num, many> res = new SortedDictionary<num, many>();
+            int i1 = dv.data[0].Count;
+            while (dv.data[0].Count > 0)
+            {
+                e.zero();
+                odv = dv.data[0][0];
+                if (odv.test_mul(ref _ml))
+                {
+                    while (odv.mul_t(ref _ml)) e.add(-1);
+                    odv.mul(ref _dv);
+                }
+                else if (odv.test_mul(ref _dv))
+                {
+                    while (odv.mul_t(ref _dv)) e.add(1);
+                    odv.mul(ref _ml);
+                }
+                if (!res.ContainsKey(e)) res.Add(new num(e), new many(ref root, -1));
+                res[e].data[0].Add(odv);
+                e.zero(); dv.data[0].RemoveAt(0);
+                root.sys.progr(i1 - dv.data[0].Count, i1);
+            }
+            if (res.ContainsKey(e))
+            {
+                many mtmp = res[e]; dv.set(ref mtmp); res.Remove(e);
+            }
+            e = null;
+            string nn; int var1;
+            foreach (KeyValuePair<num, many> _d in res)
+            {
+                nn = s_val + (_d.Key.nonzero() ? ((_d.Key.get_sign() < 0 ? "m" : "p") + _d.Key.get_up().ToString().Trim() + (_d.Key.get_down() > 1 ? ("\\" + _d.Key.get_down().ToString().Trim()) : "")) : "_0") + "_" + par.name;
+                if ((var1 = root.find_var(nn)) < 0)
+                {
+                    var1 = root.set_empty(nn);
+                    _d.Value.id = var1;
+                    root.values[var1] = _d.Value;
+                }
+                else par.sys.error("@ overwrite " + nn);
+            }
+            for (int i0 = ip; i0 < root.last; i0++) root.values[i0].print(0);
+        }
+        static void c_slice(ref ids root, ref many dv, ref one _ml)
+        {
+            string s_val = "";
+            for (int ii = 0; ii < root.size; ii++) if (!_ml.exps[ii].iszero()) s_val += root.get_name_onval(ii);
+            slice(ref root, ref dv, ref _ml, s_val);
+        }
+        static void r_slice(ref ids root, ref many dv, ref one _ml, int lev)
+        {
+            one n_ml;
+            if (lev < 2) { c_slice(ref root, ref dv, ref _ml); }
+            else for (int ii = 0; (ii < root.size); ii++)
+            {
+                if (!_ml.exps[ii].iszero())
+                {
+                    n_ml = new one(ref _ml);
+                    n_ml.exps[ii].zero();
+                    r_slice(ref root, ref dv, ref n_ml, lev - 1);
+                }
+            }
+        }
+
         static void doit() {
             int var0,var1,var2,val0;
             string val;
@@ -2430,9 +2504,11 @@ namespace shard0
                             break;
                      case '@':
                         {
+                            int combo = 0;
                             char _c;
                             string nn, s_val;
-                            one _dv, _ml, odv = null;
+                            one _ml;
+                            one odv = null;
                             par.snext(false);
                             var0 = root.find_var_ex(par.name);
                             if (root.values[var0] == null) par.sys.error("@ empty");
@@ -2482,17 +2558,26 @@ namespace shard0
                                     one tmp = root.values[var1].data[0][0], tmp1 = root.values[var1].data[1][0];
                                     tmp.mul(ref tmp1);
                                     _ml = new one(ref tmp);
+                                    if (_ml.mult.isone())
+                                    {
+                                        for (int ii = 0; ii < root.size; ii++)
+                                        {
+                                            if (!_ml.exps[ii].iszero())
+                                            {
+                                                if ((_ml.exps[ii].vars != null) || (!_ml.exps[ii].non.isone())) { combo = 0; break; }
+                                                combo++;
+                                            }
+                                        }
+                                    }
                                     break;
                                 default:
                                     par.sys.error("@ wrong shard opt");
                                     _ml = new one(ref dv, 1);
                                     break;
                             }
-                            _ml.simple(); _dv = new one(ref _ml); _dv.div();
-                            num e = new num(); int ip = root.last;
+                            _ml.simple();
                             if (x0 < 0)
                             {
-                                SortedDictionary<num, many> res = new SortedDictionary<num, many>();
                                 if (odv != null)
                                 {
                                     if (odv.mult.nonzero())
@@ -2508,41 +2593,30 @@ namespace shard0
                                 {
                                     if (!dv.revert()) par.sys.error("@ can't shard this many");
                                 }
-                                int i1 = dv.data[0].Count;
-                                while (dv.data[0].Count > 0)
+                                if (combo < 1) slice(ref root, ref dv, ref _ml, s_val);
+                                else
                                 {
-                                    e.zero();
-                                    odv = dv.data[0][0];
-                                    if (odv.test_mul(ref _ml))
+                                    int ii = 1; s_val = "";
+                                    while (ii <= combo)
                                     {
-                                        while (odv.mul_t(ref _ml)) e.add(-1);
-                                        odv.mul(ref _dv);
+                                        r_slice(ref root, ref dv, ref _ml, ii);
+                                        ii++;
                                     }
-                                    else if (odv.test_mul(ref _dv))
-                                    {
-                                        while (odv.mul_t(ref _dv)) e.add(1);
-                                        odv.mul(ref _ml);
-                                    }
-                                    if (!res.ContainsKey(e)) res.Add(new num(e), new many(ref root,-1));
-                                    res[e].data[0].Add(odv);
-                                    e.zero(); dv.data[0].RemoveAt(0);
-                                    root.sys.progr(i1 - dv.data[0].Count, i1);
                                 }
-                                e = null;
-                                foreach (KeyValuePair<num, many> _d in res)
+                                nn = s_val +  "_0" + "_" + par.name;
+                                if ((var1 = root.find_var(nn)) < 0)
                                 {
-                                    nn = s_val + (_d.Key.nonzero() ? ((_d.Key.get_sign() < 0 ? "m" : "p") + _d.Key.get_up().ToString().Trim() + (_d.Key.get_down() > 1 ? ("\\" + _d.Key.get_down().ToString().Trim()) : "")) : "_0") + "_" + par.name;
-                                    if ((var1 = root.find_var(nn)) < 0)
-                                    {
-                                        var1 = root.set_empty(nn);
-                                        _d.Value.id = var1;
-                                        root.values[var1] = _d.Value;
-                                    }
-                                    else par.sys.error("@ overwrite " + nn);
+                                    var1 = root.set_empty(nn);
+                                    dv.id = var1;
+                                    root.values[var1] = dv;
                                 }
+                                else par.sys.error("@ overwrite " + nn);
+                                root.values[var1].print(0);
                             }
                             else
                             {
+                                one _dv = new one(ref _ml); _dv.div();
+                                num e = new num(); int ip = root.last;
                                 SortedDictionary<num, many_as_one> res = new SortedDictionary<num, many_as_one>();
                                 KeyValuePair<mao_key, num> tkey, kml,kdv;
                                 if (odv != null)
@@ -2596,8 +2670,8 @@ namespace shard0
                                     }
                                     else par.sys.error("@ overwrite " + nn);
                                 }
+                                for (int i0 = ip; i0 < root.last; i0++) root.values[i0].print(0);
                             }
-                            for (int i0 = ip; i0 < root.last; i0++) root.values[i0].print(0);
                         }
                         GC.Collect();
                         break;
