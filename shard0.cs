@@ -181,8 +181,9 @@ namespace shard0
 //calc    get             get
         public num get_val(int val)
         {
-           int var, nowdeep; bool isvar;
-           var = val / deep; isvar = (var * deep == val); nowdeep = val - var*deep;
+           int var = val_to_var(val); 
+           int nowdeep = val - var_to_val(var); 
+           bool isvar = (nowdeep == 0);
            if (var >= last) sys.error("nonexisted var");
            if (calc_stat[var] == stat_calc) { 
            } else if (calc_stat[var] == stat_uncalc) {
@@ -849,7 +850,7 @@ namespace shard0
             if (head.head != a.head.head) return false;
             mult.mul(a.mult);
             for (i = 0; i < head.head.size; i++) { 
-                rt = rt && exps[i].add(ref a.exps[i],1);
+                if (!exps[i].add(ref a.exps[i],1)) rt = false;
             }
             islist = false;
             return rt;
@@ -895,6 +896,25 @@ namespace shard0
         public void exp_zero(int val) {
             islist = false;
             exps[val].zero();
+        }
+        public void go_deeper(int deep) {
+            int pnt,i0,i1;
+            for (i0 = 0; i0 < head.head.vars; i0++) {
+                pnt = head.head.var_to_val(i0);
+                i1 = head.head.deep-1;
+                while (i1 > head.head.deep - deep -1) {
+                    if (!exps[pnt + i1].iszero()) head.head.sys.error(" too deep ");
+                    i1--;
+                }
+                while (i1 > -1) {
+                    exps[pnt + i1 + deep].set(ref exps[pnt + i1]);
+                    i1--;
+                }
+                while (i1 < deep-1) {
+                    i1++;
+                    exps[pnt + i1].zero();
+                }
+            }
         }
     }
     class many
@@ -1105,13 +1125,23 @@ namespace shard0
             return true;
         }
 
+        private void go_deeper(int deep) {
+            foreach (one u in data[0]) u.go_deeper(deep);
+            foreach (one d in data[1]) d.go_deeper(deep);
+        }
         public bool expand(int ud, int val)
         {
             int i,j;
             bool ret = false;
+            int var = head.val_to_var(val);
+            int deep = val - head.var_to_val(var);
             exp _exp;
             num _dex = new num();
-            many id = head.values[head.val_to_var(val)];
+            many id;
+            if (deep == 0) id = head.values[var]; else {
+                id = new many(ref head.values[var]);
+                id.go_deeper(deep);
+            }
             for (i = 0; i < data[ud].Count; i++)
             {
                 _exp = new exp(ref data[ud][i].exps[val]);
@@ -1411,7 +1441,7 @@ namespace shard0
         {
             if (to_val[v] < 0)
             {
-                if (lval >= nvals) return -1;
+                if (lval >= nvals) root.sys.error(" ! too many var");
                 to_val[v] = lval;
                 vals[lval++] = v;
             }
@@ -1748,7 +1778,7 @@ namespace shard0
 
     class fileio: IDisposable
     {
-        StreamReader fin;
+        StreamReader fin, f611;
         StreamWriter[] fout;
         parse head;
         int nline,ncline, lines, clines;
@@ -1767,12 +1797,19 @@ namespace shard0
                 if ((ts.Length > 4) && (ts[0] != '`') && ((ts[0] != '#') || (ts[1] != '#'))) clines++;
             }
             fc.Close();
+            f611 = (File.Exists("611.alg") ?  new StreamReader("611.alg") : null);
             fin = new StreamReader(nin);
             nout = _nout;
             fout = new StreamWriter[10];
             fout[0] = new StreamWriter(nout + "0");
             nline = 0; ncline = 0; has = true;
-            head = h; buf = "";
+            head = h; buf = fin.ReadLine() + "\n" + fin.ReadLine();
+        }
+        private string rfile() {
+            string r;
+            if ((f611 != null) && ((r = f611.ReadLine()) != null)) return r;
+            nline++;
+            return fin.ReadLine();
         }
 
         public void progr (int now, int all) {
@@ -1797,7 +1834,7 @@ namespace shard0
                 r = buf.Substring(0,i);
                 buf = (i < buf.Length ? buf.Substring(i+1) : "");
             } else {
-                nline++; r = fin.ReadLine();
+                r = rfile();
                 if ((r == null) || (nline > lines)) { has = false; r = ""; }
                 if ((r.Length > 4) && (r[0] != '`') && ((r[0] != '#') || (r[1] != '#'))) ncline++;
             }
@@ -2302,8 +2339,13 @@ namespace shard0
                         if (par.now() != '!')
                         {
                         List<int> _id = new List<int>();
-                        while (par.more())
-                        {
+                        if (par.now() == '*') {
+                            for (int ii = root.last-1; ii > -1; ii--) {
+                                if (ii != var0) _id.Add(root.var_to_val(ii));
+                            }
+                            par.snext(false);
+                            if (par.now() == '$') _div=true;
+                        } else while (par.more()) {
                             val = par.snext(false); if (val.Length < 1) break;
                             val0 = root.find_val(val);
                             if (root.val_to_var(val0) == var0) par.sys.error(root.get_name(var0) + " $recursion - look recursion");
@@ -2312,7 +2354,7 @@ namespace shard0
                             if (par.now() == '$') _div=true;
                             par.snext(false);
                         }
-                        for (int i=0; i < _id.Count; i++) root.values[var0].expand(_id[i]);
+                        foreach (int i in _id) root.values[var0].expand(i);
                         if (_div && (root.values[var0].data[1].Count == 1))
                         {
                             root.values[var0].data[1][0].div();
@@ -2323,9 +2365,16 @@ namespace shard0
                         }
                         else
                         {
-                        mao_dict mdict = new mao_dict((int)par.nnext(true).get_up(),ref root);
-                        many_as_one[] mao_fr = new many_as_one[root.vars];
                         List<int> _id = new List<int>();
+                        many_as_one[] mao_fr = new many_as_one[root.vars];
+                        mao_dict mdict;
+                        par.snext(false); if (par.now() == '*') {
+                            par.snext(false);
+                            mdict = new mao_dict(root.last,ref root);
+                            for (int ii = 0; ii < root.last; ii++) {
+                                mdict.val(ii);
+                            }
+                        } else mdict = new mao_dict((int)par.nnext(false).get_up(),ref root);
                         while (par.more())
                         {
                             val = par.snext(true); if (val.Length < 1) break;
