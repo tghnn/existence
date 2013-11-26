@@ -1803,8 +1803,13 @@ namespace shard0
             StreamReader fc; string ts;
             if (!File.Exists(nin)) Environment.Exit(-1);
             iexf = Path.GetExtension(nin);
-            nout = Path.GetFileNameWithoutExtension(_nout);
-            xout = Path.GetExtension(_nout);
+            if (_nout == "") {
+                nout = Path.GetFileNameWithoutExtension(nin);
+                xout = (iexf == ".txt" ? ".out" : ".txt");
+            } else {
+                nout = Path.GetFileNameWithoutExtension(_nout);
+                xout = Path.GetExtension(_nout);
+            }
             fc = new StreamReader(nin);
             clines++; lines = 0; quit = false; while ((ts = fc.ReadLine()) != null)
             {
@@ -2269,8 +2274,9 @@ namespace shard0
         static int Main(string[] args)
         {
             int sx=0, sy=0;
-            if (args.Length < 2) return 0;
-            par = new parse(args[0], args[1], "#&!@$+-=*/^(),~:<>\"[];");
+            if (args.Length < 1) return 0;
+            string ss = (args.Length < 2 ? "" : args[1]);
+            par = new parse(args[0], ss, "#&!@$+-=*/^(),~:<>\"[];");
             par.next();
             sx = (int)par.nnext(true).get_up();
             sy = (int)par.nnext(true).get_up();
