@@ -486,8 +486,10 @@ namespace shard0
             }
             return s0;
         }
-        public string toname() {
-            return (nonzero() ? ((get_sign() < 0 ? "_" : "") + get_up().ToString().Trim() + (get_down() > 1 ? ("_" + get_down().ToString().Trim()) : "")) : "0");
+        public string toname(bool group) {
+            if (iszero()) return "0";
+            if (isone() && (get_sign() > 0) && group) return "";
+            return (get_sign() < 0 ? "_" : "") + get_up().ToString().Trim() + (get_down() > 1 ? ("_" + get_down().ToString().Trim()) : "");
         }
         public int CompareTo(object obj) {
             if (obj == null) return 1;
@@ -2321,7 +2323,7 @@ namespace shard0
             string nn; int var1;
             foreach (KeyValuePair<num, many> _d in res)
             {
-                nn = s_val + _d.Key.toname() + "_" + par.name;
+                nn = s_val + _d.Key.toname(false) + "_" + par.name;
                 if ((var1 = root.find_var(nn)) < 0)
                 {
                     var1 = root.set_empty(nn);
@@ -2331,12 +2333,6 @@ namespace shard0
                 else par.sys.error("@ overwrite " + nn);
             }
             for (int i0 = ip; i0 < root.last; i0++) root.values[i0].print(0);
-        }
-        static void c_slice(ref ids root, ref many dv, ref one _ml)
-        {
-            string s_val = "";
-            for (int ii = 0; ii < root.size; ii++) if (!_ml.exps[ii].iszero()) s_val += root.get_name_onval(ii);
-            slice(ref root, ref dv, ref _ml, s_val);
         }
         static void r_slice(ref ids root, ref many dv, ref one _ml)
         {
@@ -2354,7 +2350,7 @@ namespace shard0
                         if (!dv.data[0][i0].exps[i2].iszero())
                         {
                             if (dv.data[0][i0].exps[i2].vars != null) root.sys.error(" cant extract on multiexp");
-                            _k += root.get_name_onval(i2) + dv.data[0][i0].exps[i2].non.toname();
+                            _k += root.get_name_onval(i2) + dv.data[0][i0].exps[i2].non.toname(true);
                             dv.data[0][i0].exps[i2].zero();
                         }
                     }
@@ -2371,9 +2367,10 @@ namespace shard0
             }
             foreach (KeyValuePair<string, many> _d in res)
             {
-                if ((var1 = root.find_var(_d.Key)) < 0)
+                _k = _d.Key + "_" + par.name;
+                if ((var1 = root.find_var(_k)) < 0)
                 {
-                    var1 = root.set_empty(_d.Key  + "_" + par.name);
+                    var1 = root.set_empty(_k);
                     _d.Value.id = var1;
                     root.values[var1] = _d.Value;
                 }
@@ -2688,7 +2685,7 @@ namespace shard0
                                 e = null;
                                 foreach (KeyValuePair<num, many_as_one> _d in res)
                                 {
-                                    nn = s_val + _d.Key.toname() + "_" + par.name;
+                                    nn = s_val + _d.Key.toname(false) + "_" + par.name;
                                     if ((var1 = root.find_var(nn)) < 0)
                                     {
                                         var1 = root.set_empty(nn);
