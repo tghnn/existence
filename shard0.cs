@@ -145,7 +145,8 @@ namespace shard0
         public int set_empty(string nam)
         {
             if (last >= vars) sys.error("too many vars");
-            names[last] = nam.Replace("'","");
+            while ((nam.Length > 0) && (nam[0] == '\'')) nam = nam.Substring(1);
+            names[last] = nam;
             values[last] = null; calc_stat[last] = 0;
             for (int i = 0; i < deep; i++) calc[last*deep + i] = new num();
             last++; return last - 1;
