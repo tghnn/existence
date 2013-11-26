@@ -2373,7 +2373,7 @@ namespace shard0
             {
                 if ((var1 = root.find_var(_d.Key)) < 0)
                 {
-                    var1 = root.set_empty(_d.Key);
+                    var1 = root.set_empty(_d.Key  + "_" + par.name);
                     _d.Value.id = var1;
                     root.values[var1] = _d.Value;
                 }
