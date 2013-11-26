@@ -1,5 +1,5 @@
 xy=600,600
-m=73,4,1000000
+m=102,4,1000000
 `screen xy
 `max variable number, variable deep, precusion for noninteger exponent
 ##_fact#1*#0
@@ -7,12 +7,12 @@ m=73,4,1000000
 ##fact#1(1#_fact(2<(#0)))
 `macro, loop
 ##equ2#3#0@=#1&#2
-##equ2#3_d_#0=#2p1_#0^2-4*#2p2_#0*#2_0_#0
-##equ2#3#2_0=-#2p1_#0+_d_#0^(1/2)//2*#2p2_#0
-##equ2#3#2_1=-#2p1_#0-_d_#0^(1/2)//2*#2p2_#0
-##equ2#3_d_#0$#2_0_#0,#2p1_#0,#2p2_#0$
-##equ2#3#2_0$#2_0_#0,#2p1_#0,#2p2_#0$
-##equ2#3#2_1$#2_0_#0,#2p1_#0,#2p2_#0$
+##equ2#3_d_#0=#21_#0^2-4*#22_#0*#20_#0
+##equ2#3#2_0=-#21_#0+_d_#0^(1/2)//2*#22_#0
+##equ2#3#2_1=-#21_#0-_d_#0^(1/2)//2*#22_#0
+##equ2#3_d_#0$#20_#0,#21_#0,#22_#0$
+##equ2#3#2_0$#20_#0,#21_#0,#22_#0$
+##equ2#3#2_1$#20_#0,#21_#0,#22_#0$
 `long (not so) macro
 f=#fact(2+2)
 t=
@@ -46,10 +46,13 @@ t4$!11,t3,t2,t1
 test2&r0<0(t)t4""1
 `calculate t4, out (r)ational to file 1 format ""
 t1@=0&a
-`ap1_t1*a^1 + a_0_t1*a^0
-abc= 1*a*b*c
+`a1_t1*a^1 + a0_t1*a^0
+abc= a*b*c
 t4@!6=0$abc
 `(fast) extract multiplier(single variable or monomial) from equation or expression
+cd= c*d
+abc15_t4@$cd
+`deep extract (must not fast and 1*x^1*..)
 t4@/
 `t4=t4p1/t4m1
 e=
