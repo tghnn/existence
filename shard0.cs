@@ -486,6 +486,9 @@ namespace shard0
             }
             return s0;
         }
+        public string toname() {
+            return (nonzero() ? ((get_sign() < 0 ? "_" : "") + get_up().ToString().Trim() + (get_down() > 1 ? ("_" + get_down().ToString().Trim()) : "")) : "0");
+        }
         public int CompareTo(object obj) {
             if (obj == null) return 1;
             num k = obj as num;
@@ -765,7 +768,6 @@ namespace shard0
                 return r + (non.iszero() ? "" : non.print("+","-","")) + ")";
             }
         }
-
     }
     class one
     {
@@ -2319,7 +2321,7 @@ namespace shard0
             string nn; int var1;
             foreach (KeyValuePair<num, many> _d in res)
             {
-                nn = s_val + (_d.Key.nonzero() ? ((_d.Key.get_sign() < 0 ? "m" : "p") + _d.Key.get_up().ToString().Trim() + (_d.Key.get_down() > 1 ? ("\\" + _d.Key.get_down().ToString().Trim()) : "")) : "_0") + "_" + par.name;
+                nn = s_val + _d.Key.toname() + "_" + par.name;
                 if ((var1 = root.find_var(nn)) < 0)
                 {
                     var1 = root.set_empty(nn);
@@ -2336,19 +2338,48 @@ namespace shard0
             for (int ii = 0; ii < root.size; ii++) if (!_ml.exps[ii].iszero()) s_val += root.get_name_onval(ii);
             slice(ref root, ref dv, ref _ml, s_val);
         }
-        static void r_slice(ref ids root, ref many dv, ref one _ml, int lev)
+        static void r_slice(ref ids root, ref many dv, ref one _ml)
         {
-            one n_ml;
-            if (lev < 2) { c_slice(ref root, ref dv, ref _ml); }
-            else for (int ii = 0; (ii < root.size); ii++)
+            num e = new num(); int ip = root.last, var1;
+            SortedDictionary<string, many> res = new SortedDictionary<string, many>();
+            string _k;
+            int i0 = 0, i1 = dv.data[0].Count, i2;
+            while (dv.data[0].Count > i0)
             {
-                if (!_ml.exps[ii].iszero())
+                i2 = 0; _k = "";
+                while (i2 < root.size)
                 {
-                    n_ml = new one(ref _ml);
-                    n_ml.exps[ii].zero();
-                    r_slice(ref root, ref dv, ref n_ml, lev - 1);
+                    if (!_ml.exps[i2].iszero())
+                    {
+                        if (!dv.data[0][i0].exps[i2].iszero())
+                        {
+                            if (dv.data[0][i0].exps[i2].vars != null) root.sys.error(" cant extract on multiexp");
+                            _k += root.get_name_onval(i2) + dv.data[0][i0].exps[i2].non.toname();
+                            dv.data[0][i0].exps[i2].zero();
+                        }
+                    }
+                    i2++;
                 }
+                if (_k == "") i0++;
+                else
+                {
+                    if (!res.ContainsKey(_k)) res.Add(_k, new many(ref root, -1));
+                    res[_k].data[0].Add(dv.data[0][i0]);
+                    dv.data[0].RemoveAt(i0);
+                }
+                root.sys.progr(i1 - dv.data[0].Count - i0, i1);
             }
+            foreach (KeyValuePair<string, many> _d in res)
+            {
+                if ((var1 = root.find_var(_d.Key)) < 0)
+                {
+                    var1 = root.set_empty(_d.Key);
+                    _d.Value.id = var1;
+                    root.values[var1] = _d.Value;
+                }
+                else par.sys.error("@ overwrite " + _d.Key);
+            }
+            for (i0 = ip; i0 < root.last; i0++) root.values[i0].print(0);
         }
 
         static void doit() {
@@ -2596,14 +2627,10 @@ namespace shard0
                                 if (combo < 1) slice(ref root, ref dv, ref _ml, s_val);
                                 else
                                 {
-                                    int ii = 1; s_val = "";
-                                    while (ii <= combo)
-                                    {
-                                        r_slice(ref root, ref dv, ref _ml, ii);
-                                        ii++;
-                                    }
+                                    s_val = "";
+                                    r_slice(ref root, ref dv, ref _ml);
                                 }
-                                nn = s_val +  "_0" + "_" + par.name;
+                                nn = s_val +  "0_" + par.name;
                                 if ((var1 = root.find_var(nn)) < 0)
                                 {
                                     var1 = root.set_empty(nn);
@@ -2661,7 +2688,7 @@ namespace shard0
                                 e = null;
                                 foreach (KeyValuePair<num, many_as_one> _d in res)
                                 {
-                                    nn = s_val + (_d.Key.nonzero() ? ((_d.Key.get_sign() < 0 ? "m" : "p") + _d.Key.get_up().ToString().Trim() + (_d.Key.get_down() > 1 ? ("\\" + _d.Key.get_down().ToString().Trim()) : "")) : "_0") + "_" + par.name;
+                                    nn = s_val + _d.Key.toname() + "_" + par.name;
                                     if ((var1 = root.find_var(nn)) < 0)
                                     {
                                         var1 = root.set_empty(nn);
