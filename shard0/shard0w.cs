@@ -227,7 +227,7 @@ namespace shard0w
 
         void Copy()
         {
-            Document.Copy();
+            if (Document.Focused) Document.Copy(); else Result.Copy();
         }
 
         void Paste()
