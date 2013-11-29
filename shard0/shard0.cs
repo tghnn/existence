@@ -1234,7 +1234,7 @@ namespace shard0
             }
         }
 
-        public void print(int f)
+        public string print(int _f)
         {
             bool hasdiv;
             string s0 = head.get_name(id) + " =";
@@ -1253,25 +1253,25 @@ namespace shard0
                     s0 += " " ;
                     break;
             }
-            head.sys.wstr(f,ref s0); s0 = "";
             if ((data[0].Count > 0) && (data[1].Count > 0)) 
             {
                 hasdiv = ((data[1].Count > 1) || (!data[1][0].mult.isone()) || (data[1][0].mult.get_sign() < 0));
                 for (i = 0; i < head.size; i++) if (!data[1][0].exps[i].iszero()) hasdiv = true;
                 if (hasdiv) {
-                    print(f,0); head.sys.wstr(f,"//");  print(f,1);
+                    s0 = print(_f,0,s0); s0 = print(_f,1,s0 + "//");
                 } else {
-                    if ((data[0].Count == 1) && data[0][0].mult.iszero()) head.sys.wstr(f,"0"); else print(f,0);
+                    if ((data[0].Count == 1) && data[0][0].mult.iszero()) s0 += "0"; else s0= print(_f,0,s0);
                 }
             }
-            head.sys.wline(f,"");
+            if (_f > -1) head.sys.wline(_f,s0);
+            return s0;
         }
-        public void print(int f, int n)
+        public string print(int _f, int n, string s0)
         {
             int i0, i1;
             bool f_one, f_many = true;
-            string s0, s1;
-            for (s0 = "", i0 = 0; i0 < data[n].Count; i0++)
+            string s1;
+            for (i0 = 0; i0 < data[n].Count; i0++)
             {
                 if (data[n][i0].mult.nonzero())
                 {
@@ -1293,9 +1293,9 @@ namespace shard0
                     f_many = false;
                 }
                 head.sys.progr(i0,data[n].Count);
-                if (s0.Length > 666) {head.sys.wstr(f,ref s0); s0 = "";}
+                if ((s0.Length > 666) && (_f > -1)) {head.sys.wstr(_f,ref s0); s0 = "";}
             }
-            head.sys.wstr(f,ref s0);
+            return s0;
         }
         public num calc()
         {
@@ -1805,7 +1805,7 @@ namespace shard0
             iexf = Path.GetExtension(nin);
             if (_nout == "") {
                 nout = Path.GetFileNameWithoutExtension(nin);
-                xout = (iexf == ".txt" ? ".out" : ".txt");
+                xout = ".txt";
             } else {
                 nout = Path.GetFileNameWithoutExtension(_nout);
                 xout = Path.GetExtension(_nout);
@@ -1870,7 +1870,7 @@ namespace shard0
         public void error(string e)
         {
             fout[0].WriteLine(head.val);
-            fout[0].WriteLine("Line {0:G} Pos {0:G}: " + e, nline, head.pos);
+            fout[0].WriteLine("Line {0:G} Pos {0:G}: " + e, nline+1, head.pos);
             fout[0].Flush();
             Environment.Exit(-1);
         }
@@ -2840,11 +2840,14 @@ namespace shard0
                             i0 = 0; while (i0 < 10) _out[i0++]="";
                             foreach (calc_out _c in c_out) {
                                 if (_c.val > -1) {
-                                    if (_typ == 0) {
-                                        _res1 = root.get_val(_c.val).toint();
-                                        _out[_c.nout] += _res1.ToString(_c.str);
-                                    } else {
-                                        _out[_c.nout] += root.get_val(_c.val).print("","-","");
+                                    if (_c.str == "$") _out[_c.nout] += root.values[root.val_to_var(_c.val)].print(-1);
+                                    else {
+                                        if (_typ == 0) {
+                                            _res1 = root.get_val(_c.val).toint();
+                                            _out[_c.nout] += _res1.ToString(_c.str);
+                                        } else {
+                                            _out[_c.nout] += root.get_val(_c.val).print("","-","");
+                                        }
                                     }
                                 } else {
                                     _out[_c.nout] += _c.str;
