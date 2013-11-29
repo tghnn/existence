@@ -412,7 +412,7 @@
             // toolStripStatusLabel2
             // 
             this.toolStripStatusLabel2.Name = "toolStripStatusLabel2";
-            this.toolStripStatusLabel2.Size = new System.Drawing.Size(859, 20);
+            this.toolStripStatusLabel2.Size = new System.Drawing.Size(890, 20);
             this.toolStripStatusLabel2.Spring = true;
             // 
             // status_ZoomFactor
@@ -508,7 +508,6 @@
             this.Result.Location = new System.Drawing.Point(0, 303);
             this.Result.Margin = new System.Windows.Forms.Padding(4);
             this.Result.Name = "Result";
-            this.Result.ReadOnly = true;
             this.Result.Size = new System.Drawing.Size(995, 207);
             this.Result.TabIndex = 4;
             this.Result.Text = "";
