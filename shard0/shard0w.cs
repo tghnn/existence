@@ -195,7 +195,7 @@ namespace shard0w
 
         void Save()
         {
-            if (fname == "") {if (saveWork.ShowDialog() == DialogResult.OK) fname = saveWork.FileName; else return;}
+            if (fname == "") {if (saveWork.ShowDialog() == DialogResult.OK) setfname(saveWork.FileName); else return;}
                 try
                 {
                     Document.SaveFile(fname, RichTextBoxStreamType.PlainText);
@@ -254,9 +254,12 @@ namespace shard0w
         }
         void fload(string _f) {
             if (File.Exists(_f)) {
-                fname = _f; Text = "shard0w # " + fname;
+                setfname(_f);
                 Document.LoadFile(fname, RichTextBoxStreamType.PlainText);
             }
+        }
+        void setfname(string _f) {
+                fname = _f; Text = "shard0w # " + Path.GetFileName(fname);
         }
 
         void Calculate ()
@@ -268,18 +271,19 @@ namespace shard0w
             start.Arguments = fname;
             start.FileName = "shard0.exe";
             start.WindowStyle = ProcessWindowStyle.Normal;
-//            start.CreateNoWindow = true;
-
             using (Process proc = Process.Start(start))
             {
                 proc.WaitForExit();
-
-//                exitCode = proc.ExitCode;
             }
-            string r0; r0 = Path.GetFileNameWithoutExtension(fname);
-            Result.LoadFile(r0 + "0.txt", RichTextBoxStreamType.PlainText);
-            Result.SelectionStart = Result.Text.Length;
-            Result.ScrollToCaret();
+            string r0; r0 = Path.GetFileNameWithoutExtension(fname) + "0.txt";
+            if (File.Exists(r0)) {
+                Result.LoadFile(r0, RichTextBoxStreamType.PlainText);
+                Result.SelectionStart = Result.Text.Length;
+                Result.ScrollToCaret();
+            } else {
+                Result.Clear();
+                Result.AppendText("And Then There Were None");
+            }
         }
     
     }
