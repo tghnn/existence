@@ -18,7 +18,7 @@ namespace shard0w
         public shard0w(string _f)
         {
             InitializeComponent();
-            if (_f != "") fload(_f);
+            if (_f != "") fload(_f); else New();
         }
 
         override protected void OnResize(EventArgs e)
@@ -184,6 +184,7 @@ namespace shard0w
         {
             fname = ""; Text = "shard0w";
             Document.Clear();
+            Document.AppendText("xy=600,600\nm=100,4,1000000000000000\n");
         }
 
 
@@ -292,7 +293,10 @@ namespace shard0w
         [STAThread]
         static int Main(string[] args)
         {
-            if (!File.Exists("shard0.exe")) return -1;
+            if (!File.Exists("shard0.exe")) {
+                MessageBox.Show("no shard0.exe");
+                return -1;
+            }
             string s0 = "";
             if (args.Length > 0) s0 = args[0];
             Application.EnableVisualStyles();
