@@ -1821,7 +1821,7 @@ namespace shard0
             fc.Close();
             f611 = (File.Exists("611"+iexf) ?  new StreamReader("611"+iexf) : null);
             fin = new StreamReader(nin);
-            fout = new StreamWriter[10];
+            fout = new StreamWriter[40];
             fout[0] = new StreamWriter(nout + "0" + xout);
             nline = 0; ncline = 0; has = true;
             head = h; buf = fin.ReadLine() + "\n" + fin.ReadLine();
@@ -1876,27 +1876,24 @@ namespace shard0
         }
         public void wline(int n, string s)
         {
-            if (fout[n] == null) fout[n] = new StreamWriter(nout + n.ToString().Trim() + xout);
+            if (fout[n] == null) fout[n] = new StreamWriter(nout + parse.m_num_to_str(n) + xout);
             fout[n].WriteLine(s);
             fout[n].Flush();
         }
         public void wstr(int n, ref string s)
         {
-            if (fout[n] == null) fout[n] = new StreamWriter(nout + n.ToString().Trim() + xout);
+            if (fout[n] == null) fout[n] = new StreamWriter(nout + parse.m_num_to_str(n) + xout);
             fout[n].Write(s);
             fout[n].Flush();
         }
         public void wstr(int n, string s)
         {
-            if (fout[n] == null) fout[n] = new StreamWriter(nout + n.ToString().Trim());
-            fout[n].Write(s);
-            fout[n].Flush();
-
+            wstr(n, ref s);
         }
         public void Dispose()
         {
             fin.Close();
-            for (int n = 0; n < 10; n++) if (fout[n] == null) fout[n].Close();
+            for (int n = 0; n < 40; n++) if (fout[n] != null) fout[n].Close();
         }
 
     }
@@ -1969,23 +1966,43 @@ namespace shard0
             }
             return s1;
         }
+        static char[] m_n_to_c = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F','G','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'};
+        static int[] m_c_to_n = {
+        -1,-1,-1,-1, -1,-1,-1,-1,  -1,-1,-1,-1, -1,-1,-1,-1,
+        -1,-1,-1,-1, -1,-1,-1,-1,  -1,-1,-1,-1, -1,-1,-1,-1,
+
+        -1,-1,-1,-1, -1,-1,-1,-1,  -1,-1,-1,-1, -1,-1,-1,-1,
+         0, 1, 2, 3,  4, 5, 6, 7,   8, 9,-1,-1, -1,-1,-1,-1,
+
+        -1,10,11,12, 13,14,15,16,  17,18,19,20, 21,22,23,24,
+        25,26,27,28, 29,30,31,32,  33,34,35,-1, -1,-1,-1,-1,
+
+        -1,10,11,12, 13,14,15,16,  17,18,19,20, 21,22,23,24,
+        25,26,27,28, 29,30,31,32,  33,34,35,-1, -1,-1,-1,-1};
+        static public string m_num_to_str(int _n) {
+            return (m_n_to_c[_n]).ToString();
+        }
+        static public int m_char_to_num(ref string _v, int _p) {
+            if (_v.Length <= _p) return -1;
+            if (_v[_p] < m_c_to_n.Length) return m_c_to_n[_v[_p]]; else return -1;
+        }
         public bool next()
         {
             string s0,s1,st,sf;
-            int i0,i1,i2;//,i3,i4,i5,i6, deep;
+            int _np,_nm,i0,i1,i2;//,i3,i4,i5,i6, deep;
             bool l_add = true;
             val = sys.rline(); val = val.Replace(" ",""); pos = 0;
             if ((val.Length == 0) || (val[0] == '`')) return false;
             if (val.Substring(0,2) == "##")
             {
                 pos = 2; name = snext(false);
-                if (!isnum(val, pos+1)) sys.error("macro: wrong num");
-                int _np = (int)(val[pos+1] - '0'), _nm = -1;
+                if ((_np = m_char_to_num(ref val,pos+1)) < 0) sys.error("macro: wrong num");
+                _nm = -1;
                 string _m = val.Substring(pos + 2);
                 for (i0 = 0; i0 < m_name.Count; i0++) if (m_name[i0].IndexOf("#" + name + "(") > -1) _nm = i0;
-                for (i0 = 0; i0 < 10; i0++)
+                for (i0 = 0; i0 < m_n_to_c.Length; i0++)
                 {
-                    if (_m.IndexOf("#" + ((char)(i0 + '0')).ToString()) > -1)
+                    if (_m.IndexOf("#" + m_num_to_str(i0)) > -1)
                     {
                         if (i0 >= _np) sys.error("macro: used nonparm");
                     }
@@ -2013,7 +2030,7 @@ namespace shard0
                         if (!int.TryParse(m_parm(), out tloop)) sys.error("macro: wrong loop");
                         ploop = i2;
                     } else {
-                        s0 = s0.Replace("#" + ((char)(i2 + '0')).ToString(), s1);
+                        s0 = s0.Replace("#" + m_num_to_str(i2), s1);
                     }
                     if (((i2 == m_nparm[i0] - 1) && (now() != ')')) || ((i2 < m_nparm[i0] - 1) && (now() != ','))) 
                         sys.error("macro: call nparm");
@@ -2023,8 +2040,8 @@ namespace shard0
                 if (ploop < 0) val = sf + s0 + st;
                 else
                 {
-                    if (l_add) for (s1 = "", i2 = floop; i2 <= tloop; i2++) s1 += s0.Replace("#" + ((char)(ploop + '0')).ToString(), i2.ToString().Trim());
-                    else for (s1 = "", i2 = floop; i2 >= tloop; i2--) s1 += s0.Replace("#" + ((char)(ploop + '0')).ToString(), i2.ToString().Trim());
+                    if (l_add) for (s1 = "", i2 = floop; i2 <= tloop; i2++) s1 += s0.Replace("#" + m_num_to_str(ploop), i2.ToString().Trim());
+                    else for (s1 = "", i2 = floop; i2 >= tloop; i2--) s1 += s0.Replace("#" + m_num_to_str(ploop), i2.ToString().Trim());
                     val = sf + s1 + st;
                 }
             }
@@ -2629,7 +2646,7 @@ namespace shard0
                                     s_val = "";
                                     r_slice(ref root, ref dv, ref _ml);
                                 }
-                                nn = s_val +  "0_" + par.name;
+                                nn = s_val +  "_0_" + par.name;
                                 if ((var1 = root.find_var(nn)) < 0)
                                 {
                                     var1 = root.set_empty(nn);
@@ -2825,7 +2842,8 @@ namespace shard0
                                 val0 = root.find_val(val);
                             } else val0 = -1;
                             val = par.snext(false); if (val.Length < 1) break;
-                            c_out.Add(new calc_out(val.Substring(1),val0,(int)(par.nnext(false).get_up())));
+                            c_out.Add(new calc_out(val.Substring(1),val0,parse.m_char_to_num(ref par.val, par.pos)));
+                            par.snext(false);
                         }
                         string[] _out = new string[11];
                         _fr0 = _fr; while (true)
