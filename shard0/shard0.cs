@@ -2599,8 +2599,16 @@ namespace shard0
                                 odv.mult.neg();
                             }
                             _c = par.now(); s_val = par.snext(true);
-                            if (_c == '@') {combo = true; _c = '$';}
-                            if (_c == '&')
+                            if (_c == '@') {
+                                combo = true; _c = '$';
+                                _ml = new one(ref dv,1);
+                                while (s_val != "") {
+                                    val0 = root.find_val(s_val);
+                                    if (!_ml.exps[val0].iszero()) par.sys.error("@ double @");
+                                    _ml.exps[val0].non.one();
+                                    s_val = par.snext(true);
+                                }
+                            } else if (_c == '&')
                             {
                                     _ml = new one(ref dv, 1);
                                     _ml.exps[root.find_val(s_val)].non.set(1);
@@ -2646,7 +2654,7 @@ namespace shard0
                                     s_val = "";
                                     r_slice(ref root, ref dv, ref _ml);
                                 }
-                                nn = s_val +  "_0_" + par.name;
+                                nn = s_val +  (combo ? "_0_" : "0_") + par.name;
                                 if ((var1 = root.find_var(nn)) < 0)
                                 {
                                     var1 = root.set_empty(nn);

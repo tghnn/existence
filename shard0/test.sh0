@@ -1,5 +1,5 @@
 xy=600,600
-m=102,4,1000000
+m=101,4,1000000
 `screen xy
 `max variable number, variable deep, precusion for noninteger exponent
 ##_fact#1*#0
@@ -50,8 +50,7 @@ t1@=0&a
 abc= a*b*c
 t4@!6=0$abc
 `(fast) extract multiplier(single variable or monomial) from equation or expression
-cd= c*d
-abc15_t4@@cd
+abc15_t4@@c,d
 `deep extract (must 1*x^1*..)
 t4@/
 `t4=t4p1/t4m1
