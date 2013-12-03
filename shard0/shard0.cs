@@ -1253,6 +1253,7 @@ namespace shard0
                     s0 += " " ;
                     break;
             }
+            if (data[0].Count == 0) s0 += "0"; else 
             if ((data[0].Count > 0) && (data[1].Count > 0)) 
             {
                 hasdiv = ((data[1].Count > 1) || (!data[1][0].mult.isone()) || (data[1][0].mult.get_sign() < 0));
