@@ -494,6 +494,10 @@ namespace shard0
             up *= a.down;
             down *= a.up;
         }
+        public void mul(num a, int e)
+        {
+            if (e > 0) mul(a); else div(a);
+        }
         public void add_up(BigInteger a)
         {
             up += a;
@@ -2077,13 +2081,13 @@ namespace shard0
         }
         public void wline(int n, string s)
         {
-            if (fout[n] == null) fout[n] = new StreamWriter(nout + parse.m_num_to_str(n) + xout);
+            if (fout[n] == null) fout[n] = new StreamWriter(nout + parse.m_n_to_c[n] + xout);
             fout[n].WriteLine(s);
             fout[n].Flush();
         }
         public void wstr(int n, ref string s)
         {
-            if (fout[n] == null) fout[n] = new StreamWriter(nout + parse.m_num_to_str(n) + xout);
+            if (fout[n] == null) fout[n] = new StreamWriter(nout + parse.m_n_to_c[n] + xout);
             fout[n].Write(s);
             fout[n].Flush();
         }
@@ -2098,22 +2102,22 @@ namespace shard0
         }
     }
     class deep {
-        public many val;
-
-
-
-        public char oper;
-//        public int deep;
-        public deep(ids r, int d) {
-            val = new many(r,0);
-            oper = '+';
-            deep = d;
+        public char pair,oper;
+        public int type;
+        public deep(char p, char o) {
+            pair = p; oper = o;
         }
+    }
+    class mbody {
+        public int nparm;
+        public string body;
+        public mbody(int n, string s)
+        { nparm = n; body = s; }
     }
 
     class parse: IDisposable
     {
-        static char[] m_n_to_c = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F','G','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'};
+        static public char[] m_n_to_c = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F','G','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'};
         static int[] m_c_to_n = {
         -1,-1,-1,-1, -1,-1,-1,-1,  -1,-1,-1,-1, -1,-1,-1,-1,
         -1,-1,-1,-1, -1,-1,-1,-1,  -1,-1,-1,-1, -1,-1,-1,-1,
@@ -2126,142 +2130,117 @@ namespace shard0
 
         -1,10,11,12, 13,14,15,16,  17,18,19,20, 21,22,23,24,
         25,26,27,28, 29,30,31,32,  33,34,35,-1, -1,-1,-1,-1};
-        static int[] m_c_type = {//0 - num, 1 - abc, 4 - oper+-*/^, 5 - symb,  6 - ()[]{}, 7 - sys #"`
+        static int[] m_c_type = {//0- num, 1- abc, 2- oper+-*/^, 3- symb,  4- ([{, 5- )]}, 6 - sys #"`
         -1,-1,-1,-1, -1,-1,-1,-1,  -1,-1,-1,-1, -1,-1,-1,-1,
         -1,-1,-1,-1, -1,-1,-1,-1,  -1,-1,-1,-1, -1,-1,-1,-1,
 
-        -1, 5, 7, 7,  5, 5, 5, 7,   6, 6, 4, 4,  5, 4, 5, 4,
-//          !  "  #   $  % 	& ' 	(  )  *  +   ,  -  .  /
-         0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 5, 5,  5, 5, 5, 5,
+        -1, 3, 6, 6,  3, 3, 3, 1,   4, 5, 2, 2,  3, 2, 3, 2,
+//          !  "  #   $  % 	&  ' 	(  )  *  +   ,  -  .  /
+         0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 3, 3,  3, 3, 3, 3,
 //       0  1  2  3   4  5  6  7    8  9  :  ;   <  =  >  ?
 
-         5, 1, 1, 1,  1, 1, 1, 1,   1, 1, 1, 1,  1, 1, 1, 1,
+         3, 1, 1, 1,  1, 1, 1, 1,   1, 1, 1, 1,  1, 1, 1, 1,
 //        @
-         1, 1, 1, 1,  1, 1, 1, 1,   1, 1, 1, 6,  5, 6, 4, 1,
+         1, 1, 1, 1,  1, 1, 1, 1,   1, 1, 1, 4,  3, 5, 2, 1,
 //                                           [   \  ]  ^  _
-         7, 1, 1, 1,  1, 1, 1, 1,   1, 1, 1, 1,  1, 1, 1, 1,
+         6, 1, 1, 1,  1, 1, 1, 1,   1, 1, 1, 1,  1, 1, 1, 1,
 //       `
-         1, 1, 1, 1,  1, 1, 1, 1,   1, 1, 1, 6,  5, 6, 5,-1};
+         1, 1, 1, 1,  1, 1, 1, 1,   1, 1, 1, 4,  3, 5, 3,-1};
 //                                           {   |  }  ~ 	
-        static int[] m_c_pair = {
+        public static int[] m_c_type_fr = {0,0,2,4, 0,1, 2,3,4,5,6};
+        public static int[] m_c_type_sz = {7,2,5,2, 1,1, 1,1,1,1,1};
+        public static char isall = (char)0, isname = (char)1, issymb = (char)2, ispair = (char)3, 
+                           isnum = (char)4, isabc = (char)5,
+                           isoper = (char)6, isother = (char)7, isopen = (char)8, isclose = (char)9, issys = (char)10;
+        static int[] m_c_prior = {
          0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 0, 0,  0, 0, 0, 0,
          0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 0, 0,  0, 0, 0, 0,
 
-         0, 0, 0, 0,  0, 0, 0, 0,   1,-1, 0, 0,  0, 0, 0, 0,
+         0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 2, 1,  0, 1, 0, 2,
 //          !  "  #   $  % 	& ' 	(  )  *  +   ,  -  .  /
          0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 0, 0,  0, 0, 0, 0,
 //       0  1  2  3   4  5  6  7    8  9  :  ;   <  =  >  ?
 
          0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 0, 0,  0, 0, 0, 0,
 //        @
-         0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 0, 2,  0,-2, 0, 0,
+         0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 0, 0,  0, 0, 3, 0,
 //                                           [   \  ]  ^  _
          0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 0, 0,  0, 0, 0, 0,
 //       `
-         0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 0, 3,  0,-3, 0, 0};
+         0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 0, 0,  0, 0, 0, 0};
 //                                           {   |  }  ~ 	
-        public static int[] m_c_type_fr = {0,0,4,0,1,4,5,6,7};
-        public static int[] m_c_type_sz = {8,2,4,1,1,1,1,1,1};
-        public static char isall = (char)0, isname = (char)1, issymb = (char)2, isnum = (char)3, isabc = (char)4,
-                              isoper = (char)5, isother = (char)6, ispair = (char)7, issys = (char)8;
         public string val,name;
         public int pos;
-        List<string> m_name, macro;
-        List<int> m_nparm;
+        public char now, oper;
+        SortedDictionary<string,mbody> macro;
         List<deep> deep;
         public ids root;
         public parse(string nin, string nout)
         {
             root.sys = new fileio(nin,nout,this); 
             val = ""; pos = 0;
-            m_name = new List<string>(); macro = new List<string>(); 
-            m_nparm = new List<int>();  deep = new List<deep>();
-            branch('=',(p) => {p.pos=0;} );
+            macro = new SortedDictionary<string,mbody>();
+            deep = new List<deep>();
         }
-
-        public string m_parm(){
-            string s1 = "";
-            int i1;
-            if (now() == '(') {
-                s1 = calc0().get_sup().ToString(); 
-            }
-            else
-            {
-                i1 = find_deep(pos, 0,",<>");
-                if (i1 < pos) root.sys.error("wrong parm");
-                s1 = val.Substring(pos,i1-pos);
-                s1 = s1.Replace("&0", "#");
-                s1 = s1.Replace("&1", "&0");
-                s1 = s1.Replace("&2", "&1");
-                s1 = s1.Replace("&3", "&2");
-                s1 = s1.Replace("&4", "&3");
-                pos = i1;
-            }
+        string _parm() {
+            string s1;
+                    if (isequnow('{')) s1 = calc().get_sup().ToString(); else {
+                        s1 = get(isall,",<>");
+                        s1 = s1.Replace("&0", "#");
+                        s1 = s1.Replace("&1", "&0");
+                        s1 = s1.Replace("&2", "&1");
+                        s1 = s1.Replace("&3", "&2");
+                        s1 = s1.Replace("&4", "&3");                  
+                    }
             return s1;
         }
-        static public string m_num_to_str(int _n) {
-            return (m_n_to_c[_n]).ToString();
-        }
-        static public int m_char_to_num(ref string _v, int _p) {
-            if (_v.Length <= _p) return -1;
-            if (_v[_p] < m_c_to_n.Length) return m_c_to_n[_v[_p]]; else return -1;
-        }
-        public bool next()
+        public bool lnext()
         {
             string s0,s1,st,sf;
-            int _np,_nm,i0,i1,i2;
+            int _np,i0,i1,i2;
             bool l_add = true;
             val = root.sys.rline(); val = val.Replace(" ",""); pos = 0;
             if ((val.Length == 0) || (val[0] == '`')) return false;
             if (val.Substring(0,2) == "##")
             {
-                pos = 2; name = snext(false);
-                if ((_np = m_char_to_num(ref val,pos+1)) < 0) root.sys.error("macro: wrong num");
-                _nm = -1;
+                pos = 2; name = "#" + get(isname,"") + "("; if (! isequnow('#')) root.sys.error("macro: wrong num");
+                next(); if (! isequnow(isname)) root.sys.error("macro: wrong num");
+                _np = m_c_to_n[now];
                 string _m = val.Substring(pos + 2);
-                for (i0 = 0; i0 < m_name.Count; i0++) if (m_name[i0].IndexOf("#" + name + "(") > -1) _nm = i0;
                 for (i0 = 0; i0 < m_n_to_c.Length; i0++)
                 {
-                    if (_m.IndexOf("#" + m_num_to_str(i0)) > -1)
-                    {
-                        if (i0 >= _np) root.sys.error("macro: used nonparm");
-                    }
+                    if ((_m.IndexOf("#" + m_n_to_c[i0]) > -1) && (i0 >= _np)) root.sys.error("macro: used nonparm");
                 }
-                if (_nm < 0) {
-                    m_name.Add("#" + name + "("); m_nparm.Add(_np); macro.Add(_m);
-                } else {
-                    if (_np != m_nparm[_nm]) root.sys.error("macro: wrong num");
-                    macro[_nm] += "\n" + _m;
-                }
+                if (macro.ContainsKey(name)) {
+                    if (_np != macro[name].nparm) root.sys.error("macro: wrong num");
+                    macro[name].body += "\n" + _m;
+                } else macro.Add(name, new mbody(_np,_m));
                 return false;
             }
-            while ((i1 = val.LastIndexOf("#")) > -1) {
-                for (i0 = 0; i0 < macro.Count; i0++) if (i1 == val.IndexOf(m_name[i0], i1)) break;
-                if (i0 == macro.Count) root.sys.error("macro: not found");
-                s0 = macro[i0].Replace("`\n","");
+            while ((pos = val.LastIndexOf("#")) > -1) {
+                sf = val.Substring(0, pos); name = get(isall,"(") + "("; 
+                if (! macro.ContainsKey(name)) root.sys.error("macro: not found");
+                s0 = macro[name].body.Replace("`\n","");
                 int ploop = -1,floop = 0,tloop = 0;
-                for (i2 = 0, pos = i1 + m_name[i0].Length; i2 < m_nparm[i0]; i2++, snext(false))
+                i2 = 0; i1 = deep.Count;
+                while (i2 < macro[name].nparm)
                 {
-                    s1 = m_parm();
-                    if ("<>".IndexOf(now()) > -1) { 
-                        l_add = (snext(false) == "<");
+                    next(); s1 = _parm();
+                    if (isequnow("<>")) { 
+                        l_add = isequnow('<'); next();
                         if (ploop > -1) root.sys.error("macro: wrong loop");
                         if (! int.TryParse(s1, out floop)) root.sys.error("macro: wrong loop");
-                        if (! int.TryParse(m_parm(), out tloop)) root.sys.error("macro: wrong loop");
+                        if (! int.TryParse(_parm(), out tloop)) root.sys.error("macro: wrong loop");
                         ploop = i2;
-                    } else {
-                        s0 = s0.Replace("#" + m_num_to_str(i2), s1);
-                    }
-                    if (((i2 == m_nparm[i0] - 1) && (now() != ')')) || ((i2 < m_nparm[i0] - 1) && (now() != ','))) 
-                        root.sys.error("macro: call nparm");
+                    } else s0 = s0.Replace("#" + m_n_to_c[i2], s1);
+                    if (i1 != deep.Count) root.sys.error("macro: call nparm");
+                    i2++;
                 }
-                if (m_nparm[i0] == 0) snext(false);
-                sf = val.Substring(0, i1); st = (pos < val.Length ? val.Substring(pos, val.Length - pos) : "");
-                if (ploop < 0) val = sf + s0 + st;
-                else
-                {
-                    if (l_add) for (s1 = "", i2 = floop; i2 <= tloop; i2++) s1 += s0.Replace("#" + m_num_to_str(ploop), i2.ToString().Trim());
-                    else for (s1 = "", i2 = floop; i2 >= tloop; i2--) s1 += s0.Replace("#" + m_num_to_str(ploop), i2.ToString().Trim());
+                if (i2 == 0) next(); if (! isequnow(')')) root.sys.error("macro:"); next();
+                st = (pos < val.Length ? val.Substring(pos, val.Length - pos) : "");
+                if (ploop < 0) val = sf + s0 + st; else {
+                    if (l_add) for (s1 = "", i2 = floop; i2 <= tloop; i2++) s1 += s0.Replace("#" + m_n_to_c[ploop], i2.ToString().Trim());
+                    else for (s1 = "", i2 = floop; i2 >= tloop; i2--) s1 += s0.Replace("#" + m_n_to_c[ploop], i2.ToString().Trim());
                     val = sf + s1 + st;
                 }
             }
@@ -2271,122 +2250,277 @@ namespace shard0
             }
             val = val.Replace("&%","#");
             val = val.Replace("&^"," ");
-            pos = 0; name = snext(false); return true;
+            pos = 0; name = get(isname,""); return true;
         }
         public bool more() { return pos < val.Length; }
-        public char now() { return (more() ? val[pos] : '\0'); }
         public bool isequ(char t, char tst)
         {
-            if (tst < 32) {
+            if (tst < 13) {
                 int _t = m_c_type[t] - m_c_type_fr[tst];
                 return _t >= 0 && _t < m_c_type_sz[tst];
             } else return t == tst;
         }
-        public bool isequnow(char tst) { return isequ(now(),tst); }
-        private void next(char t) 
+        public bool isequnow(char tst) { return isequ(now,tst); }
+        public bool isequnow(string tst) { return tst.IndexOf(now) > -1; }
+        private void next() 
         {
-            if (t != 0) {
-                int p = m_c_pair[t];
-                if (p > 0) deep.Add(p); 
-                if (p < 0) {
-                        if ((deep.Count < 1) || (deep.Last() != -p)) sys.error("parse: nonpair");
-                        deep.RemoveAt(deep.Count - 1);
-                }
-                pos++;
+            int _tp = m_c_type[now];
+            if (_tp == 2) oper = now;
+            if (_tp == 4) deep.Add(new deep(now,oper));
+            if (_tp == 5) {
+                if ((deep.Count < 1) || (deep.Last().pair > now) || (now - deep.Last().pair > 2)) root.sys.error("parse: nonpair");
+                deep.RemoveAt(deep.Count - 1);
+            }
+            pos++; 
+            if (more()) now = val[pos]; else {
+                now = (char)13;
+                if (deep.Count > 0) root.sys.error("parse: nonpair");
             }
         }
-        public string get(char tst, string delim, bool checkdeep)
+        public string get(char tst, string delim)
         {
-            string ret = ""; char t; int nowdeep = deep.Count;
+            string ret = ""; int nowdeep = deep.Count;
             while (true) {
-                t = now();
-                if (t == 0) return ret;
-                if (((! checkdeep) || (nowdeep >= deep.Count)) && ((! isequ(t,tst)) || (delim.IndexOf(t) > -1))) return ret;
-                ret += t.ToString(); next(t);
+                if (isequ(now,(char)13)) return ret;
+                if ((nowdeep == deep.Count) && (isequ(now,isclose) || (! isequ(now,tst)) || (delim.IndexOf(now) > -1))) return ret;
+                ret += now.ToString(); next();
             }
         }
-        public bool branch(char t, char[] i, Action[] f)
+        public void branch(char t, char[] i, Action[] f)
         {
             bool r = false; 
             for (int i0 = 0; i0 < i.Count(); i0++) {
                 if (isequ(t,i[i0])) {
-                    r = true; 
-                    if (i0 < f.Count()) f[i0]();
+                    r = true; f[i0]();
                 }
             }
-            return r;
+            if (!r) f[i.Count()]();
         }
-        public bool branchnow(char[] i, Action[] f)
+        public void branchnow(char[] i, Action[] f)
         {
-            if (branch(now(),i,f)) { next(); return true;} else return false;
+            branch(now,i,f);
         }
-        public bool branch(char t, string i, Action[] f) //[0] - not found => not next; [1:] found "" => next
+        public void branch(char t, string i, Action[] f) 
         {
-            int p = i.IndexOf(t) + 1;
-            if (p < f.Count()) f[p]();
-            return (p > 0);
+            int p = i.IndexOf(t);
+            if (p > -1) f[p](); else f[i.Length]();
         }
-        public bool branchnow(string i, Action[] f) //[0] - not found => not next; [1:] found "" => next
+        public void branchnow(string i, Action[] f) 
         {
-            if (branch(now(),i,f)) { next(); return true;} else return false;
+            branch(now,i,f);
         }
 
 
 
-        public string snext(bool skp)
+        public KeyValuePair<one,num> opars()
         {
-            int i0;
-            if (!more()) return "";
-            if (skp && (delim.IndexOf(now()) > -1)) pos++;
-            if (!more()) return "";
-            i0 = pos;
-            if (now() == '"') {
-                pos++; while (more() && (now() != '"')) pos++; pos++;
-                return val.Substring(i0, pos - i0 - 1);
-            } else {
-                if (delim.IndexOf(now()) > -1) pos++;
-                else while (more() && (delim.IndexOf(now()) == -1)) pos++;
-                return val.Substring(i0, pos - i0);
+            int fval = -1;
+            num nval = null, n1 = new num(1);
+            func ex = new func(root,-1,0, n1);
+            KeyValuePair<one,num> on = new KeyValuePair<one,num>(new one(root),new num(1));
+            KeyValuePair<one,num> ret = new KeyValuePair<one,num>(new one(root),new num(now == '-' ? -1: +1));
+            if ((now == '-') || (now == '+')) next();
+            bool l = true;
+            Action eset = () => {
+                if (nval == null) {
+                    if (fval < 0) root.sys.error("parse");
+                    if (ret.Key.exps.ContainsKey(fval)) ret.Key.exps[fval].add(ex,1); else ret.Key.exps.Add(fval,ex);
+                    fval = -1;
+                } else {
+                    if ((fval >= 0) || (ex.type_pow() > 1)) root.sys.error("parse");
+                    nval.exp(root,ex.get_num());
+                    ret.Value.mul(nval); nval = null;
+                }
+                ex = new func(root,-1,0, n1);
+            };
+            char[] pc = {isabc,isnum,'{','('};
+            Action[] pf = {
+                      () => { 
+                          on.Key.exps.Clear(); 
+                          on.Key.exps.Add(root.find_val(get(isname,"")),new func(root,-1,0,n1));
+                          ex.data[1].mul(on);
+                      },
+                      () => ex.data[1].data.ElementAt(0).Value.mul(new num(get(isnum,""))),
+                      () => ex.data[1].data.ElementAt(0).Value.mul(calc()),
+                      () => ex.mul(fpars(-1,0)),
+                      () => root.sys.error("nonum in calc")
+                          };
+            Action[] oof = {
+                () => {l = false; },
+                () => {l = false; },
+                () => next(),
+                () => {next(); ex.data[1].neg();},
+                () => {
+                    next();
+                    branchnow(pc,pf); 
+                    eset();
+                },
+                () => root.sys.error("nonum in calc")
+                };
+            char[] nc = {isabc,isnum,'{'};
+            Action[] nf = {
+                () => {fval = root.find_val(get(isname,""));},
+                () => {nval = new num(get(isnum,""));},
+                () => {nval = calc();},
+                () => root.sys.error("nonum in calc")
+                };
+            char[] oc = {isoper,isclose,(char)13};
+            Action[] of = {
+                () => branchnow("+-*/^",oof),
+                () => {l = false; },
+                () => {l = false; },
+                () => root.sys.error("nonum in calc")
+                };
+            while (l) {
+                branchnow(nc,nf);
+                branchnow(oc,of);
             }
+            if ((nval != null) || (fval >= 0)) eset();
+            ret.Key.simple(); ret.Value.simple();
+            return ret;
+        }
+        public many mpars()
+        {
+            many m = new many(root);
+            KeyValuePair<one,num> on;
+            int d = deep.Count;
+            if (isequnow(isopen)) next();
+            while ((! isequnow(isclose)) && (!isequnow((char)13))) {
+                on = opars();
+                if (m.data.ContainsKey(on.Key)) m.data[on.Key].add(on.Value); else m.data.Add(on.Key,on.Value);
+            }
+            if (d < deep.Count) next();
+            return m;
+        }
+        public func fpars(int v, int t)
+        {
+            func f = new func(root,v,t);
+            int d = deep.Count, i = 1;
+            Action[] of = {
+                () => {i = +1; next();},
+                () => {i = -1; next();}
+                };
+            while(true) {
+                while (isequnow(isopen)) next();
+                f.data[i] = mpars();
+                while (isequnow(isclose) && d < deep.Count) next();
+                if ((d == deep.Count) || isequnow((char)13)) break;
+                branchnow("*/",of);
+            } 
+            return f;
         }
         public num calc()
         {
-                next();
-                char op = '+';
-                num ret = new num(0), tn = new num(0);
-                char cnow = (char)13;
-                bool l = true;
-                Action[] fc = {() => root.sys.error("nonum in calc"),
-                          () => ret.add(calc()),() => ret.sub(calc()),
-                          () => ret.mul(calc()),() => ret.div(calc()),
-                          () => ret.exp(root,calc())
-                         };
-                Action[] fn = {() => root.sys.error("nonum in calc"),
-                          () => ret.add(tn),() => ret.sub(tn),
-                          () => ret.mul(tn),() => ret.div(tn),
-                          () => ret.exp(root,tn)
-                         };
-                char[] b = {'{',isnum,isoper,'}'};
-                Action[] fb = {
-                                  () => {branch(op,"+-*/^",fc);},
-                                  () => {tn.set(get(isnum,"",true)); branch(op,"+-*/^",fn);},
-                                  () => {op = cnow; next();},
-                                  () => {l = false; ret.simple(); next();}
-                              };
-                while (l) {
-                    cnow = now();
-                    branch(cnow,b,fb);
+            char[] lo = {'+', ' ', ' ', ' '};
+            num[] ln = {new num(0),new num(0),new num(0),new num(0)};
+            int lp = 0;
+            if (isequnow(ispair)) next(); else return new num(get(isnum,""));
+            if ((now == '+') || (now == '-')) {lo[0] = now; next();}
+            bool l = true;
+            Action[] fn = {
+                      () => ln[lp-1].add(ln[lp]),() => ln[lp-1].sub(ln[lp]),
+                      () => ln[lp-1].mul(ln[lp]),() => ln[lp-1].div(ln[lp]),
+                      () => ln[lp-1].exp(root,ln[lp]),
+                      () => root.sys.error("nonum in calc")
+                     };
+            char[] nc = {isopen,isnum};
+            Action[] nf = {
+                              () => ln[lp+1].set(calc()),
+                              () => ln[lp+1].set(get(isnum,"")),
+                              () => root.sys.error("in calc")
+                          };
+            char[] oc = {isoper,isclose,(char)13};
+            Action[] of = {
+                              () => next(),
+                              () => {l = false; next();},
+                              () => {l = false;},
+                              () => root.sys.error("in calc")
+                          };
+            while (l) {
+                branchnow(nc,nf);
+                lo[++lp] = now;
+                while((lp > 0) && (m_c_prior[lo[lp-1]] >= m_c_prior[lo[lp]])) {
+                    branch(lo[lp-1],"+-*/^",fn); lp--;
                 }
-                return ret;
+                branchnow(oc,of);
+            }
+            ln[0].simple();
+            return ln[0];
         }
         public void Dispose()
         {
             root.sys.Dispose();
         }
+
+        public string sign(num v)
+        {
+            if (v.get_sign() < 0) return "-";
+            if (v.get_sign() > 0) return "+";
+            return "";
+        }
+        public string print(num v, bool s)
+        {
+            string ret = "";
+            if (s) ret += sign(v);
+            ret += v.get_up().ToString().Trim();
+            if (! v.isint()) ret += "/" + v.get_down().ToString().Trim();
+            return ret;
+        }
+        public string print(one o, num n)
+        {
+            string ret = "";
+            bool first = true, f1 = false;;
+            foreach(KeyValuePair<int,func> m in o.exps) {
+                if (first) {
+                    if (n.isint() && (n.get_up() == 1)) {
+                        if  ((m.Value.type_pow() > 1) || (m.Value.get_num().get_sign() > 0)) {
+                            ret += sign(n);
+                            f1 = true;
+                        } else ret += print(n,true);
+                    } else ret += print(n,true);
+                }
+                switch (m.Value.type_pow()) {
+                    case 0: //int
+                        ret += (m.Value.get_num().get_sign() < 0 ? "/" : (f1 ? "" : "*")) + root.get_name(m.Key) + (m.Value.get_num().get_up() > 1 ? "^" + m.Value.get_num().get_up().ToString().Trim() : "");
+                        break;
+                    case 1: //num
+                        ret += (m.Value.get_num().get_sign() < 0 ? "/" : (f1 ? "" : "*")) + root.get_name(m.Key) + "^{" + print(m.Value.get_num(),false) + "}";
+                        break;
+                    case 2: 
+                        ret += (f1 ? "" : "*") + root.get_name(m.Key) + "^(" + print(m.Value) + ")";
+                        break;
+                }
+                first = false; f1 = false;
+            }
+            return ret;
+        }
+        public string print(many m)
+        {
+            string ret = "";
+            foreach(KeyValuePair<one,num> o in m.data) {
+                ret += print(o.Key, o.Value);
+            }
+            return ret;
+        }
+        public string print(func f)
+        {
+            string ret = "";
+            switch (f.tfunc) {
+                case 0:
+                    if (f.data[-1].isconst(1)) {
+                        ret += print(f.data[1]);
+                    } else {
+                        ret += "(" + print(f.data[1]) + ")/(" + print(f.data[-1]) + ")";
+                    }
+                    break;
+            }
+            return ret;
+        }
+
         public BigInteger get_parm(ids root)
         {
             num tmp;
-            if (isnum(now()) || (now() == '(')) tmp = nnext(false); else  tmp =  root.get_val(root.find_val(snext(false)));
+            if (isequnow(isnum) || isequnow(isopen)) tmp = calc(); else  tmp =  root.get_val(root.find_val(get(isname,"")));
             return tmp.toint();
         }
     }
@@ -2398,156 +2532,6 @@ namespace shard0
         public static shard0 m0;
         public static System.Drawing.Bitmap bm1;
         static parse par;
-        static void parseone(parse par, ids root, int i, one data)
-        {
-          string s;
-          int val = -1;
-          bool div = false;
-          if (par.now() == '+') par.pos++; else if (par.now() == '-') {par.pos++; data.mult.neg();}
-          while (true)
-          {
-              s = par.snext(false); if (s.Length < 1) return;
-              if (par.isdelim(s[0]))
-              {
-                  switch (s[0])
-                  {
-                      case '/':
-                          if (par.now() == '/') 
-                              return;
-                          div = true;
-                          break;
-                      case '*':
-                          div = false;
-                          break;
-                      case '+':
-                      case '-':
-                          par.pos--; return;
-                      case '(':
-                          if (div) data.mult.div(par.calc()); else data.mult.mul(par.calc());
-                          break;
-                      case '^':
-                          if (val < 0) par.sys.error("wrong exp");
-                          {
-                              exp tn = new exp(data.head,0);
-                              if (par.now() != '(') {
-                                  if (par.isnum(par.now())) tn.non.set(par.nnext(false)); else tn.addvar(par.snext(false),1);
-                              } else {
-                                  int deep = 1, i0 = par.pos + 1;
-                                  bool isname = false;
-                                  while ((i0 < par.val.Length) && (deep > 0)) {
-                                      if (par.isdelim(par.val[i0])) {
-                                          switch (par.val[i0]) {
-                                              case '(':
-                                                  deep++;
-                                                  break;
-                                              case ')':
-                                                  deep--;
-                                                  break;
-                                          }
-                                      } else {
-                                          if (!par.isnum(par.val[i0])) isname = true;
-                                      }
-                                      i0++;
-                                  }
-                                  if ((deep > 0)) par.sys.error("wrong exp");
-                                  if (isname) {
-                                      par.snext(false);
-                                      num _now = new num(), _add = new num(0);
-                                      bool flg = true;
-                                      int _sign = 0, _val = -1; _now.unset();
-                                      while (flg) {
-                                          if (par.isdelim(par.now())) {
-                                              switch(par.now()){
-                                                  case ')':
-                                                      flg = false;
-                                                      par.snext(false);
-                                                      break;
-                                                  case '+':
-                                                      if (_now.exist()) {
-                                                          if (_val < 0) _add.add(_now); else tn.addvar(_val,_now);
-                                                          _now.unset();
-                                                      }
-                                                      _sign = 1; _val = -1; par.snext(false);
-                                                      break;
-                                                  case '-':
-                                                      if (_now.exist()) {
-                                                          if (_val < 0) _add.add(_now); else tn.addvar(_val,_now);
-                                                          _now.unset();
-                                                      }
-                                                      _sign = -1; _val = -1; par.snext(false);
-                                                      break;
-                                                  case '*':
-                                                      par.snext(false);
-                                                      if (par.isnum(par.now())) {
-                                                            if (!_now.exist()) par.sys.error("wrong exp");
-                                                            _now.mul(par.nnext(false));
-                                                      } else if (par.now() == '(') {
-                                                            if (!_now.exist()) par.sys.error("wrong exp");
-                                                            _now.mul(par.calc0());
-                                                      } else {
-                                                            if (!_now.exist()) {
-                                                                if (_sign < 0) _now.set(-1); else _now.set(1);
-                                                                _sign = 0;
-                                                            }
-                                                            if (_val > -1) par.sys.error("wrong exp");
-                                                            _val = root.find_val(par.snext(false));
-                                                      }
-                                                      break;
-                                                  case '(':
-                                                      _now.set(par.calc0());
-                                                      if (_sign < 0) _now.neg();
-                                                      _sign = 0;
-                                                      break;
-                                                  default:
-                                                      par.sys.error("wrong exp");
-                                                      break;
-                                              }
-                                          } else {
-                                              if (par.isnum(par.now())) {
-                                                  _now.set(par.nnext(false));
-                                                  if (_sign < 0) _now.neg();
-                                                  _sign = 0;
-                                              } else {
-                                                  if (!_now.exist()) {
-                                                      if (_sign < 0) _now.set(-1); else _now.set(1); 
-                                                      _sign = 0;
-                                                  }
-                                                  if (_val > -1) par.sys.error("wrong exp");
-                                                  _val = root.find_val(par.snext(false));
-                                              }
-                                          }
-                                      }
-                                      if (_now.exist()) {
-                                          if (_val < 0) _add.add(_now); else tn.addvar(_val,_now);
-                                      }
-                                      tn.non.add(_add);
-                                  } else {
-                                      tn.non.add(par.calc0());
-                                  }
-                              }
-                              data.exps[val].add(tn,(div ? -1: 1));
-                          }
-                          break;
-                      default:
-                          par.sys.error("wrong");
-                          break;
-                  }
-              }
-              else
-              {
-                  if (par.isnum(s))
-                  {
-                      if (div) data.mult.div(new num(s)); else data.mult.mul(new num(s));
-                      val = -1;
-                  }
-                  else
-                  {
-                      val = root.find_val(s);
-                      if (par.now() != '^') data.exps[val].add(new exp(data.head,1),div ? -1 : 1);
-                  }
-              }
-          }
-        }
 
 
         [STAThread]
