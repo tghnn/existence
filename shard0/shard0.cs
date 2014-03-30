@@ -123,62 +123,81 @@ namespace shard0
         }
     }
 
-
+    class vars
+    {
+        public string name;
+        public int val_f,val_n;
+        public func var;
+        public vars(string n, int vf, int vn)
+        {
+            name = n; val_f = vf; val_n = vn; var = null;
+        }
+    }
     class ids
     {
-        public int vars, deep,size, last, stat_uncalc, stat_calc, exp_prec;
+        public int vals_last,vars_last, stat_uncalc, stat_calc, exp_prec;
         public num prec;
         public BigInteger exp_max;
-        string[] names;
-        public func[] values;
-        num[] calc;
+        SortedDictionary<string,int> names;
+        public vars[] vars;
+        num[] vals_calc;
+        int[] vals_var;
         public int[] calc_stat;
         public fileio sys;
-        public ids(BigInteger _v, BigInteger _d, BigInteger p, BigInteger e, fileio f)
+        public func fzero;
+        public one ozero;
+        public ids(int _vars, int _vals, BigInteger p, BigInteger e, fileio f)
         {
-            if ((_v < 11) || (_v > 6666) || (_d < 1) || (_d > 6) || (p < 11)) sys.error("wrong init");
-            vars = (int)_v; deep = (int)_d; size = vars*deep;
-            prec = new num(p,p); sys = f; last = 0; stat_uncalc = 1; stat_calc = 2;
-            names = new string[vars];
-            values = new func[vars];
-            calc = new num[size];
-            calc_stat = new int[vars];
+            if ((_vars < 11) || (_vals < _vars) || (_vars + _vals > 6666) || (p < 11)) sys.error("wrong init");
+            prec = new num(p,p); sys = f; vals_last = 0; vars_last = 0;
+            stat_uncalc = 1; stat_calc = 2;
+            names = new SortedDictionary<string,int>();
+            vars = new vars[_vars];
+            vals_calc = new num[_vals];
+            vals_var  = new int[_vals];
+            calc_stat = new int[_vars];
             exp_max = e;
             exp_prec = (int)(BigInteger.Log(e,10)/2);
+            fzero = new func(this,-1,0);
+            ozero = new one(this);
         }
-        public int set_empty(string nam)
+        int deep(string n)
         {
-            if (last >= vars) sys.error("too many vars");
-            while ((nam.Length > 0) && (nam[0] == '\'')) nam = nam.Substring(1);
-            names[last] = nam;
-            values[last] = null; calc_stat[last] = 0;
-            for (int i = 0; i < deep; i++) calc[last*deep + i] = new num();
-            last++; return last - 1;
+            int i = 0; while ((i < n.Length) && (n[i]=='\'')) i++;
+            return i;
+        }
+        public int size() { return vals_var.Count();}
+        public int find_val(string n)
+        {
+            int i,f; i = deep(n); string n0 = n.Substring(i);
+            if (!names.ContainsKey(n0)) sys.error(n0 + " var not found"); 
+            f = names[n0];
+            if (i > vars[f].val_n) sys.error(n0 + " too deep"); 
+            return vars[f].val_f+i;
+        }
+        public int find_var(string n)
+        {
+            int i = deep(n); string n0 = n.Substring(i);
+            if (names.ContainsKey(n0)) {
+                if (vars[names[n0]].val_n != i) sys.error(n0 + " not deep");
+                return names[n0];
+            }
+            if ((vars_last >= vars.Count()) || (vals_last >= vals_var.Count())) sys.error("too many vars");
+            names.Add(n0,vars_last);
+            vars[vars_last] = new vars(n0,vals_last,i);
+            calc_stat[vars_last] = 0;
+            while (i > -1) {
+                vals_calc[vals_last] = new num();
+                vals_var[vals_last] = vars_last;
+                i--; vals_last++;
+            }
+            vars_last++; return vars_last - 1;
         }
         public void uncalc() { stat_uncalc+=2; stat_calc+=2;}
         private void uncalc_var(int var)
         {
-            for (int ii = deep - 1; ii > 0; ii--) calc[var*deep + ii].set(calc[var*deep + ii-1]);
-            calc[var*deep].unset(); calc_stat[var] = stat_uncalc;
-        }
-        public int find_var(string n)
-        {
-            int i;
-            for (i = 0; i < last; i++) if (n == names[i]) return i;
-            return -1;
-        }
-        public int find_var_ex(string n)
-        {
-            int rt = find_var(n);
-            if (rt < 0) sys.error(n + " var not found");
-            return rt;
-        }
-        public int find_val(string n)
-        {
-            int i,f;
-            i = 0; while ((i < deep-1) && (i < n.Length) && (n[i]=='\'')) i++;
-            if ((f = find_var(n.Substring(i))) < 0) sys.error(n.Substring(i) + " var not found"); 
-            return f*deep+i;
+            for (int ii = vars[var].val_n - 1; ii > 0; ii--) vals_calc[vars[var].val_f + ii].set(vals_calc[vars[var].val_f + ii-1]);
+            vals_calc[vars[var].val_f].unset(); calc_stat[var] = stat_uncalc;
         }
 //          val           var
 //old    uncalc,calc  uncalc,calc
@@ -186,23 +205,19 @@ namespace shard0
 //calc    get             get
         public num get_val(int val)
         {
-           int var = val_to_var(val); 
-           int nowdeep = val - var_to_val(var); 
+           int var = vals_var[val]; 
+           int nowdeep = val - vars[var].val_f; 
            bool isvar = (nowdeep == 0);
-           if (var >= last) sys.error("nonexisted var");
+           if (var >= vars_last) sys.error("nonexisted var");
            if (calc_stat[var] == stat_calc) { 
            } else if (calc_stat[var] == stat_uncalc) {
-               if (isvar) sys.error(names[var] + " recursion");
+               if (isvar) sys.error(vars[var].name + " recursion");
            } else {
-               if (values[var] == null) sys.error(names[var] + " var: non is non");
-               uncalc_var(var); calc[var*deep].set(values[var].calc()); calc_stat[var] = stat_calc;
+               if (vars[var].var == null) sys.error(vars[var].name + " var: non is non");
+               uncalc_var(var); vals_calc[vars[var].val_f].set(vars[var].var.calc()); calc_stat[var] = stat_calc;
            }
-           if (!calc[val].exist()) sys.error(names[var] + " val: non is non");
-           return (calc[val]);
-        }
-        public num get_var(int var)
-        {
-            return get_val(var*deep);
+           if (!vals_calc[val].exist()) sys.error(vars[var].name + " val: non is non");
+           return (vals_calc[val]);
         }
         public void set_var(int var, num n)
         {
@@ -210,27 +225,26 @@ namespace shard0
                if (calc_stat[var] != stat_uncalc) uncalc_var(var);
                calc_stat[var] = stat_calc;
            }
-           calc[var*deep].set(n);
+           vals_calc[vars[var].val_f].set(n);
         }
         public void set_val(int val, num n)
         {
-           calc[val].set(n);
+           vals_calc[val].set(n);
         }
         public void set_var_onval(int val, num n)
         {
-            set_var(val_to_var(val),n);
+            set_var(vals_var[val],n);
         }
-        public string get_name(int var)
+        public int val_to_var(int v) {return vals_var[v];}
+        public int val_to_deep(int v) {return v - vars[vals_var[v]].val_f;}
+        public string get_name_var(int var)
         {
-            return names[var];
+            return vars[var].name;
         }
-        public string get_name_onval(int val)
+        public string get_name_val(int val)
         {
-            return new String('\'', val % deep) + names[val_to_var(val)];
+            return new String('\'', val - vars[vals_var[val]].val_f) + vars[vals_var[val]].name;
         }
-        public int val_to_var(int n) {return n/deep;}
-        public int val_to_deep(int n) {return n - val_to_var(n);}
-        public int var_to_val(int n) {return n*deep;}
     }
     interface ipower{
         void exp2();
@@ -702,19 +716,16 @@ namespace shard0
 
     class one: IComparable
     {
-        func fzero;
-        KeyValuePair<one,num> ozero;
+        ids root;
         public SortedDictionary<int,func> exps;
         public one(ids h)
         {
-            fzero = new func(h,-1,0); 
-            ozero = new KeyValuePair<one,num>(new one(h), new num(0));
+            root = h;
             exps = new SortedDictionary<int,func>();
         }
         public one(one o)
         {
-            fzero = new func(o.fzero.root,-1,0);
-            ozero = new KeyValuePair<one,num>(new one(o.fzero.root), new num(0));
+            root = o.root;
             exps = new SortedDictionary<int,func>();
             set(o);
         }
@@ -734,14 +745,14 @@ namespace shard0
             int r;
             while (true) {
                 n0 = e0.MoveNext(); n1 = e1.MoveNext();
-                if (n0 ^ n1) return (n0 ? e0.Current.Value.CompareTo(fzero) : fzero.CompareTo(e1.Current.Value));
+                if (n0 ^ n1) return (n0 ? e0.Current.Value.CompareTo(root.fzero) : root.fzero.CompareTo(e1.Current.Value));
                 else {
                     if (! n0) return 0;
                     if (e0.Current.Key == e1.Current.Key) {
                         if ((r = e0.Current.Value.CompareTo(e1.Current.Value)) != 0) return r;
                     } else {
-                        if (e0.Current.Key < e1.Current.Key) return e0.Current.Value.CompareTo(fzero);
-                        else return fzero.CompareTo(e1.Current.Value);
+                        if (e0.Current.Key < e1.Current.Key) return e0.Current.Value.CompareTo(root.fzero);
+                        else return root.fzero.CompareTo(e1.Current.Value);
                     }
                 }
             }
@@ -790,7 +801,6 @@ namespace shard0
         }
         public void exp(num e)
         {
-            ozero.Value.set(e);
             foreach(KeyValuePair<int,func> f in exps) {
                 foreach(KeyValuePair<one,num> m in f.Value.data[1].data) m.Value.mul(e);
             }
@@ -818,7 +828,7 @@ namespace shard0
         public void go_deeper(int deep) {
             SortedDictionary<int,func> r = new SortedDictionary<int,func>();
             foreach(KeyValuePair<int,func> m in exps) {
-                if (fzero.root.val_to_var(m.Key) != fzero.root.val_to_var(m.Key + deep)) fzero.root.sys.error(" too deep ");
+                if (root.val_to_var(m.Key) != root.val_to_var(m.Key + deep)) root.sys.error(" too deep ");
                 r.Add(m.Key + deep,m.Value);
             }
             exps = r;
@@ -826,8 +836,8 @@ namespace shard0
         public num calc() {
             num rt = new num(1), t = new num(0);
             foreach(KeyValuePair<int,func> f in exps) {
-                t.set(fzero.root.get_val(f.Key));
-                t.exp(fzero.root,f.Value.calc());
+                t.set(root.get_val(f.Key));
+                t.exp(root,f.Value.calc());
                 rt.mul(t);
             }
             return rt;
@@ -836,39 +846,38 @@ namespace shard0
     class many: power<many>, ipower, IComparable
     {
         public ids root;
-        one zero;
         public SortedDictionary<one,num> data;
         public many()
         {
-            root = null; zero = null;
+            root = null;
             data = new SortedDictionary<one,num>();
         }
         public many(ids h)
         {
-            root = h; zero = new one(root);
+            root = h;
             data = new SortedDictionary<one,num>();
         }
         public many(ids h, int n)
         {
-            root = h; zero = new one(root);
+            root = h;
             data = new SortedDictionary<one,num>();
             data.Add(new one(root), new num(n));
         }
         public many(ids h, num n)
         {
-            root = h; zero = new one(root);
+            root = h;
             data = new SortedDictionary<one,num>();
             data.Add(new one(root), new num(n));
         }
         public many(many m)
         {
-            root = m.root; zero = new one(root);
+            root = m.root;
             data = new SortedDictionary<one,num>();
             foreach (KeyValuePair<one,num> o in m.data) data.Add(new one(o.Key),new num(o.Value));
         }
         public override void set(many s)
         {
-            root = s.root; zero = new one(root);
+            root = s.root;
             data.Clear();
             foreach (KeyValuePair<one,num> o in s.data) data.Add(new one(o.Key),new num(o.Value));
         }
@@ -899,14 +908,14 @@ namespace shard0
             int r;
             while (true) {
                 n0 = o0.MoveNext(); n1 = o1.MoveNext();
-                if (n0 ^ n1) return (n0 ? o0.Current.Value.CompareTo(zero) : zero.CompareTo(o1.Current.Value));
+                if (n0 ^ n1) return (n0 ? o0.Current.Value.CompareTo(root.ozero) : root.ozero.CompareTo(o1.Current.Value));
                 else {
                     if (! n0) return 0;
                     if ((r = o0.Current.Key.CompareTo(o1.Current.Key)) == 0) {
                         if ((r = o0.Current.Value.CompareTo(o1.Current.Value)) != 0) return r;
                     } else {
-                        if (r < 0) return o0.Current.Value.CompareTo(zero);
-                        else return zero.CompareTo(o1.Current.Value);
+                        if (r < 0) return o0.Current.Value.CompareTo(root.ozero);
+                        else return root.ozero.CompareTo(o1.Current.Value);
                     }
                 }
             }
@@ -1369,7 +1378,7 @@ namespace shard0
         }
         public num get_num() {
             if (type_pow() > 1) return null;
-            return num.div(data[1].data.ElementAt(0).Value,data[-11].data.ElementAt(0).Value);
+            return num.div(data[1].data.ElementAt(0).Value,data[-1].data.ElementAt(0).Value);
         }
         public void add(func f, int s)
         {
@@ -1400,7 +1409,7 @@ namespace shard0
         public void simple()
         {
             if (tfunc != 0) return;
-            many _up = data[0], _dw = data[1];
+            many _up = data[1], _dw = data[-1];
             KeyValuePair<one,num> f_up, f_down, f_both;
             f_up = data[1].extract();
             f_down = data[-1].extract();
@@ -1441,7 +1450,7 @@ namespace shard0
         public void expand(int val)
         {
             int deep = root.val_to_deep(val);
-            func f = root.values[root.val_to_var(val)];
+            func f = root.vars[root.val_to_var(val)].var;
             if (f == null) return;
             exps exu = new exps(f.data[1],deep);
             exps exd = new exps(f.data[-1],deep);
@@ -1648,8 +1657,8 @@ namespace shard0
             nvals = v; root = r;
             exps = new num[mexp];
             vals = new int[nvals];
-            to_val = new int[root.size];
-            for (int i = 0; i < root.size; i++) to_val[i] = -1;
+            to_val = new int[root.size()];
+            for (int i = 0; i < root.size(); i++) to_val[i] = -1;
             eneg = new ushort[mexp * mexp]; eadd = new ushort[mexp * mexp]; eflg_a = new bool[mexp * mexp];
             for (uint i = 0; i < mexp * mexp; i++) { eneg[i] = 0xFFFF; eadd[i] = 0xFFFF; eflg_a[i] = true; }
             lexp = 2; exps[0] = new num(0); exps[1] = new num(1);
@@ -1998,11 +2007,11 @@ namespace shard0
     {
         StreamReader fin, f611;
         StreamWriter[] fout;
-        parse head;
+//        parse head;
         int nline,ncline, lines, clines;
         string buf,nout,xout;
         public Boolean has, quit;
-        public fileio(string nin, string _nout, parse h)
+        public fileio(string nin, string _nout)
         {
             string iexf;
             StreamReader fc; string ts;
@@ -2029,7 +2038,8 @@ namespace shard0
             fout = new StreamWriter[40];
             fout[0] = new StreamWriter(nout + "0" + xout);
             nline = 0; ncline = 0; has = true;
-            head = h; buf = fin.ReadLine() + "\n" + fin.ReadLine();
+//            head = h; 
+            buf = fin.ReadLine() + "\n" + fin.ReadLine();
         }
         private string rfile() {
             string r;
@@ -2072,10 +2082,15 @@ namespace shard0
             foreach (StreamWriter _f in fout) if (_f != null) _f.Close();
             if (quit) Environment.Exit(0);
         }
+        public void error(string e, int pos)
+        {
+            fout[0].WriteLine("Line {0:G} Pos {0:G}: " + e, nline+1, pos);
+            fout[0].Flush();
+            Environment.Exit(-1);
+        }
         public void error(string e)
         {
-            fout[0].WriteLine(head.val);
-            fout[0].WriteLine("Line {0:G} Pos {0:G}: " + e, nline+1, head.pos);
+            fout[0].WriteLine("Line {0:G}: " + e, nline+1);
             fout[0].Flush();
             Environment.Exit(-1);
         }
@@ -2169,15 +2184,16 @@ namespace shard0
 //       `
          0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 0, 0,  0, 0, 0, 0};
 //                                           {   |  }  ~ 	
-        public string val,name;
+        public string val;
         public int pos;
         public char now, oper;
         SortedDictionary<string,mbody> macro;
         List<deep> deep;
         public ids root;
-        public parse(string nin, string nout)
+        public fileio sys;
+        public parse(fileio s)
         {
-            root.sys = new fileio(nin,nout,this); 
+            sys = s;
             val = ""; pos = 0;
             macro = new SortedDictionary<string,mbody>();
             deep = new List<deep>();
@@ -2196,30 +2212,31 @@ namespace shard0
         }
         public bool lnext()
         {
-            string s0,s1,st,sf;
+            string name,s0,s1,st,sf;
             int _np,i0,i1,i2;
             bool l_add = true;
-            val = root.sys.rline(); val = val.Replace(" ",""); pos = 0;
+            deep.Clear();
+            val = sys.rline(); val = val.Replace(" ",""); pos = 0;
             if ((val.Length == 0) || (val[0] == '`')) return false;
             if (val.Substring(0,2) == "##")
             {
-                pos = 2; name = "#" + get(isname,"") + "("; if (! isequnow('#')) root.sys.error("macro: wrong num");
-                next(); if (! isequnow(isname)) root.sys.error("macro: wrong num");
+                pos = 2; name = "#" + get(isname,"") + "("; if (! isequnow('#')) sys.error("macro: wrong num");
+                next(); if (! isequnow(isname)) sys.error("macro: wrong num");
                 _np = m_c_to_n[now];
                 string _m = val.Substring(pos + 2);
                 for (i0 = 0; i0 < m_n_to_c.Length; i0++)
                 {
-                    if ((_m.IndexOf("#" + m_n_to_c[i0]) > -1) && (i0 >= _np)) root.sys.error("macro: used nonparm");
+                    if ((_m.IndexOf("#" + m_n_to_c[i0]) > -1) && (i0 >= _np)) sys.error("macro: used nonparm");
                 }
                 if (macro.ContainsKey(name)) {
-                    if (_np != macro[name].nparm) root.sys.error("macro: wrong num");
+                    if (_np != macro[name].nparm) sys.error("macro: wrong num");
                     macro[name].body += "\n" + _m;
                 } else macro.Add(name, new mbody(_np,_m));
                 return false;
             }
             while ((pos = val.LastIndexOf("#")) > -1) {
                 sf = val.Substring(0, pos); name = get(isall,"(") + "("; 
-                if (! macro.ContainsKey(name)) root.sys.error("macro: not found");
+                if (! macro.ContainsKey(name)) sys.error("macro: not found");
                 s0 = macro[name].body.Replace("`\n","");
                 int ploop = -1,floop = 0,tloop = 0;
                 i2 = 0; i1 = deep.Count;
@@ -2228,15 +2245,15 @@ namespace shard0
                     next(); s1 = _parm();
                     if (isequnow("<>")) { 
                         l_add = isequnow('<'); next();
-                        if (ploop > -1) root.sys.error("macro: wrong loop");
-                        if (! int.TryParse(s1, out floop)) root.sys.error("macro: wrong loop");
-                        if (! int.TryParse(_parm(), out tloop)) root.sys.error("macro: wrong loop");
+                        if (ploop > -1) sys.error("macro: wrong loop");
+                        if (! int.TryParse(s1, out floop)) sys.error("macro: wrong loop");
+                        if (! int.TryParse(_parm(), out tloop)) sys.error("macro: wrong loop");
                         ploop = i2;
                     } else s0 = s0.Replace("#" + m_n_to_c[i2], s1);
-                    if (i1 != deep.Count) root.sys.error("macro: call nparm");
+                    if (i1 != deep.Count) sys.error("macro: call nparm");
                     i2++;
                 }
-                if (i2 == 0) next(); if (! isequnow(')')) root.sys.error("macro:"); next();
+                if (i2 == 0) next(); if (! isequnow(')')) sys.error("macro:"); next();
                 st = (pos < val.Length ? val.Substring(pos, val.Length - pos) : "");
                 if (ploop < 0) val = sf + s0 + st; else {
                     if (l_add) for (s1 = "", i2 = floop; i2 <= tloop; i2++) s1 += s0.Replace("#" + m_n_to_c[ploop], i2.ToString().Trim());
@@ -2246,11 +2263,11 @@ namespace shard0
             }
             i1 = val.IndexOf("\n");
             if (i1 > -1) {
-                root.sys.addline(val.Substring(i1+1)); val = val.Substring(0,i1);
+                sys.addline(val.Substring(i1+1)); val = val.Substring(0,i1);
             }
             val = val.Replace("&%","#");
             val = val.Replace("&^"," ");
-            pos = 0; name = get(isname,""); return true;
+            pos = 0; now = val[0]; return true;
         }
         public bool more() { return pos < val.Length; }
         public bool isequ(char t, char tst)
@@ -2262,19 +2279,19 @@ namespace shard0
         }
         public bool isequnow(char tst) { return isequ(now,tst); }
         public bool isequnow(string tst) { return tst.IndexOf(now) > -1; }
-        private void next() 
+        public void next() 
         {
             int _tp = m_c_type[now];
             if (_tp == 2) oper = now;
             if (_tp == 4) deep.Add(new deep(now,oper));
             if (_tp == 5) {
-                if ((deep.Count < 1) || (deep.Last().pair > now) || (now - deep.Last().pair > 2)) root.sys.error("parse: nonpair");
+                if ((deep.Count < 1) || (deep.Last().pair > now) || (now - deep.Last().pair > 2)) sys.error("parse: nonpair");
                 deep.RemoveAt(deep.Count - 1);
             }
             pos++; 
             if (more()) now = val[pos]; else {
                 now = (char)13;
-                if (deep.Count > 0) root.sys.error("parse: nonpair");
+                if (deep.Count > 0) sys.error("parse: nonpair");
             }
         }
         public string get(char tst, string delim)
@@ -2310,10 +2327,9 @@ namespace shard0
             branch(now,i,f);
         }
 
-
-
         public KeyValuePair<one,num> opars()
         {
+            bool repeat;
             int fval = -1;
             num nval = null, n1 = new num(1);
             func ex = new func(root,-1,0, n1);
@@ -2323,15 +2339,17 @@ namespace shard0
             bool l = true;
             Action eset = () => {
                 if (nval == null) {
-                    if (fval < 0) root.sys.error("parse");
-                    if (ret.Key.exps.ContainsKey(fval)) ret.Key.exps[fval].add(ex,1); else ret.Key.exps.Add(fval,ex);
-                    fval = -1;
+                    if (fval > -1) {
+                        if (ret.Key.exps.ContainsKey(fval)) ret.Key.exps[fval].add(ex,1); else ret.Key.exps.Add(fval,ex);
+                        fval = -1;
+                        ex = new func(root,-1,0, n1);
+                    }
                 } else {
-                    if ((fval >= 0) || (ex.type_pow() > 1)) root.sys.error("parse");
+                    if ((fval >= 0) || (ex.type_pow() > 1)) sys.error("parse");
                     nval.exp(root,ex.get_num());
                     ret.Value.mul(nval); nval = null;
+                    ex = new func(root,-1,0, n1);
                 }
-                ex = new func(root,-1,0, n1);
             };
             char[] pc = {isabc,isnum,'{','('};
             Action[] pf = {
@@ -2343,37 +2361,42 @@ namespace shard0
                       () => ex.data[1].data.ElementAt(0).Value.mul(new num(get(isnum,""))),
                       () => ex.data[1].data.ElementAt(0).Value.mul(calc()),
                       () => ex.mul(fpars(-1,0)),
-                      () => root.sys.error("nonum in calc")
+                      () => sys.error("nonum in calc")
                           };
             Action[] oof = {
                 () => {l = false; },
                 () => {l = false; },
-                () => next(),
-                () => {next(); ex.data[1].neg();},
+                () => {eset(); next();},
+                () => {eset(); next(); ex.data[1].neg();},
                 () => {
                     next();
                     branchnow(pc,pf); 
+                    if (!((nval == null) ^ (fval < 0))) sys.error("parse");
                     eset();
+                    repeat = true;
                 },
-                () => root.sys.error("nonum in calc")
+                () => sys.error("nonum in calc")
                 };
             char[] nc = {isabc,isnum,'{'};
             Action[] nf = {
                 () => {fval = root.find_val(get(isname,""));},
                 () => {nval = new num(get(isnum,""));},
                 () => {nval = calc();},
-                () => root.sys.error("nonum in calc")
+                () => sys.error("nonum in calc")
                 };
             char[] oc = {isoper,isclose,(char)13};
             Action[] of = {
                 () => branchnow("+-*/^",oof),
                 () => {l = false; },
                 () => {l = false; },
-                () => root.sys.error("nonum in calc")
+                () => sys.error("nonum in calc")
                 };
             while (l) {
                 branchnow(nc,nf);
-                branchnow(oc,of);
+                do {
+                    repeat = false;
+                    branchnow(oc,of);
+                } while (repeat);
             }
             if ((nval != null) || (fval >= 0)) eset();
             ret.Key.simple(); ret.Value.simple();
@@ -2400,12 +2423,16 @@ namespace shard0
                 () => {i = +1; next();},
                 () => {i = -1; next();}
                 };
-            while(true) {
-                while (isequnow(isopen)) next();
-                f.data[i] = mpars();
-                while (isequnow(isclose) && d < deep.Count) next();
-                if ((d == deep.Count) || isequnow((char)13)) break;
-                branchnow("*/",of);
+            switch (t) {
+                case 0:
+                while(true) {
+                    while (isequnow(isopen)) next();
+                    f.data[i] = mpars();
+                    while (isequnow(isclose) && d < deep.Count) next();
+                    if ((d == deep.Count) || isequnow((char)13)) break;
+                    branchnow("*/",of);
+                }
+                    break;
             } 
             return f;
         }
@@ -2414,27 +2441,32 @@ namespace shard0
             char[] lo = {'+', ' ', ' ', ' '};
             num[] ln = {new num(0),new num(0),new num(0),new num(0)};
             int lp = 0;
-            if (isequnow(ispair)) next(); else return new num(get(isnum,""));
+            if (isequnow(isnum)) {
+                num r = new num(get(isnum,""));
+                if (isequnow(",")) next();
+                return r;
+            }
+            if (isequnow(ispair)) next(); 
             if ((now == '+') || (now == '-')) {lo[0] = now; next();}
             bool l = true;
             Action[] fn = {
                       () => ln[lp-1].add(ln[lp]),() => ln[lp-1].sub(ln[lp]),
                       () => ln[lp-1].mul(ln[lp]),() => ln[lp-1].div(ln[lp]),
                       () => ln[lp-1].exp(root,ln[lp]),
-                      () => root.sys.error("nonum in calc")
+                      () => sys.error("nonum in calc")
                      };
             char[] nc = {isopen,isnum};
             Action[] nf = {
                               () => ln[lp+1].set(calc()),
                               () => ln[lp+1].set(get(isnum,"")),
-                              () => root.sys.error("in calc")
+                              () => sys.error("in calc")
                           };
             char[] oc = {isoper,isclose,(char)13};
             Action[] of = {
                               () => next(),
                               () => {l = false; next();},
                               () => {l = false;},
-                              () => root.sys.error("in calc")
+                              () => sys.error("in calc")
                           };
             while (l) {
                 branchnow(nc,nf);
@@ -2449,7 +2481,7 @@ namespace shard0
         }
         public void Dispose()
         {
-            root.sys.Dispose();
+            sys.Dispose();
         }
 
         public string sign(num v)
@@ -2481,13 +2513,13 @@ namespace shard0
                 }
                 switch (m.Value.type_pow()) {
                     case 0: //int
-                        ret += (m.Value.get_num().get_sign() < 0 ? "/" : (f1 ? "" : "*")) + root.get_name(m.Key) + (m.Value.get_num().get_up() > 1 ? "^" + m.Value.get_num().get_up().ToString().Trim() : "");
+                        ret += (m.Value.get_num().get_sign() < 0 ? "/" : (f1 ? "" : "*")) + root.get_name_val(m.Key) + (m.Value.get_num().get_up() > 1 ? "^" + m.Value.get_num().get_up().ToString().Trim() : "");
                         break;
                     case 1: //num
-                        ret += (m.Value.get_num().get_sign() < 0 ? "/" : (f1 ? "" : "*")) + root.get_name(m.Key) + "^{" + print(m.Value.get_num(),false) + "}";
+                        ret += (m.Value.get_num().get_sign() < 0 ? "/" : (f1 ? "" : "*")) + root.get_name_val(m.Key) + "^{" + print(m.Value.get_num(),false) + "}";
                         break;
                     case 2: 
-                        ret += (f1 ? "" : "*") + root.get_name(m.Key) + "^(" + print(m.Value) + ")";
+                        ret += (f1 ? "" : "*") + root.get_name_val(m.Key) + "^(" + print(m.Value) + ")";
                         break;
                 }
                 first = false; f1 = false;
@@ -2505,6 +2537,7 @@ namespace shard0
         public string print(func f)
         {
             string ret = "";
+            if (f == null) return ret;
             switch (f.tfunc) {
                 case 0:
                     if (f.data[-1].isconst(1)) {
@@ -2517,7 +2550,7 @@ namespace shard0
             return ret;
         }
 
-        public BigInteger get_parm(ids root)
+        public BigInteger get_parm()
         {
             num tmp;
             if (isequnow(isnum) || isequnow(isopen)) tmp = calc(); else  tmp =  root.get_val(root.find_val(get(isname,"")));
@@ -2540,16 +2573,19 @@ namespace shard0
             int sx=0, sy=0;
             if (args.Length < 1) return 0;
             string ss = (args.Length < 2 ? "" : args[1]);
-            par = new parse(args[0], ss, "#&!@$+-=*/^(),~:<>\"[];");
-            par.next();
-            sx = (int)par.nnext(true).get_up();
-            sy = (int)par.nnext(true).get_up();
+            fileio _f = new fileio(args[0], ss);
+
+            par = new parse(_f);
+            par.lnext();
+            sx = (int)par.get_parm();
+            sy = (int)par.get_parm();
             if ((sx < 100) || (sy < 100)) return -1;
             Application.SetCompatibleTextRenderingDefault(false);
             Application.EnableVisualStyles();
             m0 = new shard0(sx, sy);
             bm1 = new System.Drawing.Bitmap(sx, sy);
             for (int i0 = 0; i0 < sx; i0++) for (int i1 = 0; i1 < sy; i1++) bm1.SetPixel(i0, i1, Color.FromArgb(0, 0, 0));
+            par.lnext(); par.root = new ids((int)par.get_parm(),(int)par.get_parm(),par.get_parm(),par.get_parm(), par.sys);
             Thread calc = new Thread(doit);
             calc.Start();
             Application.Run(m0);
@@ -2563,6 +2599,7 @@ namespace shard0
                 str = s; val = v; nout = o;
             }
         };
+/*
         static void slice(ids root, many dv, one _ml, string s_val)
         {
             num e = new num(); int ip = root.last;
@@ -2652,19 +2689,38 @@ namespace shard0
             }
             for (i0 = ip; i0 < root.last; i0++) root.values[i0].print(0);
         }
-
+*/
         static void doit() {
             int var0,var1,var2,val0;
-            string val;
+            string val,name;
             int x0,x1,f0,f1,c0,c1;
             int[] xid = new int[99];
             int _r0,_r1,_r2; double _d0,_d1,x2;
-            par.next(); ids root = new ids(par.nnext(true).get_up(),par.nnext(true).get_up(),par.nnext(true).get_up(), par.sys);
             while (par.sys.has)
             {
-                if (par.next()) 
+                if (par.lnext()) 
                 {
-                    switch (par.now()) 
+                    if (par.isequnow(parse.isabc)) {
+                        name = par.get(parse.isname,"");
+                        switch (par.now) 
+                        {
+                            case '=':
+                                var0 = par.root.find_var(name);
+                                par.next();
+                                par.root.vars[var0].var = (par.isequnow((char)13) ? null : par.fpars(var0,0));
+                                par.sys.wline(0,par.print(par.root.vars[var0].var));
+                            break;
+                        }
+                    }
+                }
+            }
+            par.sys.wline(0,"finished, vars free = " + (par.root.vars.Count() - par.root.vars_last-1).ToString());
+            par.sys.close();
+        }
+    }
+}
+/*
+                    switch (par.now) 
                     {
                      case '=':
                         par.snext(false);
@@ -3150,11 +3206,7 @@ namespace shard0
                     }
                 }
             }
-            par.sys.wline(0,"finished, vars free = " + (root.vars - root.last-1).ToString());
-            par.sys.close();
-        }
-    }
-}
+ */
 
 
 
