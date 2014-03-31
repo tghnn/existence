@@ -138,7 +138,7 @@ namespace shard0
         public int vals_last,vars_last, stat_uncalc, stat_calc, exp_prec;
         public num prec;
         public BigInteger exp_max;
-        SortedDictionary<string,int> names;
+        public SortedDictionary<string,int> names;
         public vars[] vars;
         num[] vals_calc;
         int[] vals_var;
@@ -146,12 +146,16 @@ namespace shard0
         public fileio sys;
         public func fzero;
         public one ozero;
+        public num nzero;
+        public string[] funcs_name = {"","fact"};
+        public SortedDictionary<string,int> fnames;
         public ids(int _vars, int _vals, BigInteger p, BigInteger e, fileio f)
         {
             if ((_vars < 11) || (_vals < _vars) || (_vars + _vals > 6666) || (p < 11)) sys.error("wrong init");
             prec = new num(p,p); sys = f; vals_last = 0; vars_last = 0;
             stat_uncalc = 1; stat_calc = 2;
             names = new SortedDictionary<string,int>();
+            fnames = new SortedDictionary<string,int>();
             vars = new vars[_vars];
             vals_calc = new num[_vals];
             vals_var  = new int[_vals];
@@ -160,6 +164,8 @@ namespace shard0
             exp_prec = (int)(BigInteger.Log(e,10)/2);
             fzero = new func(this,-1,0);
             ozero = new one(this);
+            nzero = new num(0);
+            for (int i = 0; i < funcs_name.Count(); i++) fnames.Add(funcs_name[i],i);
         }
         int deep(string n)
         {
@@ -182,9 +188,13 @@ namespace shard0
                 if (vars[names[n0]].val_n != i) sys.error(n0 + " not deep");
                 return names[n0];
             }
-            if ((vars_last >= vars.Count()) || (vals_last >= vals_var.Count())) sys.error("too many vars");
             names.Add(n0,vars_last);
-            vars[vars_last] = new vars(n0,vals_last,i);
+            return add_var(n0,i);
+        }
+        public int add_var(string n, int s) {
+            int i = s;
+            if ((vars_last >= vars.Count()) || (vals_last >= vals_var.Count())) sys.error("too many vars");
+            vars[vars_last] = new vars(n,vals_last,i);
             calc_stat[vars_last] = 0;
             while (i > -1) {
                 vals_calc[vals_last] = new num();
@@ -619,7 +629,7 @@ namespace shard0
         public int CompareTo(object obj) {
             if (obj == null) return 1;
             num k = obj as num;
-            if (sign != k.sign) return sign;
+            if (sign * k.sign < 0) return sign;
             BigInteger u0 = up * k.down, u1 = k.up * down;
             if (u0 == u1) return 0;
             return (u0 < u1 ? -1 : 1);
@@ -752,7 +762,7 @@ namespace shard0
                         if ((r = e0.Current.Value.CompareTo(e1.Current.Value)) != 0) return r;
                     } else {
                         if (e0.Current.Key < e1.Current.Key) return e0.Current.Value.CompareTo(root.fzero);
-                        else return root.fzero.CompareTo(e1.Current.Value);
+                        else return root.fzero.CompareTo(e1.Current.Value); 
                     }
                 }
             }
@@ -914,8 +924,8 @@ namespace shard0
                     if ((r = o0.Current.Key.CompareTo(o1.Current.Key)) == 0) {
                         if ((r = o0.Current.Value.CompareTo(o1.Current.Value)) != 0) return r;
                     } else {
-                        if (r < 0) return o0.Current.Value.CompareTo(root.ozero);
-                        else return root.ozero.CompareTo(o1.Current.Value);
+                        if (r > 0) return o0.Current.Value.CompareTo(root.nzero);
+                        else return root.nzero.CompareTo(o1.Current.Value);
                     }
                 }
             }
@@ -2118,7 +2128,7 @@ namespace shard0
     }
     class deep {
         public char pair,oper;
-        public int type;
+        public int pos;
         public deep(char p, char o) {
             pair = p; oper = o;
         }
@@ -2166,7 +2176,8 @@ namespace shard0
         public static int[] m_c_type_sz = {7,2,5,2, 1,1, 1,1,1,1,1};
         public static char isall = (char)0, isname = (char)1, issymb = (char)2, ispair = (char)3, 
                            isnum = (char)4, isabc = (char)5,
-                           isoper = (char)6, isother = (char)7, isopen = (char)8, isclose = (char)9, issys = (char)10;
+                           isoper = (char)6, isother = (char)7, isopen = (char)8, isclose = (char)9, issys = (char)10,
+                           isend = (char)13;
         static int[] m_c_prior = {
          0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 0, 0,  0, 0, 0, 0,
          0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 0, 0,  0, 0, 0, 0,
@@ -2189,6 +2200,7 @@ namespace shard0
         public char now, oper;
         SortedDictionary<string,mbody> macro;
         List<deep> deep;
+        List<List<deep>> stack;
         public ids root;
         public fileio sys;
         public parse(fileio s)
@@ -2197,6 +2209,7 @@ namespace shard0
             val = ""; pos = 0;
             macro = new SortedDictionary<string,mbody>();
             deep = new List<deep>();
+            stack = new List<List<deep>>();
         }
         string _parm() {
             string s1;
@@ -2210,12 +2223,25 @@ namespace shard0
                     }
             return s1;
         }
+        public void push()
+        {
+            deep[deep.Count-1].pos = pos;
+            stack.Add(new List<deep>(deep));
+        }
+        public void pop()
+        {
+            if (stack.Count == 0) sys.error("parse: pop no push");
+            deep = stack[stack.Count-1];
+            stack.RemoveAt(stack.Count-1);
+            pos = deep[deep.Count-1].pos;
+            now = (more() ? val[pos] : isend);
+        }
         public bool lnext()
         {
             string name,s0,s1,st,sf;
             int _np,i0,i1,i2;
             bool l_add = true;
-            deep.Clear();
+            deep.Clear(); deep.Add(new deep(isend,isend));
             val = sys.rline(); val = val.Replace(" ",""); pos = 0;
             if ((val.Length == 0) || (val[0] == '`')) return false;
             if (val.Substring(0,2) == "##")
@@ -2243,7 +2269,7 @@ namespace shard0
                 while (i2 < macro[name].nparm)
                 {
                     next(); s1 = _parm();
-                    if (isequnow("<>")) { 
+                    if (isequnow('<') || isequnow('>')) { 
                         l_add = isequnow('<'); next();
                         if (ploop > -1) sys.error("macro: wrong loop");
                         if (! int.TryParse(s1, out floop)) sys.error("macro: wrong loop");
@@ -2272,13 +2298,19 @@ namespace shard0
         public bool more() { return pos < val.Length; }
         public bool isequ(char t, char tst)
         {
-            if (tst < 13) {
+            if (tst < isend) {
                 int _t = m_c_type[t] - m_c_type_fr[tst];
                 return _t >= 0 && _t < m_c_type_sz[tst];
             } else return t == tst;
         }
         public bool isequnow(char tst) { return isequ(now,tst); }
-        public bool isequnow(string tst) { return tst.IndexOf(now) > -1; }
+        public bool isequnow(string tst) {
+            int i = 0; while (i < tst.Length) {
+                if (now != tst[i]) return false;
+                next(); i++;
+            }
+            return true;
+        }
         public void next() 
         {
             int _tp = m_c_type[now];
@@ -2290,15 +2322,15 @@ namespace shard0
             }
             pos++; 
             if (more()) now = val[pos]; else {
-                now = (char)13;
-                if (deep.Count > 0) sys.error("parse: nonpair");
+                now = isend;
+                if (deep.Count != 1) sys.error("parse: nonpair");
             }
         }
         public string get(char tst, string delim)
         {
             string ret = ""; int nowdeep = deep.Count;
             while (true) {
-                if (isequ(now,(char)13)) return ret;
+                if (isequ(now,isend)) return ret;
                 if ((nowdeep == deep.Count) && (isequ(now,isclose) || (! isequ(now,tst)) || (delim.IndexOf(now) > -1))) return ret;
                 ret += now.ToString(); next();
             }
@@ -2360,7 +2392,7 @@ namespace shard0
                       },
                       () => ex.data[1].data.ElementAt(0).Value.mul(new num(get(isnum,""))),
                       () => ex.data[1].data.ElementAt(0).Value.mul(calc()),
-                      () => ex.mul(fpars(-1,0)),
+                      () => ex.mul(fpars(-1,true)),
                       () => sys.error("nonum in calc")
                           };
             Action[] oof = {
@@ -2377,14 +2409,19 @@ namespace shard0
                 },
                 () => sys.error("nonum in calc")
                 };
-            char[] nc = {isabc,isnum,'{'};
+            char[] nc = {isabc,isnum,'{','('};
             Action[] nf = {
-                () => {fval = root.find_val(get(isname,""));},
+                () => {string _n = get(isname,"");
+                    if (isequnow('(')) {
+                        fval = root.add_var("",0); root.vars[fval].var = fpars(fval,true,_n);
+                    } else fval = root.find_val(_n);
+                      },
                 () => {nval = new num(get(isnum,""));},
                 () => {nval = calc();},
+                () => {fval = root.add_var("",0); root.vars[fval].var = fpars(fval,true);},
                 () => sys.error("nonum in calc")
                 };
-            char[] oc = {isoper,isclose,(char)13};
+            char[] oc = {isoper,isclose,isend};
             Action[] of = {
                 () => branchnow("+-*/^",oof),
                 () => {l = false; },
@@ -2408,32 +2445,59 @@ namespace shard0
             KeyValuePair<one,num> on;
             int d = deep.Count;
             if (isequnow(isopen)) next();
-            while ((! isequnow(isclose)) && (!isequnow((char)13))) {
+            while ((! isequnow(isclose)) && (!isequnow(isend))) {
                 on = opars();
                 if (m.data.ContainsKey(on.Key)) m.data[on.Key].add(on.Value); else m.data.Add(on.Key,on.Value);
             }
             if (d < deep.Count) next();
             return m;
         }
-        public func fpars(int v, int t)
+        public func fpars(int v, bool flag)
         {
+            string _fn = "";
+            if (flag) {
+                if (isequnow(isabc)) {
+                    _fn = get(isname,"");
+                }
+            }
+            return fpars(v,flag,_fn);
+        }
+        public func fpars(int v, bool flag, string _fn)
+        {
+            int t = 0;
+            int d = deep.Count;
+            if (flag) {
+                if (! root.fnames.ContainsKey(_fn)) sys.error("parse: func");
+                t = root.fnames[_fn];
+                if (! isequnow('(')) sys.error("parse: func");
+                next();
+            }
             func f = new func(root,v,t);
-            int d = deep.Count, i = 1;
-            Action[] of = {
-                () => {i = +1; next();},
-                () => {i = -1; next();}
-                };
+            bool isdown = false;
+            if ((t == 0) && isequnow('(')) {
+                push(); next(); get(isall,"");
+                if (isequnow(")/("))
+                {
+                    get(isall,"");
+                    if (isequnow(')')) {
+                        next(); 
+                        if (isequnow(')') || isequnow(isend)) isdown = true;
+                    }
+                }
+                pop();
+            }
             switch (t) {
                 case 0:
-                while(true) {
-                    while (isequnow(isopen)) next();
-                    f.data[i] = mpars();
-                    while (isequnow(isclose) && d < deep.Count) next();
-                    if ((d == deep.Count) || isequnow((char)13)) break;
-                    branchnow("*/",of);
-                }
+                    f.data[1] = mpars();
+                    if (isdown) {
+                        next(); f.data[-1] = mpars();
+                    }
                     break;
-            } 
+                case 1:
+                    f.data[1] = mpars();
+                    break;
+            }
+            if (d < deep.Count) next();
             return f;
         }
         public num calc()
@@ -2443,7 +2507,7 @@ namespace shard0
             int lp = 0;
             if (isequnow(isnum)) {
                 num r = new num(get(isnum,""));
-                if (isequnow(",")) next();
+                if (isequnow(',')) next();
                 return r;
             }
             if (isequnow(ispair)) next(); 
@@ -2461,7 +2525,7 @@ namespace shard0
                               () => ln[lp+1].set(get(isnum,"")),
                               () => sys.error("in calc")
                           };
-            char[] oc = {isoper,isclose,(char)13};
+            char[] oc = {isoper,isclose,isend};
             Action[] of = {
                               () => next(),
                               () => {l = false; next();},
@@ -2500,7 +2564,7 @@ namespace shard0
         }
         public string print(one o, num n)
         {
-            string ret = "";
+            string ret = "", name;
             bool first = true, f1 = false;;
             foreach(KeyValuePair<int,func> m in o.exps) {
                 if (first) {
@@ -2511,15 +2575,16 @@ namespace shard0
                         } else ret += print(n,true);
                     } else ret += print(n,true);
                 }
+                name = root.get_name_val(m.Key); if (name.Length == 0) name = print(root.vars[root.val_to_var(m.Key)].var, true);
                 switch (m.Value.type_pow()) {
                     case 0: //int
-                        ret += (m.Value.get_num().get_sign() < 0 ? "/" : (f1 ? "" : "*")) + root.get_name_val(m.Key) + (m.Value.get_num().get_up() > 1 ? "^" + m.Value.get_num().get_up().ToString().Trim() : "");
+                        ret += (m.Value.get_num().get_sign() < 0 ? "/" : (f1 ? "" : "*")) + name + (m.Value.get_num().get_up() > 1 ? "^" + m.Value.get_num().get_up().ToString().Trim() : "");
                         break;
                     case 1: //num
-                        ret += (m.Value.get_num().get_sign() < 0 ? "/" : (f1 ? "" : "*")) + root.get_name_val(m.Key) + "^{" + print(m.Value.get_num(),false) + "}";
+                        ret += (m.Value.get_num().get_sign() < 0 ? "/" : (f1 ? "" : "*")) + name + "^{" + print(m.Value.get_num(),false) + "}";
                         break;
                     case 2: 
-                        ret += (f1 ? "" : "*") + root.get_name_val(m.Key) + "^(" + print(m.Value) + ")";
+                        ret += (f1 ? "" : "*") + name + "^" + print(m.Value,true);
                         break;
                 }
                 first = false; f1 = false;
@@ -2534,7 +2599,7 @@ namespace shard0
             }
             return ret;
         }
-        public string print(func f)
+        public string print(func f, bool pair)
         {
             string ret = "";
             if (f == null) return ret;
@@ -2545,9 +2610,13 @@ namespace shard0
                     } else {
                         ret += "(" + print(f.data[1]) + ")/(" + print(f.data[-1]) + ")";
                     }
+                    if (pair) ret = "(" + ret + ")";
+                    break;
+                case 1:
+                    ret += "(" + print(f.data[1]) + ")";
                     break;
             }
-            return ret;
+            return root.funcs_name[f.tfunc] + ret;
         }
 
         public BigInteger get_parm()
@@ -2692,7 +2761,8 @@ namespace shard0
 */
         static void doit() {
             int var0,var1,var2,val0;
-            string val,name;
+            string val,name,fnam;
+            bool flag;
             int x0,x1,f0,f1,c0,c1;
             int[] xid = new int[99];
             int _r0,_r1,_r2; double _d0,_d1,x2;
@@ -2707,8 +2777,17 @@ namespace shard0
                             case '=':
                                 var0 = par.root.find_var(name);
                                 par.next();
-                                par.root.vars[var0].var = (par.isequnow((char)13) ? null : par.fpars(var0,0));
-                                par.sys.wline(0,par.print(par.root.vars[var0].var));
+                                par.push(); fnam = "";flag = false;
+                                if (par.isequnow(parse.isabc)) fnam = par.get(parse.isname,"");
+                                if (par.isequnow('(')) {
+                                    par.next(); par.get(parse.isall,"");
+                                    if (par.isequnow(')')) {
+                                        par.next(); if (par.isequnow(parse.isend)) flag = true;
+                                    }
+                                }
+                                par.pop();
+                                par.root.vars[var0].var = (par.isequnow(parse.isend) ? null : par.fpars(var0,flag));
+                                par.sys.wline(0,par.print(par.root.vars[var0].var,false));
                             break;
                         }
                     }
