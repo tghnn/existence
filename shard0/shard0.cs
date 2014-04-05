@@ -9,7 +9,7 @@ using System.Windows.Forms;
 using System.Text;
 using System.IO;
 using System.Numerics;
-
+using System.Runtime.CompilerServices;
 
 namespace shard0
 {
@@ -97,9 +97,6 @@ namespace shard0
         private void InitializeComponent()
         {
             this.SuspendLayout();
-            // 
-            // shard0
-            // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.AutoValidate = System.Windows.Forms.AutoValidate.Disable;
@@ -117,6 +114,8 @@ namespace shard0
         {
             if (disposing && (components != null))
             {
+                bp.Dispose();
+                bm.Dispose();
                 components.Dispose();
             }
             base.Dispose(disposing);
@@ -136,36 +135,45 @@ namespace shard0
     class ids
     {
         public int vals_last,vars_last, stat_uncalc, stat_calc, exp_prec;
-        public num prec;
+//        public num prec;
         public BigInteger exp_max;
         public SortedDictionary<string,int> names;
         public vars[] vars;
-        num[] vals_calc;
-        int[] vals_var;
+        exps_n[] vals_calc;
+        public int[] vals_var;
         public int[] calc_stat;
         public fileio sys;
         public func fzero;
         public one ozero;
-        public num nzero;
-        public string[] funcs_name = {"","fact"};
+        public const int znums = 100;
+        public num[] nums;
+        public string[] funcs_name = {"","","row","fact","int","sign"};
         public SortedDictionary<string,int> fnames;
+        public num[] fact;
         public ids(int _vars, int _vals, BigInteger p, BigInteger e, fileio f)
         {
+            int i;
             if ((_vars < 11) || (_vals < _vars) || (_vars + _vals > 6666) || (p < 11)) sys.error("wrong init");
-            prec = new num(p,p); sys = f; vals_last = 0; vars_last = 0;
+            sys = f; vals_last = 0; vars_last = 0;
             stat_uncalc = 1; stat_calc = 2;
             names = new SortedDictionary<string,int>();
             fnames = new SortedDictionary<string,int>();
             vars = new vars[_vars];
-            vals_calc = new num[_vals];
+            vals_calc = new exps_n[_vals];
             vals_var  = new int[_vals];
             calc_stat = new int[_vars];
             exp_max = e;
             exp_prec = (int)(BigInteger.Log(e,10)/2);
-            fzero = new func(this,-1,0);
-            ozero = new one(this);
-            nzero = new num(0);
-            for (int i = 0; i < funcs_name.Count(); i++) fnames.Add(funcs_name[i],i);
+            ozero = new one();
+            nums = new num[ids.znums*2];
+            i = 0; while (i < ids.znums*2) { nums[i] = new num(i-ids.znums); i++; }
+            fzero = new func(nums[ids.znums]);
+            i = 1; while (i < funcs_name.Count()) { fnames.Add(funcs_name[i],i); i++; }
+            fact = new num[1000];
+            BigInteger b = new BigInteger(1), c = new BigInteger(1); fact[0] = new num(b);
+            while (b < fact.Count()) {
+                c *= b; fact[(int)b] = new num(c); b++;
+            }
         }
         int deep(string n)
         {
@@ -175,11 +183,15 @@ namespace shard0
         public int size() { return vals_var.Count();}
         public int find_val(string n)
         {
-            int i,f; i = deep(n); string n0 = n.Substring(i);
-            if (!names.ContainsKey(n0)) sys.error(n0 + " var not found"); 
-            f = names[n0];
-            if (i > vars[f].val_n) sys.error(n0 + " too deep"); 
+            int i = deep(n);
+            int f = find_val_var(n.Substring(i));
+            if (i > vars[f].val_n) sys.error(n + " too deep"); 
             return vars[f].val_f+i;
+        }
+        public int find_val_var(string n0)
+        {
+            if (!names.ContainsKey(n0)) sys.error(n0 + " var not found"); 
+            return names[n0];
         }
         public int find_var(string n)
         {
@@ -197,7 +209,7 @@ namespace shard0
             vars[vars_last] = new vars(n,vals_last,i);
             calc_stat[vars_last] = 0;
             while (i > -1) {
-                vals_calc[vals_last] = new num();
+                vals_calc[vals_last] = null;
                 vals_var[vals_last] = vars_last;
                 i--; vals_last++;
             }
@@ -206,14 +218,14 @@ namespace shard0
         public void uncalc() { stat_uncalc+=2; stat_calc+=2;}
         private void uncalc_var(int var)
         {
-            for (int ii = vars[var].val_n - 1; ii > 0; ii--) vals_calc[vars[var].val_f + ii].set(vals_calc[vars[var].val_f + ii-1]);
-            vals_calc[vars[var].val_f].unset(); calc_stat[var] = stat_uncalc;
+            for (int ii = vars[var].val_n - 1; ii > 0; ii--) vals_calc[vars[var].val_f + ii] = vals_calc[vars[var].val_f + ii-1];
+            vals_calc[vars[var].val_f] = null; calc_stat[var] = stat_uncalc;
         }
 //          val           var
 //old    uncalc,calc  uncalc,calc
 //uncalc  get           recurs
 //calc    get             get
-        public num get_val(int val)
+        public num get_val(int val, num e)
         {
            int var = vals_var[val]; 
            int nowdeep = val - vars[var].val_f; 
@@ -224,10 +236,12 @@ namespace shard0
                if (isvar) sys.error(vars[var].name + " recursion");
            } else {
                if (vars[var].var == null) sys.error(vars[var].name + " var: non is non");
-               uncalc_var(var); vals_calc[vars[var].val_f].set(vars[var].var.calc()); calc_stat[var] = stat_calc;
+               uncalc_var(var);
+               vals_calc[vars[var].val_f] = new exps_n(vars[var].var.calc());
+               calc_stat[var] = stat_calc;
            }
-           if (!vals_calc[val].exist()) sys.error(vars[var].name + " val: non is non");
-           return (vals_calc[val]);
+           if (vals_calc[val] == null) sys.error(vars[var].name + " val: non is non");
+           return (vals_calc[val].exp(e));
         }
         public void set_var(int var, num n)
         {
@@ -235,11 +249,11 @@ namespace shard0
                if (calc_stat[var] != stat_uncalc) uncalc_var(var);
                calc_stat[var] = stat_calc;
            }
-           vals_calc[vars[var].val_f].set(n);
+           vals_calc[vars[var].val_f] = new exps_n(n);
         }
         public void set_val(int val, num n)
         {
-           vals_calc[val].set(n);
+           vals_calc[val] = new exps_n(n);
         }
         public void set_var_onval(int val, num n)
         {
@@ -256,6 +270,27 @@ namespace shard0
             return new String('\'', val - vars[vals_var[val]].val_f) + vars[vals_var[val]].name;
         }
     }
+    class exps_n
+    {
+        public SortedDictionary<num,num> data;
+        public num val;
+        public exps_n(num v)
+        {
+            data = new SortedDictionary<num,num>();
+            val = new num(v);
+            data.Add(Program.root.nums[ids.znums],Program.root.nums[ids.znums+1]);
+            data.Add(Program.root.nums[ids.znums+1],val);
+        }
+        public num exp(num e) //link to
+        {
+            if (! data.ContainsKey(e)) {
+                num v = new num(val); v.exp(e);
+                data.Add(new num(e),v);
+            }
+            return data[e];
+        }
+    }
+
     interface ipower{
         void exp2();
     }
@@ -291,15 +326,11 @@ namespace shard0
 
     class num : power<num>, ipower, IComparable
     {
-        private BigInteger up, down;
+        public BigInteger up, down;
         static BigInteger prec_base = 10;
-        private int sign;
+        public int sign;
         private bool exs;
-        public void set_sign(int _s) { sign = _s;}
-        public int get_sign() { return sign;}
-        public BigInteger get_up() { return up;}
         public BigInteger get_sup() { return up * sign; }
-        public BigInteger get_down() { return down; }
         public num()
         {
             init(0, 0); exs = false;
@@ -312,14 +343,19 @@ namespace shard0
         {
             set(n,s);
         }
+        static public num add(num a0, num a1, int s)
+        {
+            num r = new num(a0); r.add(a1,s);
+            return r;
+        }
         static public num add(num a0, num a1)
         {
-            num r = new num(a1); r.add(a0,1);
+            num r = new num(a0); r.add(a1,1);
             return r;
         }
         static public num sub(num s0, num s1)
         {
-            num r = new num(s1); r.add(s0,1);
+            num r = new num(s0); r.add(s1,-1);
             return r;
         }
         static public num mul(num m0, num m1)
@@ -332,11 +368,17 @@ namespace shard0
         }
         static public num max(num m0, num m1)
         {
-            if (m0.great(m1)) return new num(m1); else return new num(m0);
+            if (m0.great(m1)) return m1; else return m0;
         }
         static public num min(num m0, num m1)
         {
-            if (m0.great(m1)) return new num(m0); else return new num(m1);
+            if (m0.great(m1)) return m0; else return m1;
+        }
+        static public num common(num n0, num n1)
+        {
+            if (n0.sign != n1.sign) return Program.root.nums[ids.znums]; else {
+                if (n0.up*n1.down > n1.up*n0.down) return n1; else return n0;
+            }
         }
         public num(BigInteger u)
         {
@@ -357,15 +399,15 @@ namespace shard0
         public override void copy(ref num n)
         {
             n.sign = sign;
-            n.up = up;
-            n.down = down;
+            n.up = BigInteger.Abs(up);
+            n.down = BigInteger.Abs(down);
             n.exs = exs;
         }
         public override void set(num n)
         {
             sign = n.sign;
-            up = n.up;
-            down = n.down;
+            up = BigInteger.Abs(n.up);
+            down = BigInteger.Abs(n.down);
             exs = n.exs;
         }
         public void set(num n,int s)
@@ -386,24 +428,7 @@ namespace shard0
         {
             sign = _s; up = _u; down = _d; exs = true;
         }
-        public num(BigInteger _u, BigInteger _d)
-        {
-            set(_u,_d);
-        }
 
-        public void set_up(BigInteger _u)
-        {
-            up = (_u > 0 ? _u: 0-_u); exs = true;
-        }
-        public void set_down(BigInteger _d)
-        {
-            down = (_d > 0 ? _d: 0-_d);
-        }
-        public void set(BigInteger _u, BigInteger _d)
-        {
-            if (_u < 0) { sign = -1; up = -_u; } else { sign = 1; up = _u; }
-            down = _d; exs = true;
-        }
         public void set(BigInteger _u)
         {
             if (_u < 0) { sign = -1; up = -_u; } else { sign = 1; up = _u; }
@@ -443,9 +468,8 @@ namespace shard0
         public bool great(num a)
         {
             if (sign == a.sign)
-            {
-                return (a.up*down*sign > up*a.down*sign);
-            } else return (a.sign > 0);
+            return (a.up*down*sign > up*a.down*sign);
+            else return (a.sign > 0);
         }
         public void max(num a)
         {
@@ -464,9 +488,13 @@ namespace shard0
         {
             return (down == 1);
         }
+        public static bool isint(num n, int i)
+        {
+            if (n == null) return false; else return n.isint(i);
+        }
         public bool isint(int n)
         {
-            return (down == 1) && (sign * n >= 0) && ((int)up == BigInteger.Abs(n));
+            return (down == 1) && (sign * n >= 0) && (up == BigInteger.Abs(n));
         }
         public void simple()
         {
@@ -477,6 +505,12 @@ namespace shard0
                     up = BigInteger.Divide(up, a);
                     down = BigInteger.Divide(down, a);
                 } while (a != 1);
+        }
+        public void common(num n)
+        {
+            if (sign != n.sign) set0(); else {
+                if (up*n.down > n.up*down) set(n);
+            }
         }
         public void extract(num n)
         {
@@ -491,7 +525,7 @@ namespace shard0
         }
         public new void exp2()
         {
-            sign = 0;
+            sign *= sign;
             up *= up;
             down *= down;
         }
@@ -517,6 +551,10 @@ namespace shard0
             sign *= a.sign;
             up *= a.down;
             down *= a.up;
+        }
+        public void mul(BigInteger u, BigInteger d)
+        {
+            up *= u; down *= d;
         }
         public void mul(num a, int e)
         {
@@ -588,17 +626,17 @@ namespace shard0
             }
             return false;
         }
-        public void exp(ids r, num ex)
+        public void exp(num ex)
         {
             int u,d;
             if (ex.up == 0) { set1(); return; }
-            if ((ex.up > r.exp_max) || (ex.down > r.exp_max)) {
+            if ((ex.up > Program.root.exp_max) || (ex.down > Program.root.exp_max)) {
                 num e1 = new num(ex);
-                e1.prec(r.exp_prec);
-                if (e1.down > r.exp_max) { set1(); return; }
-                if (e1.up > r.exp_max) r.sys.error("exp too large");
-                u = (int)e1.get_sup(); d = (int)e1.get_down();
-            } else {u = (int)ex.get_sup(); d = (int)ex.get_down();}
+                e1.prec(Program.root.exp_prec);
+                if (e1.down > Program.root.exp_max) { set1(); return; }
+                if (e1.up > Program.root.exp_max) Program.root.sys.error("exp too large");
+                u = (int)e1.get_sup(); d = (int)e1.down;
+            } else {u = (int)ex.get_sup(); d = (int)ex.down;}
             exp(u);
             exs = root(d);
         }
@@ -624,12 +662,12 @@ namespace shard0
         public string toname(bool group) {
             if (isint(0)) return "0";
             if (isint(1) && group) return "";
-            return (get_sign() < 0 ? "_" : "") + get_up().ToString().Trim() + (get_down() > 1 ? ("_" + get_down().ToString().Trim()) : "");
+            return (sign < 0 ? "_" : "") + up.ToString().Trim() + (down > 1 ? ("_" + down.ToString().Trim()) : "");
         }
         public int CompareTo(object obj) {
             if (obj == null) return 1;
             num k = obj as num;
-            if (sign * k.sign < 0) return sign;
+            if (sign != k.sign) return (sign < k.sign ? -1: +1);
             BigInteger u0 = up * k.down, u1 = k.up * down;
             if (u0 == u1) return 0;
             return (u0 < u1 ? -1 : 1);
@@ -726,76 +764,56 @@ namespace shard0
 
     class one: IComparable
     {
-        ids root;
-        public SortedDictionary<int,func> exps;
-        public one(ids h)
+        public SortedDictionary<func,func> exps;
+        public one()
         {
-            root = h;
-            exps = new SortedDictionary<int,func>();
+            exps = new SortedDictionary<func,func>();
         }
         public one(one o)
         {
-            root = o.root;
-            exps = new SortedDictionary<int,func>();
+            exps = new SortedDictionary<func,func>();
             set(o);
         }
         public void set(one o)
         {
             exps.Clear();
-            foreach(KeyValuePair<int,func> m in o.exps)
+            foreach(KeyValuePair<func,func> m in o.exps)
                 exps.Add(m.Key,new func(m.Value));
         }
 
         public int CompareTo(object obj) {
             if (obj == null) return 1;
             one o = obj as one;
-            SortedDictionary<int,func>.Enumerator e0 = exps.GetEnumerator();
-            SortedDictionary<int,func>.Enumerator  e1 = o.exps.GetEnumerator();
+            SortedDictionary<func,func>.Enumerator e0 = exps.GetEnumerator();
+            SortedDictionary<func,func>.Enumerator  e1 = o.exps.GetEnumerator();
             bool n0,n1;
             int r;
             while (true) {
-                n0 = e0.MoveNext(); n1 = e1.MoveNext();
-                if (n0 ^ n1) return (n0 ? e0.Current.Value.CompareTo(root.fzero) : root.fzero.CompareTo(e1.Current.Value));
+                do n0 = e0.MoveNext(); while (n0 && (e0.Current.Value.isconst(0)));
+                do n1 = e1.MoveNext(); while (n1 && (e1.Current.Value.isconst(0)));
+                if (n0 ^ n1) return (n0 ? e0.Current.Value.CompareTo(Program.root.fzero) : Program.root.fzero.CompareTo(e1.Current.Value));
                 else {
                     if (! n0) return 0;
                     if (e0.Current.Key == e1.Current.Key) {
                         if ((r = e0.Current.Value.CompareTo(e1.Current.Value)) != 0) return r;
                     } else {
-                        if (e0.Current.Key < e1.Current.Key) return e0.Current.Value.CompareTo(root.fzero);
-                        else return root.fzero.CompareTo(e1.Current.Value); 
+                        if (e0.Current.Key.CompareTo(e1.Current.Key) < 0) return e0.Current.Value.CompareTo(Program.root.fzero);
+                        else return Program.root.fzero.CompareTo(e1.Current.Value); 
                     }
                 }
             }
         }
-/*
-        public bool test_mul(one a)
-        {
-            if (zero.root != a.zero.root) return false;
 
-
-            list.link(a.list); foreach (int i in list) { 
-                if (!exps[i].test_add(a.exps[i],1)) {list.link(); return false;}
-            }
-            list.link(); return true;
-        }
-        public bool mul_t(one a)
+        public void addto(func val,func exp)
         {
-            bool rt = true;
-            if (zero.root != a.zero.root) return false;
-            list.link(a.list);
-            foreach (int i in list) {
-                if (!exps[i].add(a.exps[i],1)) rt = false;
-                list.set(i,! exps[i].iszero());
-            }
-            list.link(); return rt;
+            if (exps.ContainsKey(val)) exps[val].add(exp,1); else exps.Add(val,exp);
         }
- */ 
         public void mul(one o)
         {
-            foreach(KeyValuePair<int,func> m in o.exps) {
+            foreach(KeyValuePair<func,func> m in o.exps) {
                 if (exps.ContainsKey(m.Key)) {
                     exps[m.Key].add(m.Value,1);
-                    if (exps[m.Key].data[1].isconst(0)) exps.Remove(m.Key);
+                    if (exps[m.Key].isconst(0)) exps.Remove(m.Key);
                 }
                 else exps.Add(m.Key, new func(m.Value));
             }
@@ -803,93 +821,76 @@ namespace shard0
 
         public void div()
         {
-            foreach(KeyValuePair<int,func> m in exps) m.Value.data[1].neg();
+            foreach(KeyValuePair<func,func> m in exps) func.neg[m.Value.type](m.Value);
         }
         public void exp(int e)
         {
-            exp(new num(e));
+            exp(new func(new num(e)));
         }
         public void exp(num e)
         {
-            foreach(KeyValuePair<int,func> f in exps) {
-                foreach(KeyValuePair<one,num> m in f.Value.data[1].data) m.Value.mul(e);
-            }
+            exp(new func(e));
         }
         public void exp(func e)
         {
-            foreach(KeyValuePair<int,func> m in exps) m.Value.mul(e);
+            foreach(KeyValuePair<func,func> f in exps) f.Value.mul(e);
         }
 
-        public void extract(one from)
+        public void extract(one from) //common multi
         {
-            foreach(KeyValuePair<int,func> m in exps) 
+            foreach(KeyValuePair<func,func> m in exps) 
                 if (from.exps.ContainsKey(m.Key)) m.Value.extract(from.exps[m.Key]);
                 else m.Value.set0();
         }
         public void simple()
         {
-            SortedDictionary<int,func> r = new SortedDictionary<int,func>();
-            foreach(KeyValuePair<int,func> m in exps) {
+            SortedDictionary<func,func> r = new SortedDictionary<func,func>();
+            foreach(KeyValuePair<func,func> m in exps) {
                 m.Value.simple();
-                if (! m.Value.data[1].isconst(0)) r.Add(m.Key, m.Value);
+                if (! m.Value.isconst(0)) r.Add(m.Key, m.Value);
             }
             exps = r;
         }
         public void go_deeper(int deep) {
-            SortedDictionary<int,func> r = new SortedDictionary<int,func>();
-            foreach(KeyValuePair<int,func> m in exps) {
-                if (root.val_to_var(m.Key) != root.val_to_var(m.Key + deep)) root.sys.error(" too deep ");
+            SortedDictionary<func,func> r = new SortedDictionary<func,func>();
+            foreach(KeyValuePair<func,func> m in exps) {
+                if (Program.root.val_to_var(m.Key) != Program.root.val_to_var(m.Key + deep)) Program.root.sys.error(" too deep ");
                 r.Add(m.Key + deep,m.Value);
             }
             exps = r;
         }
         public num calc() {
-            num rt = new num(1), t = new num(0);
-            foreach(KeyValuePair<int,func> f in exps) {
-                t.set(root.get_val(f.Key));
-                t.exp(root,f.Value.calc());
-                rt.mul(t);
-            }
+            num rt = new num(1);
+            foreach(KeyValuePair<func,func> f in exps) rt.mul(Program.root.get_val(f.Key,f.Value.calc()));
             return rt;
         }
     }
+
     class many: power<many>, ipower, IComparable
     {
-        public ids root;
         public SortedDictionary<one,num> data;
         public many()
         {
-            root = null;
             data = new SortedDictionary<one,num>();
         }
-        public many(ids h)
+        public many(num n)
         {
-            root = h;
             data = new SortedDictionary<one,num>();
-        }
-        public many(ids h, int n)
-        {
-            root = h;
-            data = new SortedDictionary<one,num>();
-            data.Add(new one(root), new num(n));
-        }
-        public many(ids h, num n)
-        {
-            root = h;
-            data = new SortedDictionary<one,num>();
-            data.Add(new one(root), new num(n));
+            data.Add(new one(),new num(n));
         }
         public many(many m)
         {
-            root = m.root;
-            data = new SortedDictionary<one,num>();
-            foreach (KeyValuePair<one,num> o in m.data) data.Add(new one(o.Key),new num(o.Value));
+            set(m);
+        }
+        public static SortedDictionary<one,num> copy(SortedDictionary<one,num> c)
+        {
+            SortedDictionary<one,num> r = new SortedDictionary<one,num>();
+            foreach (KeyValuePair<one,num> o in c) r.Add(new one(o.Key),new num(o.Value));
+            return r;
         }
         public override void set(many s)
         {
-            root = s.root;
-            data.Clear();
-            foreach (KeyValuePair<one,num> o in s.data) data.Add(new one(o.Key),new num(o.Value));
+            data = many.copy(s.data);
         }
         public override void copy(ref many s)
         {
@@ -897,38 +898,66 @@ namespace shard0
         }
         public override void set0()
         {
-            data.Clear();
-            data.Add(new one(root), new num(0));
+            data.Clear(); 
+            data.Add(new one(), new num(0));
         }
         public override void set1()
         {
             data.Clear();
-            data.Add(new one(root), new num(1));
+            data.Add(new one(), new num(1));
         }
         public override void div()
         {
-            throw new NotImplementedException();
+            if (data.Count() != 1) Program.root.sys.error("cant divide many");
+            SortedDictionary<one,num> r = new SortedDictionary<one,num>();
+            one o = data.ElementAt(0).Key; num n = data.ElementAt(0).Value;
+            o.div(); n.div(); r.Add(o,n); data = r;
         }
+
+        public int sign() {
+            bool p = false, m = false;
+            foreach (KeyValuePair<one,num> o in data) {
+                if (o.Value.sign > 0) {
+                    p = true; if (m) return 0;
+                }
+                if (o.Value.sign < 0) {
+                    m = true; if (p) return 0;
+                }
+            }
+            if (p) return 1;
+            if (m) return -1;
+            return 0;
+        }
+
         public int CompareTo(object obj) {
-            if (obj == null) return (data.Count > 0 ? data.ElementAt(0).Value.get_sign(): 0);
+            if (obj == null) {int s = sign(); return (s != 0 ? s : data.ElementAt(0).Value.sign); }
             many m = obj as many;
             SortedDictionary<one,num>.Enumerator o0 = data.GetEnumerator();
             SortedDictionary<one,num>.Enumerator o1 = m.data.GetEnumerator();
             bool n0,n1;
             int r;
             while (true) {
-                n0 = o0.MoveNext(); n1 = o1.MoveNext();
-                if (n0 ^ n1) return (n0 ? o0.Current.Value.CompareTo(root.ozero) : root.ozero.CompareTo(o1.Current.Value));
+                do n0 = o0.MoveNext(); while (n0 && (o0.Current.Value.sign == 0));
+                do n1 = o1.MoveNext(); while (n1 && (o1.Current.Value.sign == 0));
+                if (n0 ^ n1) return (n0 ? o0.Current.Value.CompareTo(Program.root.nums[ids.znums]) : Program.root.nums[ids.znums].CompareTo(o1.Current.Value));
                 else {
                     if (! n0) return 0;
                     if ((r = o0.Current.Key.CompareTo(o1.Current.Key)) == 0) {
                         if ((r = o0.Current.Value.CompareTo(o1.Current.Value)) != 0) return r;
                     } else {
-                        if (r > 0) return o0.Current.Value.CompareTo(root.nzero);
-                        else return root.nzero.CompareTo(o1.Current.Value);
+                        if (r > 0) return o0.Current.Value.CompareTo(Program.root.nums[ids.znums]);
+                        else return Program.root.nums[ids.znums].CompareTo(o1.Current.Value);
                     }
                 }
             }
+        }
+        public num get_num()
+        {
+            num r = null;
+            if (data.Count == 0) r = new num(0);
+            if ((data.Count == 1) && (data.ElementAt(0).Key.CompareTo(Program.root.ozero) == 0))
+                r = new num(data.ElementAt(0).Value);
+            return r;
         }
 
         public void add(KeyValuePair<one,num> o, int s) {
@@ -937,91 +966,101 @@ namespace shard0
                 data[o.Key].simple();
             } else data.Add(new one(o.Key),new num(o.Value,s));
         }
-        public void add(many m, int s)
+        public void add(many from, int s)
         {
-            foreach (KeyValuePair<one,num> o in m.data) add(o,s);
+            foreach (KeyValuePair<one,num> o in from.data) add(o,s);
         }
+
         public void mul(KeyValuePair<one,num> m)
         {
             SortedDictionary<one,num> r = new SortedDictionary<one,num>();
             one o; num n;
-            while (data.Count > 0) {
-                o = data.ElementAt(0).Key;
-                n = data[o];
-                data.Remove(o);
+            foreach (KeyValuePair<one,num> m0 in data) {
+                o = new one(m0.Key);
+                n = new num(m0.Value);
                 o.mul(m.Key);
                 n.mul(m.Value);
                 if (r.ContainsKey(o)) r[o].add(n); else r.Add(o,n);
             }
             data = r;
-            foreach (KeyValuePair<one,num> d in data) d.Value.simple();
         }
-        public void mul(num m)
+        public override void mul(many _m)
         {
             SortedDictionary<one,num> r = new SortedDictionary<one,num>();
-            one o; num n;
-            while (data.Count > 0) {
-                o = data.ElementAt(0).Key;
-                n = data[o];
-                data.Remove(o);
-                n.mul(m);
-                r.Add(o,n);
-            }
-            data = r;
-        }
-        public override void mul(many m)
-        {
-            many r = many.mul(this,m);
-            data = r.data;
-        }
-        public static many mul(many _m0, many _m1)
-        {
-            if (_m0.root != _m1.root) return null;
-            many r = new many(_m0.root,0);
-            one o = new one(_m0.root);
-            foreach (KeyValuePair<one,num> m0 in _m0.data) {
-                foreach (KeyValuePair<one,num> m1 in _m1.data) {
+            one o = new one();
+            foreach (KeyValuePair<one,num> m0 in data) {
+                foreach (KeyValuePair<one,num> m1 in _m.data) {
                     o.set(m0.Key);
                     o.mul(m1.Key);
-                    if (r.data.ContainsKey(o)) r.data[o].addmul(m0.Value,m1.Value);
-                    else r.data.Add(new one(o), num.mul(m0.Value,m1.Value));
+                    if (r.ContainsKey(o)) r[o].addmul(m0.Value,m1.Value);
+                    else r.Add(new one(o), num.mul(m0.Value,m1.Value));
                 }
             }
-            foreach (KeyValuePair<one,num> d in r.data) d.Value.simple();
-            return r;
+            foreach (KeyValuePair<one,num> d in r) d.Value.simple();
+            data = r;
+        }
+        public void mul(num n)
+        {
+            foreach (KeyValuePair<one,num> m0 in data) {
+                    m0.Value.mul(n);
+            }
         }
 
-        public void expand(many m, KeyValuePair<one,num> on, int val)
+        public void expand(many from, KeyValuePair<one,num> on, func val)
         {
-            one to = new one(on.Key); to.exps[val].set0();
-            KeyValuePair<one,num> ton = new KeyValuePair<one,num>(new one(root), new num(0));
-            foreach (KeyValuePair<one,num> o in m.data) {
-                ton.Key.set(o.Key); ton.Key.mul(to);
+            one t = new one(on.Key); t.exps[val].set0();
+            KeyValuePair<one,num> ton = new KeyValuePair<one,num>(new one(), new num(0));
+            foreach (KeyValuePair<one,num> o in from.data) {
+                ton.Key.set(o.Key); ton.Key.mul(t);
                 ton.Value.set(o.Value); ton.Value.mul(on.Value);
                 add(ton,1);
             }
         }
+
+        public void expand(func val, exps_f exu, exps_f exd)
+        {
+            SortedDictionary<func,many> ml = new SortedDictionary<func,many>();
+            many res = new many();
+            exu.add(this,val,+1); exu.calc();
+            exd.add(this,val,-1); exd.calc();
+            int type = (exu.type > exd.type ? exu.type : exd.type);
+            func eu, ed, e;
+            foreach (KeyValuePair<one,num> o in data) 
+            {
+//[+1]/[-1]
+//[-up] *= [+1]^min*[-1]^max 
+//[+1]^(up + (-min))*[-1]^(max - up)
+                if (o.Key.exps.ContainsKey(val) && (o.Key.exps[val].type_pow() + type < 3)) {
+                    e = o.Key.exps[val];
+                    eu = (exu.type > 1 ? new func(num.add(exu.min,(num)(e.data))) : e);
+                    ed = (exd.type > 1 ? new func(num.sub(exd.max,(num)(e.data))) : e);
+                    if (exu.data.ContainsKey(eu) && exd.data.ContainsKey(ed)) {
+                        if (! ml.ContainsKey(e)) {
+                            ml.Add(new func(e),new many(exu.data[eu]));
+                            ml[e].mul(exd.data[ed]);
+                        }
+                        res.expand(ml[e],o,val);
+                    } else res.add(o,1);
+                } else res.add(o,1);
+            }
+            data = res.data;
+        }
+
         public int type_exp() 
         {
-            if (isone()) {
+            if (data.Count() == 1) {
                 if (data.ElementAt(0).Value.isint(1)) return 0; else return 1;
-            } else return 2;
-        }
-        public int type_pow() 
-        {
-            if (isone() && (data.ElementAt(0).Key.exps.Count == 0)) {
-                if (data.ElementAt(0).Value.isint()) return 0; else return 1;
             } else return 2;
         }
         public void exp(func e)
         {
             int te = type_exp(),tp = e.type_pow();
-            if (te + tp > 2) root.sys.error("exp: cant many to many");
-            if (te > 1) exp((int)(e.data[1].data.ElementAt(0).Value.get_up()));
+            if (te + tp > 2) Program.root.sys.error("exp: cant many to many");
+            if (te > 1) exp((int)(((num)(e.data)).up));
             else {
                 if (tp < 2) {
-                    data.ElementAt(0).Key.exp(e.data[1].data.ElementAt(0).Value);
-                    data.ElementAt(0).Value.exp(root,e.data[1].data.ElementAt(0).Value);
+                    data.ElementAt(0).Key.exp((num)(e.data));
+                    data.ElementAt(0).Value.exp((num)(e.data));
                 } else {
                     data.ElementAt(0).Key.exp(e);
                 }
@@ -1037,7 +1076,7 @@ namespace shard0
         }
         public KeyValuePair<one,num> extract()
         {
-            if (data.Count == 0) return new KeyValuePair<one,num>(new one(root), new num(1)); else 
+            if (data.Count == 0) return new KeyValuePair<one,num>(new one(), new num(1)); else 
             {
                 one ro = null; num rn = null;
                 foreach (KeyValuePair<one,num> m in data) {
@@ -1052,53 +1091,8 @@ namespace shard0
             }
         }
 
-/*
-        public void diff(int val) {
-            int _sz = root.size;
-            num neg = new num(-1), tmp = new num(0), vexp;
-            int i = 0, ii = data.Count; while (i < ii) 
-            {
-                if (data[i].exps[val].iszero()) { data.RemoveAt(i); ii--; }
-                else
-                {
-                    tmp.set(data[i].exps[val].non);
-                    data[i].exps[val].non.add(neg);
-                    if (data[i].exps[val].vars != null)
-                    {
-                        one oadd;
-                        for (int i0 = 0; i0 < _sz; i0++)
-                        {
-                            vexp = data[i].exps[val].vars[i0];
-                            if (vexp.nonzero())
-                            {
-                                oadd = new one(data[i]);
-                                oadd.exps[i0].non.add(vexp);
-                                data.Add(oadd);
-                            }
-                        }
-                    }
-                    data[i].mult.mul(tmp);
-                    i++;
-                }
-            }
-        }
- */
         public void neg() {
             foreach (KeyValuePair<one,num> o in data) o.Value.neg();
-        }
-        public int sign() {
-            bool p = false, m = false;
-            foreach (KeyValuePair<one,num> o in data) {
-                if (o.Value.get_sign() > 0) {
-                    p = true; if (m) return 0;
-                }
-                if (o.Value.get_sign() < 0) {
-                    m = true; if (p) return 0;
-                }
-            }
-            if (p) return 1;
-            if (m) return -1;
-            return 0;
         }
 
         public void go_deeper(int deep) {
@@ -1113,53 +1107,46 @@ namespace shard0
             data = r;
         }
 
-        public void add_toexp(int val, func _e) 
+        public void add_toexp(func val, func _e) 
         {
             SortedDictionary<one,num> r = new SortedDictionary<one,num>();
             one o; num n;
             foreach (KeyValuePair<one,num> m in data)
             {
                 o = new one(m.Key); n = new num(m.Value);
-                o.exps[val].add(_e,1);
+                o.addto(val,_e);
                 r.Add(o,n);
             }
             data = r;
         }
 
-        public func find_minexp(int val) //_val^(-x) -> /_val^(x)
+        public num find_minexp(func val) //_val^(-x) -> /_val^(x)
         {
-            func _min = null, t; int s;
+            num _min = new num(0), t;
             foreach (KeyValuePair<one,num> o in data)
                 if (o.Key.exps.ContainsKey(val)) {
-                    if (_min == null) _min = new func(o.Key.exps[val]); else {
-                        t = new func(o.Key.exps[val]);
-                        t.add(_min,-1); s = 0;
-                        foreach (KeyValuePair<one,num> o1 in t.data[1].data) {
-                            if (o1.Value.get_sign() > 0) {
-                                if (s < 0) return null; else s = +1;
-                            }
-                            if (o1.Value.get_sign() < 0) {
-                                if (s > 0) return null; else s = -1;
-                            }
-                        }
-                        if (s < 0) _min.set(o.Key.exps[val]);
-                    }
+                    t = o.Key.exps[val].get_num_part();
+                    if (t.CompareTo(_min) < 0) _min.set(t);
                 }
             return _min;
         }
 
-        public bool isone() 
+        public void common(many m)
         {
-            return data.Count == 1;
+            bool ch = false;
+            foreach (KeyValuePair<one,num> on in data) {
+                if (m.data.ContainsKey(on.Key)) {
+                    on.Value.common(m.data[on.Key]);
+                    if (on.Value.sign == 0) ch = true;
+                } else {ch = true; on.Value.set0();}
+            }
+            if (ch) {
+                SortedDictionary<one,num> r = new SortedDictionary<one,num>();
+                foreach (KeyValuePair<one,num> on in data) if (on.Value.sign != 0) r.Add(on.Key,on.Value);
+                data = r;
+            }
         }
-        public bool isconst()
-        {
-             return isone() && (data.ElementAt(0).Key.exps.Count == 0);
-        }
-        public bool isconst(int n)
-        {
-             return isconst() && data.ElementAt(0).Value.isint(n);
-        }
+
         public void extract(many m)
         {
             SortedDictionary<one,num> r = new SortedDictionary<one,num>();
@@ -1167,7 +1154,7 @@ namespace shard0
             foreach (KeyValuePair<one,num> d in data)
             {
                 if (m.data.ContainsKey(d.Key)) {
-                    if (d.Value.get_sign() == m.data[d.Key].get_sign())
+                    if (d.Value.sign == m.data[d.Key].sign)
                     {
                         r.Add(new one(d.Key),num.mul(d.Value,m.data[d.Key]));
                     }
@@ -1179,53 +1166,293 @@ namespace shard0
         public void simple()
         {
             if (data.Count < 2) return;
+            one k; num v;
             SortedDictionary<one,num> r = new SortedDictionary<one,num>();
             foreach (KeyValuePair<one,num> d in data)
             {
-                d.Value.simple();
-                if (! d.Value.isint(0)) r.Add(d.Key,d.Value);
+                v = d.Value;
+                if (v.up != 0) {
+                    k = new one(d.Key); 
+                    k.simple(); v.simple();
+                    if (r.ContainsKey(k)) r[k].add(v,1); else r.Add(k,v);
+                }
             }
             data = r;
         }
+        public num calc() {
+            num rt = new num(0);
+            foreach(KeyValuePair<one,num> o in data) rt.add(num.mul(o.Key.calc(),o.Value),1);
+            return rt;
+        }
+
     }
-    class exps 
+
+    
+    class many2: power<many2>, ipower, IComparable
+    {
+        public many up,down;
+        public many2()
+        {
+            up = new many(); down = new many();
+        }
+        public many2(many u, many d)
+        {
+            up = u; down = d;
+        }
+        public many2(int n)
+        {
+            up = new many(); down = new many();
+            up.data.Add(new one(), new num(n));
+            down.data.Add(new one(), new num(1));
+        }
+        public many2(num n)
+        {
+            up = new many(); down = new many();
+            up.data.Add(new one(), new num(n));
+            down.data.Add(new one(), new num(1));
+        }
+        public many2(KeyValuePair<one,num> on)
+        {
+            up = new many(); down = new many();
+            up.data.Add(new one(on.Key), new num(on.Value));
+            down.data.Add(new one(), new num(1));
+        }
+
+        public many2(many2 m)
+        {
+            up = new many(m.up); down = new many(m.down);
+        }
+        public override void set(many2 s)
+        {
+            up.set(s.up); down.set(s.down);
+        }
+        public override void copy(ref many2 s)
+        {
+            s.set(this);
+        }
+        public override void set0()
+        {
+            up.data.Clear(); down.data.Clear();
+            up.data.Add(new one(), new num(0));
+            down.data.Add(new one(), new num(1));
+        }
+        public override void set1()
+        {
+            up.data.Clear(); down.data.Clear();
+            up.data.Add(new one(), new num(1));
+            down.data.Add(new one(), new num(1));
+        }
+        public override void div()
+        {
+            many t;
+            if ((up.data.Count() == 1) && (up.data.ElementAt(0).Value.sign == 0)) Program.root.sys.error("div0");
+            t = up; up = down; down = t;
+        }
+
+        public int sign() {
+            return up.sign()*down.sign();
+        }
+
+
+        public int CompareTo(object obj) {
+            if (obj == null) {int s = sign(); return (s != 0 ? s : down.data.ElementAt(0).Value.sign); }
+            many2 m = obj as many2;
+            int r = up.CompareTo(m.up);
+            if (r != 0) return r;
+            return -down.CompareTo(m.down);
+        }
+
+        public void add(num n, int s) 
+        {
+            many t = new many(n); t.mul(down); up.add(t,s);
+        }
+
+        public void add(many2 m, int s) 
+        {
+            if (down.CompareTo(m.down) == 0) up.add(m.up,s); else {
+                  many t = new many(m.down);
+                  t.mul(down); up.mul(m.down); up.add(t,s);
+                  down.mul(m.down);
+            }
+        }
+
+        public override void mul(many2 m)
+        {
+            up.mul(m.up); down.mul(m.down);
+        }
+        public void mul(num m)
+        {
+            up.mul(m); 
+        }
+
+        public bool revert(func val, many u, many d) //_val^(-x) -> /_val^(x)
+        {
+            num min = u.find_minexp(val);
+            if (min.sign == 0) return false;
+            min.neg(); func f = new func(min);
+            u.add_toexp(val,f);
+            d.add_toexp(val,f);
+            return true;
+        }
+        public void revert(func val)
+        {
+            revert(val,up,down);
+            revert(val,down,up);
+        }
+
+        public void expand(func val)
+        {
+            int deep = Program.root.val_to_deep(val);
+            func f = Program.root.vars[Program.root.val_to_var(val)].var;
+            if ((f == null) || (f.type != 1)) return;
+            exps_f exu = new exps_f(((many2)(f.data)).up,deep);
+            exps_f exd = new exps_f(((many2)(f.data)).down,deep);
+            up.expand(val,exu,exd);
+            num minup = new num(exu.min), maxdw = new num(exd.max);
+            down.expand(val,exu,exd);
+            up.mul(exu.data[new func(exu.min)]);
+            up.mul(exd.data[new func(exd.max)]);
+            down.mul(exu.data[new func(minup)]);
+            down.mul(exd.data[new func(maxdw)]);
+            simple();
+        }
+
+
+        public int type_exp() 
+        {
+            int u = up.type_exp();
+            int d = down.type_exp();
+            return (u > d ? u : d);
+        }
+        public void exp(func e)
+        {
+            up.exp(e); down.exp(e);
+        }
+
+        public new void exp(int e)
+        {
+            up.exp(e); down.exp(e);
+        }
+
+        public void neg() {
+            up.neg();
+        }
+
+        public void go_deeper(int deep) {
+            up.go_deeper(deep);
+            down.go_deeper(deep);
+        }
+
+        public num get_num()
+        {
+            num u = up.get_num();
+            if (u == null) return null;
+            num d = down.get_num();
+            if (d == null) return null;
+            d.div(); u.mul(d); return u;
+        }
+        public num get_num_part()
+        {
+            num d = down.get_num();
+            if ((d == null) || (! up.data.ContainsKey(Program.root.ozero))) return new num(0);
+            d.div(); d.mul(up.data[Program.root.ozero]); return d;
+        }
+        public void common(many2 m)
+        {
+            if (down.CompareTo(m.down) == 0) up.common(m.up); else {
+                many t = new many(m.up);
+                t.mul(down); up.mul(m.down); down.mul(m.down);
+                up.common(t);                
+            }
+        }
+        public num simple()
+        {
+            many _up = up, _dw = down;
+            KeyValuePair<one,num> f_up, f_down, f_both;
+            f_up = up.extract();
+            f_down = down.extract();
+            f_both = new KeyValuePair<one,num>(new one(f_up.Key), new num(f_up.Value));
+            f_both.Key.extract(f_down.Key);
+            f_both.Value.extract(f_down.Value);
+            f_both.Key.div(); f_both.Value.div();
+            up.mul(f_both);
+            down.mul(f_both);
+
+            f_up.Value.set1();
+            foreach(KeyValuePair<func,func> u in f_up.Key.exps) if (u.Value.sign() >= 0) u.Value.set0();
+            f_up.Key.simple();
+
+            f_down.Value.set1();
+            foreach(KeyValuePair<func,func> d in f_down.Key.exps) if (d.Value.sign() >= 0) d.Value.set0();
+            f_down.Key.simple();
+
+            f_up.Key.div();
+            up.mul(f_up);
+            down.mul(f_up);
+            f_down.Key.div();
+            up.mul(f_down);
+            down.mul(f_down);
+            up.simple();
+            down.simple();
+            num nd = down.get_num();
+            if (nd == null) return null;
+            num nu = up.get_num();
+            if (nu != null) {nd.div(); nu.mul(nd); return nu;}
+            if ((nd != null) && (! nd.isint(1))) {
+                down.data.ElementAt(0).Value.div();
+                down.mul(down.data.ElementAt(0).Value);
+                down.data.ElementAt(0).Value.set1();
+            }
+            return null;
+        }
+        public num calc() {
+            num d = down.calc();
+            if (d.sign == 0) Program.root.sys.error("div0");
+            d.div(); d.mul(up.calc()); d.simple(); return d;
+        }
+
+    }
+    class exps_f 
     {
         public num max, min;
-        ids root;
         int deep;
         public int type; 
         //0 - 1*one, 1 - n*one, 2 - many
         //0,1 - sign, 2 - no sign
         public SortedDictionary<func,many> data;
         func e1;
-        public exps(many m, int _deep){
-            root = m.root; min = new num(0); max = new num(0);
+        public exps_f(many m, int _deep){
+            min = new num(0); max = new num(0);
             data = new SortedDictionary<func,many>();
-            data.Add(new func(root,-1,0), new many(root,1));
+            func e0 = new func(Program.root.nums[ids.znums]);
+            data.Add(e0, new many());
+            data[e0].data.Add(new one(),new num(1));
             deep = _deep;
-            e1 = new func(root,-1,1);
+            e1 = new func(Program.root.nums[ids.znums+1]);
             data.Add(e1, new many(m));
             data[e1].go_deeper(deep);
             type = data[e1].type_exp();
         }
         void add(func e) {
-            if (! data.ContainsKey(e)) data.Add(e,new many(root,0));
+            if (! data.ContainsKey(e)) data.Add(e,new many());
         }
 
-        public void add(many m, int val, int updown){
+        public void add(many m, func val, int updown){
             num t; 
             min.set0(); max.set0(); 
             func te;
             if (type > 1) {
                 foreach (KeyValuePair<one,num> on in m.data) {
-                    te = on.Key.exps[val];
-                    if (te.type_pow() + type < 3) {
-                        t = te.data[1].data.ElementAt(0).Value;
-                        min.min(t); max.max(t);
+                    if (on.Key.exps.ContainsKey(val)) {
+                        te = on.Key.exps[val];
+                        if (te.type_pow() + type < 3) {
+                            t = (num)(te.data);
+                            min.min(t); max.max(t);
+                        }
                     }
                 }
                 min.neg();
-                add(new func(root,-1,0,min)); add(new func(root,-1,0,max));
+                add(new func(min)); add(new func(max));
             }
             t = new num(0);
 /*
@@ -1238,437 +1465,582 @@ namespace shard0
  [+1]^(+1 - (-2))*[-1]^(+1 - (+1)) (+3) (0)
 */
             foreach (KeyValuePair<one,num> on in m.data) {
-                te = on.Key.exps[val]; 
-                if (te.type_pow() + type < 3) {
-                    if (type < 2) add(new func(te)); else {
-                        if (updown == +1) { //pow + (-min)
-                            t.set(te.data[1].data.ElementAt(0).Value); t.add(min,+1);
-                            add(new func(root,-1,0,t));
-                        }
-                        if (updown == -1) {//max - pow
-                            t.set(max); t.add(te.data[1].data.ElementAt(0).Value,-1);
-                            add(new func(root,-1,0,t));
+                if (on.Key.exps.ContainsKey(val)) {
+                    te = on.Key.exps[val]; 
+                    if (te.type_pow() + type < 3) {
+                        if (type < 2) add(new func(te)); else {
+                            if (updown == +1) { //pow + (-min)
+                                t.set((num)(te.data)); t.add(min,+1);
+                                add(new func(t));
+                            }
+                            if (updown == -1) {//max - pow
+                                t.set(max); t.add((num)(te.data),-1);
+                                add(new func(t));
+                            }
                         }
                     }
                 }
             }
         }
         public void calc(){
-            func dl = new func(root,-1,0);
+            func dl = new func(Program.root.nums[ids.znums]);
             foreach (KeyValuePair<func,many> d in data) {
-                if (d.Value.isconst(0)) {
-                    if (type > 0) {
-                        foreach (KeyValuePair<func,many> d0 in data) {
-                            if (d.Key.CompareTo(d0.Key) >= 0) break;
-                            dl.set(d.Key); dl.add(d0.Key,-1);
+/*                if (d.Value.data.Count == 0) {
+                    if (d.Key.type == 0) {
+                        dl.data = new num((num)(d.Key.data));
+                        num c = new num(1);
+                        while (((num)(dl.data)).up != 0) {
+                            c.up <<= 1; ((num)(dl.data)).up >>= 1;
                             if (data.ContainsKey(dl)) {
-                                d.Value.set(d0.Value);
-                                d.Value.mul(data[dl]);
+                                c.up--; c.up &= ((num)(d.Key.data)).up;
+
+                                d.Value.set(data[dl]);
+                                d.Value.exp(new func(c));
                                 break;
                             }
                         }
-                    }
-                    if (d.Value.isconst(0)) {
+*/
+
+
+                    if (d.Value.data.Count == 0) {
                         d.Value.set(data[e1]);
                         d.Value.exp(d.Key);
                     }
-                }
+//                }
             }
+        }
+    }
+
+    class row {
+        public int point;
+        public SortedDictionary<int,many2> data;
+        public many2 calc;
+        public row() {
+            point = 0;
+            data = new SortedDictionary<int,many2>();
+            calc = null;
+        }
+        public row(row r) {
+            point = r.point;
+            data = new SortedDictionary<int,many2>();
+            calc = null;
+            foreach(KeyValuePair<int,many2> m in r.data) data.Add(m.Key,new many2(m.Value));
+        }
+        public void prep_calc(int val, int per)
+        {
+            int len = data.Count() - point;
+            if (len < 1) Program.root.sys.error("row: empty");
+
+
         }
     }
 
     class func: power<func>, ipower, IComparable
     {
-        public ids root;
-        public SortedDictionary<int,many> data;
-        public int id;
-        public int tfunc; //0: 0//1; 1:
-        public num pfunc;
+        public const int types = 7;
+        public Object data; //SortedDictionary<int,many> data;
+        public int type; //0: &val, 1: &num {imutable}, 2: &many2, 3: row(many2[]), 4: fact(many2), 5: int(many2), 6: sign(many2)
         public func()
         {
-            tfunc = -1; pfunc = new num(-1);
-            root = null; id = -1;
-            data = new SortedDictionary<int,many>();
+            type = -1; data = null;
         }
-        public func(ids h, int var)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public func(int t, num n)
         {
-            tfunc = -1; pfunc = new num(-1);
-            root = h; id = var;
-            data = new SortedDictionary<int,many>();
+            func.set_num[t](this, n);
         }
-        public func(ids h, int var, int t)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public func(num n)
         {
-            pfunc = new num(-1);
-            root = h; id = var;
-            data = new SortedDictionary<int,many>();
-            set(t, new num(0));
+            func.set_num[0](this, n);
         }
-        public func(ids h, int var, int t, num n)
+        public func (KeyValuePair<one,num> on)
         {
-            pfunc = new num(-1);
-            root = h; id = var;
-            data = new SortedDictionary<int,many>();
-            set(t, n);
+            type = 1; data = new many2(on);
         }
+        public func (int t, many2 m)
+        {
+            type = t; data = m;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public func(func f)
         {
-            data = new SortedDictionary<int,many>();
-            set(f);
+            func.set_func[f.type](this,f);
         }
-        public int type_pow() {
-            return (data[-1].isconst(1) ? data[1].type_pow() : 2);
-        }
-        public void set(int t, num n) {
-            tfunc = t;
-            switch(t) {
-                case 0:
-                    data.Add(1,new many(root,n));
-                    data.Add(-1,new many(root,1));
-                    break;
-                case 1:
-                    break;
-                case 2:
-                    break;
-                case 3:
-                    break;
-            }
-        }
+        static public Action<func,num>[] set_num = {
+              (func t, num n) => {t.type = 0; t.data = Program.root.vals[(int)n.up];},
+              (func t, num n) => {t.type = 1; t.data = n;},
+              (func t, num n) => {t.type = 2; t.data = new many2(n);},
+              (func t, num n) => {t.type = 3; t.data = new row();},
+              (func t, num n) => {t.type = 4; t.data = new many2(n);},
+              (func t, num n) => {t.type = 5; t.data = new many2(n);},
+              (func t, num n) => {t.type = 6; t.data = new many2(n);},
+                         };
+        static public Action<func,func>[] set_func = {
+              (func t, func f) => {t.type = 0; t.data = f.data;},
+              (func t, func f) => {t.type = 1; t.data = f.data;},
+              (func t, func f) => {t.type = 2; t.data = new many2((many2)(f.data));},
+              (func t, func f) => {t.type = 3; t.data = new row((row)(f.data));},
+              (func t, func f) => {t.type = 4; t.data = new many2((many2)(f.data));},
+              (func t, func f) => {t.type = 5; t.data = new many2((many2)(f.data));},
+              (func t, func f) => {t.type = 6; t.data = new many2((many2)(f.data));},
+                         };
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override void set(func f)
         {
-            tfunc = f.tfunc; pfunc = new num(f.pfunc);
-            root = f.root; id = f.id;
-            data.Clear();
-            foreach (KeyValuePair<int,many> m in f.data) data.Add(m.Key,new many(m.Value));
+            func.set_func[f.type](this,f);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override void copy(ref func f)
         {
-            f.set(this);
+            func.set_func[type](f,this);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override void set0()
         {
-            foreach (KeyValuePair<int,many> m in data) if (m.Key < 0) m.Value.set1(); else m.Value.set0();
+            func.set_num[type](this,Program.root.nums[ids.znums]);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override void set1()
         {
-            foreach (KeyValuePair<int,many> m in data) m.Value.set1();
+            func.set_num[type](this,Program.root.nums[ids.znums+1]);
         }
+        static public Func<func,num>[] get_num_part = {
+                (func t) => {return Program.root.nums[ids.znums];},
+                (func t) => {return (num)(t.data);},
+                (func t) => {return ((many2)(t.data)).get_num_part();},
+                (func t) => {return Program.root.nums[ids.znums];},
+                (func t) => {return Program.root.nums[ids.znums];},
+                (func t) => {return Program.root.nums[ids.znums];},
+                (func t) => {return Program.root.nums[ids.znums];}
+        };
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool isconst(int n) { return (type == 1 ? ((num)data).isint(n): false); }
+        static public Func<func,int>[] type_pow = {
+                (func t) => {return 2;},
+                (func t) => {return ((((num)(t.data)).isint()) ? 0 : 1);},
+                (func t) => {return 2;},
+                (func t) => {return 2;},
+                (func t) => {return 2;},
+                (func t) => {return 2;},
+                (func t) => {return 2;}
+                };
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void revert(func val)
+        {
+            if (type == 2) ((many2)data).revert(val);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void expand(func val)
+        {
+            if (type == 2) ((many2)data).expand(val);
+        }
+        static public Action<func>[] neg_func = {
+                (func t) => {},
+                (func t) => {((num)(t.data)).neg();},
+                (func t) => {((many2)(t.data)).neg();},
+                (func t) => {},
+                (func t) => {},
+                (func t) => {},
+                (func t) => {}
+                };
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void neg()
+        {
+            func.neg_func[type](this);
+        }
+        static public Action<func>[] div_func = {
+                (func t) => {},
+                (func t) => {((num)(t.data)).div();},
+                (func t) => {((many2)(t.data)).div();},
+                (func t) => {},
+                (func t) => {},
+                (func t) => {},
+                (func t) => {}
+                };
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override void div()
         {
-            if (tfunc == 0) {many t = data[-1]; data[-1] = data[1]; data[1] = t;}
+            func.div_func[type](this);
         }
+        static public Action<func,func>[] mul_func = {
+                (func t, func f) => {}, //0:0
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+
+                (func t, func f) => {},//1 *= 0
+                (func t, func f) => {  //1 *= 1
+                    t.data = num.mul((num)(t.data),(num)(f.data));
+                },
+                (func t, func f) => { //1 *= 2
+                        t.type = 2; t.data = new many2((num)(t.data));
+                        ((many2)(t.data)).mul((many2)f.data);
+                },
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+
+                (func t, func f) => {},//2 *= 0
+                (func t, func f) => {  //2 *= 1
+                    ((many2)(t.data)).mul((num)f.data);
+                },
+                (func t, func f) => { //2 *= 2
+                    ((many2)(t.data)).mul((many2)f.data);
+                },
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+
+                (func t, func f) => {},//3 *= 0
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+
+                (func t, func f) => {},//4 *= 0
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+
+                (func t, func f) => {},//5 *= 0
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+
+                (func t, func f) => {},//6 *= 0
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {}
+                };
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override void mul(func f)
         {
-            if ((tfunc != f.tfunc) || (root != f.root)) root.sys.error("!");
-            switch (tfunc) {
-                case 0:
-                    foreach (KeyValuePair<int,many> m in data) m.Value.mul(f.data[m.Key]);
-                    break;
-                case 1:
-                    break;
-                case 2:
-                    break;
-            }
+            func.mul_func[type*func.types + f.type ](this,f);
         }
+
+        static public Action<func,func>[] extract_func = {
+                (func t, func f) => {}, //0:0
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+
+                (func t, func f) => {}, //1:0
+                (func t, func f) => { //1 1
+                        t.data = num.common((num)(t.data),(num)(f.data));
+                },
+                (func t, func f) => { //1 2
+                        t.data = num.common((num)(t.data),((many2)(f.data)).get_num_part());
+                },
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+
+                (func t, func f) => {}, //2:0
+                (func t, func f) => { //2:1
+                        t.type = 1; t.data = num.common(((many2)(t.data)).get_num_part(),(num)(f.data)); 
+                },
+                (func t, func f) => { //2:2
+                        ((many2)(t.data)).common((many2)(f.data));
+                        num r = ((many2)(t.data)).get_num();
+                        if (r != null) {t.data = r; t.type = 1;}
+                },
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+
+                (func t, func f) => {}, //3:0
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+
+                (func t, func f) => {}, //4:0
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+
+                (func t, func f) => {}, //5:0
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+
+                (func t, func f) => {}, //6:0
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {},
+                (func t, func f) => {}
+              };
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void extract(func f)
         {
-            if ((tfunc != f.tfunc) || (root != f.root)) root.sys.error("!");
-            switch (tfunc) {
-                case 0:
-                    if (data[-1].CompareTo(f.data[-1]) == 0) {
-                        data[1].extract(f.data[1]);
-                    } else {
-                        many t = many.mul(f.data[1],data[-1]);
-                        data[1].mul(f.data[-1]);
-                        data[-1].mul(f.data[-1]);
-                        data[1].extract(t);
-                    }
-                    simple();
-                    break;
-            }
+            func.extract_func[type*func.types + f.type ](this,f);
         }
-        public num get_num() {
-            if (type_pow() > 1) return null;
-            return num.div(data[1].data.ElementAt(0).Value,data[-1].data.ElementAt(0).Value);
-        }
+
+        static public Action<func,func,int>[] add_func = {
+                (func t, func f, int s) => {}, //0:0
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+
+                (func t, func f, int s) => {}, //1:0
+                (func t, func f, int s) => { //1:1
+                        t.data = num.add((num)(t.data),(num)(f.data),s);
+                },
+                (func t, func f, int s) => { //1:2
+                        t.type = 2; t.data = new many2((num)(t.data));
+                        ((many2)(t.data)).add((many2)f.data,s);
+                },
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+
+                (func t, func f, int s) => {}, //2:0
+                (func t, func f, int s) => { //2:1
+                        ((many2)(t.data)).add((num)f.data,s);
+                },
+                (func t, func f, int s) => { //2:2
+                        ((many2)(t.data)).add((many2)(f.data),s);
+                },
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+
+                (func t, func f, int s) => {}, //3:0
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+
+                (func t, func f, int s) => {}, //4:0
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+
+                (func t, func f, int s) => {}, //5:0
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+
+                (func t, func f, int s) => {}, //6:0
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {},
+                (func t, func f, int s) => {}
+              };
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void add(func f, int s)
         {
-            if ((tfunc != f.tfunc) || (root != f.root)) root.sys.error("!");
-            switch (tfunc) {
-                case 0:
-                    if (data[-1].CompareTo(f.data[-1]) == 0) data[1].add(f.data[1],s); else {
-                        many t = new many(f.data[1]); t.mul(data[-1]);
-                        data[1].mul(f.data[-1]); data[1].add(t,s);
-                        data[-1].mul(f.data[-1]);
-                    }
-                    break;
-                case 1:
-                    break;
-                case 2:
-                    break;
-            }
-        }
-        public int CompareTo(object obj) {
-            if (obj == null) return data[1].CompareTo(null);
-            func f = obj as func;
-            int r = data[1].CompareTo(f.data[1]);
-            if (r != 0) return r;
-            if (data.ContainsKey(-1) && f.data.ContainsKey(-1)) return -f.data[-1].CompareTo(data[-1]);
-            return 0;
+            func.add_func[type*func.types + f.type ](this,f,s);
         }
 
+        static public Func<func,func,int>[] comp_func = {
+                (func t, func f) => {return (t.data == f.data ? 0 : (t.data < f.data ? -1 : 1));}, //0:0
+                (func t, func f) => {return 1;},
+                (func t, func f) => {return 1;},
+                (func t, func f) => {return 1;},
+                (func t, func f) => {return 1;},
+                (func t, func f) => {return 1;},
+                (func t, func f) => {return 1;},
+                (func t, func f) => {return 1;},
+
+                (func t, func f) => {return -1;}, //1:0
+                (func t, func f) => {return ((num)(t.data)).CompareTo((num)(f.data));},
+                (func t, func f) => {return 1;},
+                (func t, func f) => {return 1;},
+                (func t, func f) => {return 1;},
+                (func t, func f) => {return 1;},
+                (func t, func f) => {return 1;},
+                (func t, func f) => {return ((num)(t.data)).CompareTo(null);},
+
+                (func t, func f) => {return -1;}, //2:0
+                (func t, func f) => {return -1;},
+                (func t, func f) => {return ((many2)(t.data)).CompareTo((many2)(f.data));},
+                (func t, func f) => {return 1;},
+                (func t, func f) => {return 1;},
+                (func t, func f) => {return 1;},
+                (func t, func f) => {return 1;},
+                (func t, func f) => {return ((many2)(t.data)).CompareTo(null);},
+
+                (func t, func f) => {return -1;}, //3:0
+                (func t, func f) => {return -1;},
+                (func t, func f) => {return -1;},
+                (func t, func f) => {return ((row)(t.data)).CompareTo((row)(f.data));},
+                (func t, func f) => {return 1;},
+                (func t, func f) => {return 1;},
+                (func t, func f) => {return 1;},
+                (func t, func f) => {return 1;},
+
+                (func t, func f) => {return -1;}, //4:0
+                (func t, func f) => {return -1;},
+                (func t, func f) => {return -1;},
+                (func t, func f) => {return -1;},
+                (func t, func f) => {return ((many2)(t.data)).CompareTo((many2)(f.data));},
+                (func t, func f) => {return 1;},
+                (func t, func f) => {return 1;},
+                (func t, func f) => {return ((many2)(t.data)).CompareTo(null);},
+
+                (func t, func f) => {return -1;}, //5:0
+                (func t, func f) => {return -1;},
+                (func t, func f) => {return -1;},
+                (func t, func f) => {return -1;},
+                (func t, func f) => {return -1;},
+                (func t, func f) => {return ((many2)(t.data)).CompareTo((many2)(f.data));},
+                (func t, func f) => {return 1;},
+                (func t, func f) => {return ((many2)(t.data)).CompareTo(null);},
+
+                (func t, func f) => {return -1;}, //6:0
+                (func t, func f) => {return -1;},
+                (func t, func f) => {return -1;},
+                (func t, func f) => {return -1;},
+                (func t, func f) => {return -1;},
+                (func t, func f) => {return -1;},
+                (func t, func f) => {return ((many2)(t.data)).CompareTo((many2)(f.data));},
+                (func t, func f) => {return ((many2)(t.data)).CompareTo(null);}
+               };
+        public int CompareTo(object obj) {
+            func f = obj as func;
+            int t = (f == null ? func.types : f.type);
+            return func.comp_func[type*(func.types+1) + f.type ](this,f);
+        }
+
+        static public Action<func>[] simple_func = {
+                (func t) => {},
+                (func t) => {((num)(t.data)).simple();},
+                (func t) => {
+                    num r = ((many2)(t.data)).simple();
+                    if (r != null) {t.data = r; t.type = 1;}
+                },
+                (func t) => {},
+                (func t) => {},
+                (func t) => {},
+                (func t) => {}
+                              };
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void simple()
         {
-            if (tfunc != 0) return;
-            many _up = data[1], _dw = data[-1];
-            KeyValuePair<one,num> f_up, f_down, f_both;
-            f_up = data[1].extract();
-            f_down = data[-1].extract();
-            f_both = new KeyValuePair<one,num>(new one(f_up.Key), new num(f_up.Value));
-            f_both.Key.extract(f_down.Key);
-            f_both.Value.extract(f_down.Value);
-            f_both.Key.div(); f_both.Value.div();
-            data[1].mul(f_both);
-            data[-1].mul(f_both);
-
-            f_up.Value.set1();
-            foreach(KeyValuePair<int,func> u in f_up.Key.exps) if (u.Value.data[1].sign() * u.Value.data[-1].sign() >= 0) u.Value.set0();
-            f_up.Key.simple();
-
-            f_down.Value.set1();
-            foreach(KeyValuePair<int,func> d in f_down.Key.exps) if (d.Value.data[1].sign() * d.Value.data[-1].sign() >= 0) d.Value.set0();
-            f_down.Key.simple();
-
-            f_up.Key.div();
-            data[1].mul(f_up);
-            data[-1].mul(f_up);
-            f_down.Key.div();
-            data[1].mul(f_down);
-            data[-1].mul(f_down);
-            data[1].simple();
-            data[-1].simple();
-            if (data[-1].isconst() && (! data[-1].isconst(1))) {
-                data[-1].data.ElementAt(0).Value.div();
-                data[1].mul(data[-1].data.ElementAt(0).Value);
-                data[-1].data.ElementAt(0).Value.set1();
-            }
+            func.simple_func[type](this);
         }
 
+        static public Func<func,int>[] sign_func = {
+                (func t) => {return -1;},
+                (func t) => {return ((num)(t.data)).sign;},
+                (func t) => {return ((many2)(t.data)).sign();},
+                (func t) => {return -1;},
+                (func t) => {return -1;},
+                (func t) => {return -1;},
+                (func t) => {return -1;}
+        };
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public int sign()
+        {
+            return func.sign_func[type](this);
+        }
+
+
+        static public Action<func,int>[] deeper_func = {
+                (func t, int d) => {},
+                (func t, int d) => {},
+                (func t, int d) => {((many2)(t.data)).go_deeper(d);},
+                (func t, int d) => {},
+                (func t, int d) => {},
+                (func t, int d) => {},
+                (func t, int d) => {}
+               };
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void go_deeper(int deep) {
-            foreach (KeyValuePair<int,many> m in data) m.Value.go_deeper(deep);
+            func.deeper_func[type](this,deep);
         }
 
-        public void expand(int val)
-        {
-            int deep = root.val_to_deep(val);
-            func f = root.vars[root.val_to_var(val)].var;
-            if (f == null) return;
-            exps exu = new exps(f.data[1],deep);
-            exps exd = new exps(f.data[-1],deep);
-            expand(+1,val,exu,exd);
-            num minup = new num(exu.min), maxdw = new num(exd.max);
-            expand(-1,val,exu,exd);
-            data[+1].mul(exu.data[new func(root,-1,0,exu.min)]);
-            data[+1].mul(exd.data[new func(root,-1,0,exd.max)]);
-            data[-1].mul(exu.data[new func(root,-1,0,minup)]);
-            data[-1].mul(exd.data[new func(root,-1,0,maxdw)]);
-            simple();
-        }
-
-        public void expand(int up, int val, exps exu, exps exd)
-        {
-            SortedDictionary<func,many> ml = new SortedDictionary<func,many>();
-            many res = new many(root);
-            exu.add(data[up],val,+1); exu.calc();
-            exd.add(data[up],val,-1); exd.calc();
-            int type = (exu.type > exd.type ? exu.type : exd.type);
-            func eu, ed, e;
-            foreach (KeyValuePair<one,num> o in data[up].data) 
-            {
-//[+1]/[-1]
-//[-up] *= [+1]^min*[-1]^max 
-//[+1]^(up + (-min))*[-1]^(max - up)
-                if (o.Key.exps.ContainsKey(val) && (o.Key.exps[val].type_pow() + type < 3)) {
-                    e = o.Key.exps[val];
-                    eu = (exu.type > 1 ? new func(root,-1,0,num.add(exu.min,e.get_num())) : e);
-                    ed = (exu.type > 1 ? new func(root,-1,0,num.sub(exd.max,e.get_num())) : e);
-                    if (exu.data.ContainsKey(eu) && exd.data.ContainsKey(ed)) {
-                        if (! ml.ContainsKey(e)) {
-                            ml.Add(new func(e),new many(exu.data[eu]));
-                            ml[e].mul(exd.data[ed]);
-                        }
-                        res.expand(ml[e],o,val);
-                    } else res.add(o,1);
-                } else res.add(o,1);
-            }
-            data[up] = res;
-        }
-
-        public bool revert(int val, int up) //_val^(-x) -> /_val^(x)
-        {
-            func min = data[up].find_minexp(val);
-            if ((min == null) || (min.data[1].isconst(0))) return false;
-            min.data[1].neg();
-            data[up].add_toexp(val,min);
-            data[-up].add_toexp(val,min);
-            return true;
-        }
-        public void revert(int val)
-        {
-            revert(val,-1);
-            revert(val,+1);
-        }
-/*        public bool revert()
-        {
-            if (data[1].Count > 1) return false;
-            one tmp = data[1][0]; tmp.div();
-            mul(0, tmp); simple(0);
-            data[1][0] = new one(this, 1);
-            return true;
-        }*/
-/*
-        public string print(int _f)
-        {
-            bool hasdiv;
-            string s0 = root.get_name(id) + " =";
-            int i;
-            switch (tfunc) {
-                case 0:
-                    s0 += "/" + (pfunc.get_sup() > 0 ? pfunc.get_sup().ToString() : "") + " ";
-                    break;
-                case 1:
-                    s0 += "& ";
-                    break;
-                case 2:
-                    s0 += "^" + root.get_name_onval((int)(pfunc.get_up())) + " ";
-                    break;
-                default:
-                    s0 += " " ;
-                    break;
-            }
-            if (data[0].Count == 0) s0 += "0"; else 
-            if ((data[0].Count > 0) && (data[1].Count > 0)) 
-            {
-                hasdiv = ((data[1].Count > 1) || (!data[1][0].mult.isone()) || (data[1][0].mult.get_sign() < 0));
-                for (i = 0; i < root.size; i++) if (!data[1][0].exps[i].iszero()) hasdiv = true;
-                if (hasdiv) {
-                    s0 = print(_f,0,s0); s0 = print(_f,1,s0 + "//");
-                } else {
-                    if ((data[0].Count == 1) && data[0][0].mult.iszero()) s0 += "0"; else s0= print(_f,0,s0);
+        static public Func<func,num>[] calc_func = {
+                (func t) => {return ;},
+                (func t) => {return (num)(t.data);},
+                (func t) => {return ((many2)(t.data)).calc();},
+                (func t) => {return ;},
+                (func t) => {
+                    num r = ((many2)(t.data)).calc();
+                    if ((! r.isint()) || (r.sign <= 0) || (r.up >= Program.root.fact.Count())) Program.root.sys.error("fact: wrong");
+                    return Program.root.fact[(int)r.up];
+                },
+                (func t) => {
+                    num r = ((many2)(t.data)).calc();
+                    if (r.down != 1) {r = new num(r.sign*r.up/r.down);}
+                    return r;
+                },
+                (func t) => {
+                    num r = ((many2)(t.data)).calc();
+                    return Program.root.nums[r.sign + ids.znums];
                 }
-            }
-            if (_f > -1) root.sys.wline(_f,s0);
-            return s0;
-        }
-        public string print(int _f, int n, string s0)
-        {
-            int i0, i1;
-            bool f_one, f_many = true;
-            string s1;
-            for (i0 = 0; i0 < data[n].Count; i0++)
-            {
-                if (data[n][i0].mult.nonzero())
-                {
-                    f_one = true;
-                    for (i1 = 0; i1 < data[n][i0].head.head.size; i1++)
-                    {
-                        if (!data[n][i0].exps[i1].iszero())
-                        {
-                            s1 =  data[n][i0].exps[i1].print(data[n][i0].head.head.get_name_onval(i1));
-                            if (f_one) 
-                                s0 += data[n][i0].mult.print((f_many ? "" : "+"),"-",(s1[0] == '/') ? "" : "*") + s1;
-                             else 
-                                s0 += ((s1[0] == '/') ? "" : "*") + s1;
-                            
-                            f_one = false;
-                        }
-                    }
-                    if (f_one) s0 += data[n][i0].mult.print((f_many ? "" : "+"),"-", "");
-                    f_many = false;
-                }
-                root.sys.progr(i0,data[n].Count);
-                if ((s0.Length > 666) && (_f > -1)) {root.sys.wstr(_f,ref s0); s0 = "";}
-            }
-            return s0;
-        }
- */
+              };
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public num calc()
         {
-            num rt = new num(0);
-                if (tfunc < 2)
-                {
-                    rt.set(_calc());
-                }
-/*
-                            BigInteger[] ua, da;
-                            int val = (int)(pfunc.get_up()),fe = 0, se,ne;
-                            ne = data[0].Count;
-                            if ((ne < 4) || (ne > 1000)) head.sys.error("row: wrong");
-                            ua = new BigInteger[ne];
-                            da = new BigInteger[ne];
-                            fe = (int)(data[0][0].exps[val].non.get_sup());
-                            se = (int)(data[0][1].exps[val].non.get_up()) - fe;
-                            if ((fe < 0) || (se < 0) || (se > 11)) head.sys.error("row: wrong exp");
-                            BigInteger _u,_d,_um, _dm;
-                            num tn = new num(head.get_val(val)); tn.exp(fe);
-                            _u = tn.get_sup(); _d = 1;
-                            tn.set(head.get_val(val)); tn.exp(se);
-                            _um = tn.get_sup(); _dm = tn.get_down();
-                            for (int i = 0; i < ne; i++)
-                            {
-                                ua[i] = _u; da[i] = _d; _u *= _um; _d *= _dm;
-                            }
-                            _u = 0;
-                            for (int i = 0; i < ne; i++)
-                            {
-                                if (data[0][i].exps[val].non.get_sup() != fe + se*i) head.sys.error("row: wrong exp");
-                                if (data[0][i].mult.get_down() > 1) 
-                                    head.sys.error("row: wrong mul");
-                                _u += ua[i] * da[ne - i - 1] * data[0][i].mult.get_sup();
-                            }
-                            tn.set(head.get_val(val)); tn.exp(fe);
-                            _d = da[ne-1] * tn.get_down() * head.values[id].data[1][0].mult.get_sup();
-                            rt.set(_u, _d);
- */
-                rt.simple();
-
-            return rt;
+            return func.calc_func[type](this);
         }
-        num _calc()
-        {
-            num tr = new num(0), t0 = new num(0);
-            foreach (KeyValuePair<int,many> m in data)
-            {
-                foreach (KeyValuePair<one,num> o in m.Value.data) 
-                {
-                    t0.add(num.mul(o.Key.calc(),o.Value));
-                }
-                t0.exp(m.Key);
-                tr.add(t0);
-                t0.set0();
-            }
-            return tr;
-        }
-
-
 
     }
-
+/*
     class mao_dict {
         static short bmexp = 11;
         static int mexp = 1 << bmexp;
-        public ids root;
         public int nvals;
         public num[] exps;
         public int[] vals, to_val;
         ushort[] eneg,eadd; bool[] eflg_a;
         ushort lexp, lval;
-        public mao_dict(int v, ids r)
+        public mao_dict(int v)
         {
-            nvals = v; root = r;
+            nvals = v;
             exps = new num[mexp];
             vals = new int[nvals];
-            to_val = new int[root.size()];
-            for (int i = 0; i < root.size(); i++) to_val[i] = -1;
+            to_val = new int[Program.root.size()];
+            for (int i = 0; i < Program.root.size(); i++) to_val[i] = -1;
             eneg = new ushort[mexp * mexp]; eadd = new ushort[mexp * mexp]; eflg_a = new bool[mexp * mexp];
             for (uint i = 0; i < mexp * mexp; i++) { eneg[i] = 0xFFFF; eadd[i] = 0xFFFF; eflg_a[i] = true; }
             lexp = 2; exps[0] = new num(0); exps[1] = new num(1);
@@ -1678,7 +2050,7 @@ namespace shard0
         {
             ushort i;
             for (i = 0; i < lexp; i++) if (e.equ(exps[i])) return i;
-            if (lexp > mexp-2) root.sys.error("too many exp");
+            if (lexp > mexp-2) Program.root.sys.error("too many exp");
             exps[lexp++] = new num(e);
             return i;
         }
@@ -1686,7 +2058,7 @@ namespace shard0
         {
             if (to_val[v] < 0)
             {
-                if (lval >= nvals) root.sys.error(" ! too many var");
+                if (lval >= nvals) Program.root.sys.error(" ! too many var");
                 to_val[v] = lval;
                 vals[lval++] = v;
             }
@@ -1706,7 +2078,7 @@ namespace shard0
                 sum.add(exps[e1]);
                 sum.simple();
                 eadd[ee] = exp(sum);
-                eflg_a[ee] = ((sum.get_up() == 0) || (exps[e1].get_up() == 0) || (sum.get_sign() != exps[e1].get_sign()));
+                eflg_a[ee] = ((sum.up == 0) || (exps[e1].up == 0) || (sum.sign != exps[e1].sign));
             }
             return eadd[ee];
         }
@@ -1810,18 +2182,18 @@ namespace shard0
             for (i0 = 0; i0 < dict.nvals; i0++) ret.Key.key[i0] = 0;
             foreach (KeyValuePair<int,func> f in o.Key.exps)
             {
-                if (f.Value.type_pow() > 1) dict.root.sys.error("cant fast on complex exp");
+                if (f.Value.type_pow() > 1) Program.root.sys.error("cant fast on complex exp");
                 v0 = dict.val(f.Key);
-                ret.Key.key[v0] = dict.exp(f.Value.get_num());
+                ret.Key.key[v0] = dict.exp((num)(f.Value.data));
             }
             return ret;
         }
-        public one to_one(mao_key fr, func f)
+        public one to_one(mao_key fr)
         {
             int i;
-            one ret = new one(f.root);
+            one ret = new one();
             for (i = 0; i < dict.nvals; i++)
-                if (fr.key[i] != 0) ret.exps.Add(dict.vals[i],new func(f.root,-1,0,dict.exps[fr.key[i]]));
+                if (fr.key[i] != 0) ret.exps.Add(dict.vals[i],new func(dict.exps[fr.key[i]]));
             return ret;
         }
 
@@ -1882,16 +2254,16 @@ namespace shard0
         {
             dict = d;
             _data_i();
-            foreach (KeyValuePair<one,num> o in f.data[1].data) add(0, fr_one(o));
-            foreach (KeyValuePair<one,num> o in f.data[-1].data) add(1, fr_one(o));
+            foreach (KeyValuePair<one,num> o in ((many2)f.data).up.data) add(0, fr_one(o));
+            foreach (KeyValuePair<one,num> o in ((many2)f.data).down.data) add(1, fr_one(o));
         }
-        public func to_func(ids h, int var)
+        public func to_func(ids h)
         {
             int i=0, cn = data[0].Count + data[1].Count;
-            func ret = new func(h,var,0); ret.data[1].data.Clear(); ret.data[-1].data.Clear();
-            foreach (KeyValuePair<mao_key, num> d in data[0]) {ret.data[1].data.Add(to_one(d.Key, ret),new num(d.Value)); dict.root.sys.progr(i++,cn);}
-            foreach (KeyValuePair<mao_key, num> d in data[1]) {ret.data[-1].data.Add(to_one(d.Key, ret), new num(d.Value)); dict.root.sys.progr(i++,cn);}
-            return ret;
+            many _u = new many(); many _d = new many();
+            foreach (KeyValuePair<mao_key, num> d in data[0]) {_u.data.Add(to_one(d.Key),new num(d.Value)); Program.root.sys.progr(i++,cn);}
+            foreach (KeyValuePair<mao_key, num> d in data[1]) {_d.data.Add(to_one(d.Key), new num(d.Value)); Program.root.sys.progr(i++,cn);}
+            return new func(1,new many2(_u,_d));
         }
 
         public many_as_one(many_as_one _m, int _e)
@@ -1901,16 +2273,16 @@ namespace shard0
             many_as_one _tmp = new many_as_one(dict);
             many_as_one fr = new many_as_one(dict);
             num exp = dict.exps[_e], nexp = new num(0);
-            int i0,_eu = (int)(exp.get_up());
+            int i0,_eu = (int)(exp.up);
             fr.set(_m);
-            if (exp.get_down() > 1) {
+            if (exp.down > 1) {
                 if ((fr.data[0].Count > 1) || (fr.data[1].Count > 1)) return;
-                if (! fr.data[0].ToArray()[0].Value.root((int)exp.get_down())) return;
-                if (! fr.data[1].ToArray()[0].Value.root((int)exp.get_down())) return;
+                if (! fr.data[0].ToArray()[0].Value.root((int)exp.down)) return;
+                if (! fr.data[1].ToArray()[0].Value.root((int)exp.down)) return;
                 for (i0 = 0; i0 < dict.nvals; i0++) 
                 {
                     nexp.set(dict.exps[fr.data[0].ToArray()[0].Key.key[i0]]);
-                    nexp.mul(new num(new BigInteger(1),exp.get_down()));
+                    nexp.mul((BigInteger)1,exp.down);
                     fr.data[0].ToArray()[0].Key.key[i0] = dict.exp(nexp);
                 }
             }
@@ -1931,7 +2303,7 @@ namespace shard0
                 }
             }
 
-            if (exp.get_sign() < 0) {tmp.data[0] = data[0]; data[0] = data[1]; data[1] = tmp.data[0];}
+            if (exp.sign < 0) {tmp.data[0] = data[0]; data[0] = data[1]; data[1] = tmp.data[0];}
         }
         public bool expand(int n, many_as_one e, int val)
         {
@@ -1943,7 +2315,7 @@ namespace shard0
             KeyValuePair<mao_key, num> tu = new KeyValuePair<mao_key,num>(new mao_key(dict), new num(0));
             me[0] = new many_as_one(e,0);
             me[1] = new many_as_one(e,1);
-            if ((e.data[0].Count < 1) || (e.data[1].Count < 1)) dict.root.sys.error("wrong");
+            if ((e.data[0].Count < 1) || (e.data[1].Count < 1)) Program.root.sys.error("wrong");
             int pnow = 0;
             foreach (KeyValuePair<mao_key, num> u in data[n]) 
             {
@@ -1961,7 +2333,7 @@ namespace shard0
                 if (me[tex] != null) tu.Key.key[ex] = 0; else tex = 0;
                 if (ae[tex] == null) ae[tex] = new many_as_one(dict);
                 ae[tex].add(0,ref tu);
-                dict.root.sys.progr(pnow++,data[n].Count);
+                Program.root.sys.progr(pnow++,data[n].Count);
             }
             max_d.neg();
             for (tex = 0; tex < 254; tex++) 
@@ -1970,10 +2342,10 @@ namespace shard0
                 {
                     if (tex > 0) ret = true;
                     now_u.set(max_u); now_d.set(max_d);
-                    if (dict.exps[tex].get_down() == 1) 
+                    if (dict.exps[tex].down == 1) 
                     {
-                        if (dict.exps[tex].get_sign() > 0) now_u.add_up(0 - dict.exps[tex].get_up());
-                        else now_d.add_up(0 - dict.exps[tex].get_up());
+                        if (dict.exps[tex].sign > 0) now_u.add_up(0 - dict.exps[tex].up);
+                        else now_d.add_up(0 - dict.exps[tex].up);
                     } else {
                         for (int tex0 = 0; tex0 < 254; tex0++) if ((ae[tex0] != null) && (tex0 != tex)) ae[tex0].mul(0, ref me[tex].data[1]);
                         mul(1-n, ref me[tex].data[1]);
@@ -1985,7 +2357,7 @@ namespace shard0
                     if (me[ee] == null) me[ee] = new many_as_one(e,ee);
                     ae[tex].mul(0, ref me[ee].data[0]);
                 }
-                dict.root.sys.progr(tex,254);
+                Program.root.sys.progr(tex,254);
             }
             ee = dict.exp(max_u);
             if (me[ee] == null) me[ee] = new many_as_one(e,ee);
@@ -2000,7 +2372,7 @@ namespace shard0
                   me[tex].mul(0, ref ae[tex].data[0]);
                   add(n, ref me[tex].data[0]);
                 }
-                dict.root.sys.progr(tex,254);
+                Program.root.sys.progr(tex,254);
             }
             return ret;
         }
@@ -2011,13 +2383,12 @@ namespace shard0
             return r0 | r1;
         }
     }
-
+*/
 
     class fileio: IDisposable
     {
         StreamReader fin, f611;
         StreamWriter[] fout;
-//        parse head;
         int nline,ncline, lines, clines;
         string buf,nout,xout;
         public Boolean has, quit;
@@ -2201,7 +2572,6 @@ namespace shard0
         SortedDictionary<string,mbody> macro;
         List<deep> deep;
         List<List<deep>> stack;
-        public ids root;
         public fileio sys;
         public parse(fileio s)
         {
@@ -2363,10 +2733,10 @@ namespace shard0
         {
             bool repeat;
             int fval = -1;
-            num nval = null, n1 = new num(1);
-            func ex = new func(root,-1,0, n1);
-            KeyValuePair<one,num> on = new KeyValuePair<one,num>(new one(root),new num(1));
-            KeyValuePair<one,num> ret = new KeyValuePair<one,num>(new one(root),new num(now == '-' ? -1: +1));
+            num nval = null;
+            func ex = new func(Program.root.nums[ids.znums+1]);
+            KeyValuePair<one,num> on = new KeyValuePair<one,num>(new one(),new num(1));
+            KeyValuePair<one,num> ret = new KeyValuePair<one,num>(new one(),new num(now == '-' ? -1: +1));
             if ((now == '-') || (now == '+')) next();
             bool l = true;
             Action eset = () => {
@@ -2374,24 +2744,24 @@ namespace shard0
                     if (fval > -1) {
                         if (ret.Key.exps.ContainsKey(fval)) ret.Key.exps[fval].add(ex,1); else ret.Key.exps.Add(fval,ex);
                         fval = -1;
-                        ex = new func(root,-1,0, n1);
+                        ex = new func(Program.root.nums[ids.znums+1]);
                     }
                 } else {
-                    if ((fval >= 0) || (ex.type_pow() > 1)) sys.error("parse");
-                    nval.exp(root,ex.get_num());
+                    if ((fval >= 0) || (ex.type != 0)) sys.error("parse");
+                    nval.exp((num)(ex.data));
                     ret.Value.mul(nval); nval = null;
-                    ex = new func(root,-1,0, n1);
+                    ex = new func(Program.root.nums[ids.znums+1]);
                 }
             };
             char[] pc = {isabc,isnum,'{','('};
             Action[] pf = {
                       () => { 
                           on.Key.exps.Clear(); 
-                          on.Key.exps.Add(root.find_val(get(isname,"")),new func(root,-1,0,n1));
-                          ex.data[1].mul(on);
+                          on.Key.exps.Add(Program.root.find_val(get(isname,"")),new func(Program.root.nums[ids.znums+1]));
+                          ex.mul(new func(on));
                       },
-                      () => ex.data[1].data.ElementAt(0).Value.mul(new num(get(isnum,""))),
-                      () => ex.data[1].data.ElementAt(0).Value.mul(calc()),
+                      () => ex.mul(new func(new num(get(isnum,"")))),
+                      () => ex.mul(new func(calc())),
                       () => ex.mul(fpars(-1,true)),
                       () => sys.error("nonum in calc")
                           };
@@ -2399,7 +2769,7 @@ namespace shard0
                 () => {l = false; },
                 () => {l = false; },
                 () => {eset(); next();},
-                () => {eset(); next(); ex.data[1].neg();},
+                () => {eset(); next(); ex.neg();},
                 () => {
                     next();
                     branchnow(pc,pf); 
@@ -2413,12 +2783,12 @@ namespace shard0
             Action[] nf = {
                 () => {string _n = get(isname,"");
                     if (isequnow('(')) {
-                        fval = root.add_var("",0); root.vars[fval].var = fpars(fval,true,_n);
-                    } else fval = root.find_val(_n);
+                        fval = Program.root.add_var("",0); Program.root.vars[fval].var = fpars(fval,true,_n);
+                    } else fval = Program.root.find_val(_n);
                       },
                 () => {nval = new num(get(isnum,""));},
                 () => {nval = calc();},
-                () => {fval = root.add_var("",0); root.vars[fval].var = fpars(fval,true);},
+                () => {fval = Program.root.add_var("",0); Program.root.vars[fval].var = fpars(fval,true);},
                 () => sys.error("nonum in calc")
                 };
             char[] oc = {isoper,isclose,isend};
@@ -2441,9 +2811,10 @@ namespace shard0
         }
         public many mpars()
         {
-            many m = new many(root);
+            many m = new many();
             KeyValuePair<one,num> on;
             int d = deep.Count;
+            if (isequnow('/')) next();
             if (isequnow(isopen)) next();
             while ((! isequnow(isclose)) && (!isequnow(isend))) {
                 on = opars();
@@ -2451,6 +2822,23 @@ namespace shard0
             }
             if (d < deep.Count) next();
             return m;
+        }
+        public many2 m2pars()
+        {
+            bool isdown = false;
+            if (isequnow('(')) {
+                push(); next(); get(isall,"");
+                if (isequnow(")/("))
+                {
+                    get(isall,"");
+                    if (isequnow(')')) {
+                        next(); 
+                        if (isequnow(')') || isequnow(isend)) isdown = true;
+                    }
+                }
+                pop();
+            }
+            return new many2(mpars(),(isdown ? mpars() : new many(new num(1))));
         }
         public func fpars(int v, bool flag)
         {
@@ -2464,41 +2852,37 @@ namespace shard0
         }
         public func fpars(int v, bool flag, string _fn)
         {
-            int t = 0;
-            int d = deep.Count;
+            int t = 1, d = deep.Count;
+            func r = null;
             if (flag) {
-                if (! root.fnames.ContainsKey(_fn)) sys.error("parse: func");
-                t = root.fnames[_fn];
+                if (! Program.root.fnames.ContainsKey(_fn)) sys.error("parse: func");
+                t = Program.root.fnames[_fn];
                 if (! isequnow('(')) sys.error("parse: func");
                 next();
             }
-            func f = new func(root,v,t);
-            bool isdown = false;
-            if ((t == 0) && isequnow('(')) {
-                push(); next(); get(isall,"");
-                if (isequnow(")/("))
-                {
-                    get(isall,"");
-                    if (isequnow(')')) {
-                        next(); 
-                        if (isequnow(')') || isequnow(isend)) isdown = true;
-                    }
-                }
-                pop();
-            }
             switch (t) {
-                case 0:
-                    f.data[1] = mpars();
-                    if (isdown) {
-                        next(); f.data[-1] = mpars();
+                case 1:
+                    r = new func(1,m2pars());
+                    break;
+                case 2:
+                    r = new func(2,Program.root.nums[ids.znums]);
+                    if (! isequnow(isnum)) sys.error("parse:row");
+                    Int32.TryParse(get(isnum,""),out ((row)(r.data)).point);
+                    if (! isequnow(',')) sys.error("parse:row");
+                    next();
+                    int i = 0; while(true) {
+                        if (! isequnow('(')) sys.error("parse:row");
+                        ((row)(r.data)).data.Add(i,m2pars());
+                        if (! isequnow(',')) break;
+                        next(); i++;
                     }
                     break;
-                case 1:
-                    f.data[1] = mpars();
+                case 3:
+                    r = new func(3,m2pars());
                     break;
             }
             if (d < deep.Count) next();
-            return f;
+            return r;
         }
         public num calc()
         {
@@ -2516,13 +2900,13 @@ namespace shard0
             Action[] fn = {
                       () => ln[lp-1].add(ln[lp]),() => ln[lp-1].sub(ln[lp]),
                       () => ln[lp-1].mul(ln[lp]),() => ln[lp-1].div(ln[lp]),
-                      () => ln[lp-1].exp(root,ln[lp]),
+                      () => ln[lp-1].exp(ln[lp]),
                       () => sys.error("nonum in calc")
                      };
             char[] nc = {isopen,isnum};
             Action[] nf = {
-                              () => ln[lp+1].set(calc()),
-                              () => ln[lp+1].set(get(isnum,"")),
+                              () => ln[++lp].set(calc()),
+                              () => ln[++lp].set(get(isnum,"")),
                               () => sys.error("in calc")
                           };
             char[] oc = {isoper,isclose,isend};
@@ -2534,11 +2918,11 @@ namespace shard0
                           };
             while (l) {
                 branchnow(nc,nf);
-                lo[++lp] = now;
-                while((lp > 0) && (m_c_prior[lo[lp-1]] >= m_c_prior[lo[lp]])) {
-                    branch(lo[lp-1],"+-*/^",fn); lp--;
-                }
+                lo[lp] = now;
                 branchnow(oc,of);
+                while((lp > 0) && (m_c_prior[lo[lp-1]] >= m_c_prior[lo[lp]])) {
+                    branch(lo[lp-1],"+-*/^",fn); lo[lp-1] = lo[lp]; lp--;
+                }
             }
             ln[0].simple();
             return ln[0];
@@ -2548,47 +2932,47 @@ namespace shard0
             sys.Dispose();
         }
 
-        public string sign(num v)
-        {
-            if (v.get_sign() < 0) return "-";
-            if (v.get_sign() > 0) return "+";
-            return "";
-        }
-        public string print(num v, bool s)
+        public string print(num v, int sign) //2: +-, 1: -, 0:
         {
             string ret = "";
-            if (s) ret += sign(v);
-            ret += v.get_up().ToString().Trim();
-            if (! v.isint()) ret += "/" + v.get_down().ToString().Trim();
+            if ((v.sign < 0) && (sign > 0)) ret = "-";
+            if ((v.sign > 0) && (sign > 1)) ret = "+";
+            ret += v.up.ToString().Trim();
+            if (! v.isint()) ret += "/" + v.down.ToString().Trim();
             return ret;
         }
         public string print(one o, num n)
         {
-            string ret = "", name;
+            string ret = "", name, s;
             bool first = true, f1 = false;;
-            foreach(KeyValuePair<int,func> m in o.exps) {
+            num mn = new num(0), t;
+            foreach(KeyValuePair<func,func> m in o.exps) {
+                if ((m.Value.type != 0) || (((num)(m.Value.data)).sign != 0)){
+                if (m.Value.type == 0) mn = (num)(m.Value.data);
                 if (first) {
-                    if (n.isint() && (n.get_up() == 1)) {
-                        if  ((m.Value.type_pow() > 1) || (m.Value.get_num().get_sign() > 0)) {
-                            ret += sign(n);
-                            f1 = true;
-                        } else ret += print(n,true);
-                    } else ret += print(n,true);
+                    s = print(n,2);
+                    if ((s == "+1") || (s == "-1")) {
+                        if  ((m.Value.type_pow() > 1) || (mn.sign > 0)) {
+                            ret += s[0]; f1 = true;
+                        } else ret += s;
+                    } else ret += s;
                 }
-                name = root.get_name_val(m.Key); if (name.Length == 0) name = print(root.vars[root.val_to_var(m.Key)].var, true);
+                name = Program.root.get_name_val(m.Key); if (name.Length == 0) name = print(Program.root.vars[Program.root.val_to_var(m.Key)].var, true,true);
                 switch (m.Value.type_pow()) {
                     case 0: //int
-                        ret += (m.Value.get_num().get_sign() < 0 ? "/" : (f1 ? "" : "*")) + name + (m.Value.get_num().get_up() > 1 ? "^" + m.Value.get_num().get_up().ToString().Trim() : "");
+                        ret += (mn.sign < 0 ? "/" : (f1 ? "" : "*")) + name + (mn.up > 1 ? "^" + mn.up.ToString().Trim() : "");
                         break;
                     case 1: //num
-                        ret += (m.Value.get_num().get_sign() < 0 ? "/" : (f1 ? "" : "*")) + name + "^{" + print(m.Value.get_num(),false) + "}";
+                        ret += (mn.sign < 0 ? "/" : (f1 ? "" : "*")) + name + "^{" + print(mn,0) + "}";
                         break;
                     case 2: 
-                        ret += (f1 ? "" : "*") + name + "^" + print(m.Value,true);
+                        ret += (f1 ? "" : "*") + name + "^" + print(m.Value,true,true);
                         break;
                 }
                 first = false; f1 = false;
+                }
             }
+            if (first) ret += print(n,2);
             return ret;
         }
         public string print(many m)
@@ -2599,30 +2983,43 @@ namespace shard0
             }
             return ret;
         }
-        public string print(func f, bool pair)
+        public string print(many2 m)
+        {
+            string ret = "";
+            if (num.isint(m.down.get_num(),1)) {
+                ret += print(m.up);
+            } else {
+                ret += "(" + print(m.up) + ")/(" + print(m.down) + ")";
+            }
+            return ret;
+        }
+        public string print(func f, bool pair, bool sign)
         {
             string ret = "";
             if (f == null) return ret;
-            switch (f.tfunc) {
-                case 0:
-                    if (f.data[-1].isconst(1)) {
-                        ret += print(f.data[1]);
-                    } else {
-                        ret += "(" + print(f.data[1]) + ")/(" + print(f.data[-1]) + ")";
-                    }
-                    if (pair) ret = "(" + ret + ")";
-                    break;
-                case 1:
-                    ret += "(" + print(f.data[1]) + ")";
-                    break;
-            }
-            return root.funcs_name[f.tfunc] + ret;
+            Action[] p = {
+                  () => {
+                      ret = print((num)(f.data),(sign ? 1 : 0));
+                      if (pair && ((ret[0] < '0') || (ret.IndexOf('/') > -1))) ret = "(" + ret + ")";
+                  },
+                  () => {
+                     ret = print((many2)(f.data));
+                     if (pair) ret = "(" + ret + ")";
+                  },
+                  () => {
+                  
+                  
+                  },
+                  () => {ret = "(" + print((many2)(f.data)) + ")";},
+                 };
+            p[f.type]();
+            return Program.root.funcs_name[f.type] + ret;
         }
 
         public BigInteger get_parm()
         {
             num tmp;
-            if (isequnow(isnum) || isequnow(isopen)) tmp = calc(); else  tmp =  root.get_val(root.find_val(get(isname,"")));
+            if (isequnow(isnum) || isequnow('{')) tmp = calc(); else tmp = Program.root.get_val(Program.root.find_val(get(isname,"")),Program.root.nums[ids.znums+1]);
             return tmp.toint();
         }
     }
@@ -2633,7 +3030,8 @@ namespace shard0
     {
         public static shard0 m0;
         public static System.Drawing.Bitmap bm1;
-        static parse par;
+        public static parse par;
+        public static ids root;
 
 
         [STAThread]
@@ -2654,7 +3052,8 @@ namespace shard0
             m0 = new shard0(sx, sy);
             bm1 = new System.Drawing.Bitmap(sx, sy);
             for (int i0 = 0; i0 < sx; i0++) for (int i1 = 0; i1 < sy; i1++) bm1.SetPixel(i0, i1, Color.FromArgb(0, 0, 0));
-            par.lnext(); par.root = new ids((int)par.get_parm(),(int)par.get_parm(),par.get_parm(),par.get_parm(), par.sys);
+            par.lnext(); root = new ids((int)par.get_parm(),(int)par.get_parm(),par.get_parm(),par.get_parm(), par.sys);
+            par.lnext(); root.find_var(par.get(parse.isabc,"")); par.next(); root.find_var(par.get(parse.isabc,""));
             Thread calc = new Thread(doit);
             calc.Start();
             Application.Run(m0);
@@ -2668,97 +3067,6 @@ namespace shard0
                 str = s; val = v; nout = o;
             }
         };
-/*
-        static void slice(ids root, many dv, one _ml, string s_val)
-        {
-            num e = new num(); int ip = root.last;
-            one odv = null;
-            one _dv = new one(_ml); _dv.div();
-            SortedDictionary<num, many> res = new SortedDictionary<num, many>();
-            int i1 = dv.data[0].Count;
-            while (dv.data[0].Count > 0)
-            {
-                e.zero();
-                odv = dv.data[0][0];
-                if (odv.test_mul(_ml))
-                {
-                    while (odv.mul_t(_ml)) e.add(-1);
-                    odv.mul(_dv);
-                }
-                else if (odv.test_mul(_dv))
-                {
-                    while (odv.mul_t(ref _dv)) e.add(1);
-                    odv.mul(ref _ml);
-                }
-                if (!res.ContainsKey(e)) res.Add(new num(e), new many(root, -1));
-                res[e].data[0].Add(odv);
-                e.zero(); dv.data[0].RemoveAt(0);
-                root.sys.progr(i1 - dv.data[0].Count, i1);
-            }
-            if (res.ContainsKey(e))
-            {
-                dv.set(res[e]); res.Remove(e);
-            }
-            e = null;
-            string nn; int var1;
-            foreach (KeyValuePair<num, many> _d in res)
-            {
-                nn = s_val + _d.Key.toname(false) + "_" + par.name;
-                if ((var1 = root.find_var(nn)) < 0)
-                {
-                    var1 = root.set_empty(nn);
-                    _d.Value.id = var1;
-                    root.values[var1] = _d.Value;
-                }
-                else par.sys.error("@ overwrite " + nn);
-            }
-            for (int i0 = ip; i0 < root.last; i0++) root.values[i0].print(0);
-        }
-        static void r_slice(ref ids root, ref many dv, ref one _ml)
-        {
-            num e = new num(); int ip = root.last, var1;
-            SortedDictionary<string, many> res = new SortedDictionary<string, many>();
-            string _k;
-            int i0 = 0, i1 = dv.data[0].Count, i2;
-            while (dv.data[0].Count > i0)
-            {
-                i2 = 0; _k = "";
-                while (i2 < root.size)
-                {
-                    if (!_ml.exps[i2].iszero())
-                    {
-                        if (!dv.data[0][i0].exps[i2].iszero())
-                        {
-                            if (dv.data[0][i0].exps[i2].vars != null) root.sys.error(" cant extract on multiexp");
-                            _k += root.get_name_onval(i2) + dv.data[0][i0].exps[i2].non.toname(true);
-                            dv.data[0][i0].exps[i2].zero();
-                        }
-                    }
-                    i2++;
-                }
-                if (_k == "") i0++;
-                else
-                {
-                    if (!res.ContainsKey(_k)) res.Add(_k, new many(root, -1));
-                    res[_k].data[0].Add(dv.data[0][i0]);
-                    dv.data[0].RemoveAt(i0);
-                }
-                root.sys.progr(i1 - dv.data[0].Count - i0, i1);
-            }
-            foreach (KeyValuePair<string, many> _d in res)
-            {
-                _k = _d.Key + "_" + par.name;
-                if ((var1 = root.find_var(_k)) < 0)
-                {
-                    var1 = root.set_empty(_k);
-                    _d.Value.id = var1;
-                    root.values[var1] = _d.Value;
-                }
-                else par.sys.error("@ overwrite " + _d.Key);
-            }
-            for (i0 = ip; i0 < root.last; i0++) root.values[i0].print(0);
-        }
-*/
         static void doit() {
             int var0,var1,var2,val0;
             string val,name,fnam;
@@ -2775,7 +3083,8 @@ namespace shard0
                         switch (par.now) 
                         {
                             case '=':
-                                var0 = par.root.find_var(name);
+                                var0 = root.find_var(name);
+                                if (var0 < 2) root.sys.error("reserved var");
                                 par.next();
                                 par.push(); fnam = "";flag = false;
                                 if (par.isequnow(parse.isabc)) fnam = par.get(parse.isname,"");
@@ -2786,14 +3095,49 @@ namespace shard0
                                     }
                                 }
                                 par.pop();
-                                par.root.vars[var0].var = (par.isequnow(parse.isend) ? null : par.fpars(var0,flag));
-                                par.sys.wline(0,par.print(par.root.vars[var0].var,false));
+                                root.vars[var0].var = (par.isequnow(parse.isend) ? null : par.fpars(var0,flag));
+                                par.sys.wline(0,name + " = " + par.print(root.vars[var0].var,false,false));
                             break;
+                            case '$':
+                                bool _div = false;
+                                var0 = root.find_val_var(name);
+                                if (root.vars[var0].var == null) par.sys.error("empty name");
+                                par.next();
+                                if (! par.isequnow('!'))
+                                {
+                                List<func> _id = new List<func>();
+                                if (par.isequnow('*')) {
+                                    for (int i = root.vals_last-1; i > -1; i--) {
+                                        if (root.vals_var[i] != var0) _id.Add(i);
+                                    }
+                                    par.next();
+                                    if (par.isequnow('$')) _div=true;
+                                } else while (par.more()) {
+                                    val = par.get(parse.isname,""); if (val.Length < 1) break;
+                                    val0 = root.find_val(val);
+                                    if (root.vals_var[val0] == var0) par.sys.error(name + " $recursion - look recursion");
+                                    if (root.vars[root.vals_var[val0]].var != null) _id.Add(val0);
+                                    if (par.isequnow('$')) _div=true;
+                                    par.next();
+                                }
+                                foreach (func i in _id) {
+                                    root.vars[var0].var.revert(i);
+                                    root.vars[var0].var.expand(i);
+                                }
+                                if (_div && ((root.vars[var0].var.type == 1) && (((many2)(root.vars[var0].var.data)).down.type_exp() < 2)))
+                                {
+                                    ((many2)(root.vars[var0].var.data)).down.div();
+                                    ((many2)(root.vars[var0].var.data)).up.mul(((many2)(root.vars[var0].var.data)).down.data.ElementAt(0));
+                                    ((many2)(root.vars[var0].var.data)).down = new many(new num(1));
+                                }
+                                par.sys.wline(0,par.print(root.vars[var0].var,false,false));
+                           }
+                                break;
                         }
                     }
                 }
             }
-            par.sys.wline(0,"finished, vars free = " + (par.root.vars.Count() - par.root.vars_last-1).ToString());
+            par.sys.wline(0,"finished, vars free = " + (root.vars.Count() - root.vars_last-1).ToString());
             par.sys.close();
         }
     }
@@ -2801,56 +3145,6 @@ namespace shard0
 /*
                     switch (par.now) 
                     {
-                     case '=':
-                        par.snext(false);
-                        if ((var0 = root.find_var(par.name)) < 0) var0 = root.set_empty(par.name);
-                        int nowdiv = 0;
-                        if (par.more()) {
-                            root.values[var0] = new many(root,var0);
-                            switch (par.now())
-                            {
-                            case '/': //precusion
-                                par.snext(false); root.values[var0].tfunc = 0;
-                                if (!par.isdelim(par.now())) root.values[var0].pfunc = par.nnext(false);
-                                break;
-                            case '^': //row
-                                root.values[var0].tfunc = 1;
-                                
-                                
-                                
-                                
-                                root.values[var0].pfunc.set(root.find_val(par.snext(true)));
-                                if (root.values[var0].pfunc.get_sup() < 0) par.sys.error("row: no var");
-
-
-
-
-
-                                break;
-                            case '&': // -1 | +1
-                                root.values[var0].tfunc = 2; root.values[var0].pfunc.set(0); par.snext(false);
-                                break;
-                            case '!': //factor
-                                root.values[var0].tfunc = 3; root.values[var0].pfunc.set(0); par.snext(false);
-                                break;
-                            }
-                            while (par.more())
-                            {
-                                root.values[var0].data[nowdiv].Add(new one(root.values[var0], new num(1)));
-                                parseone(par, root,var0,root.values[var0].data[nowdiv][root.values[var0].data[nowdiv].Count-1]);
-                                if (par.now() == '/')
-                                {
-                                    if ((par.more()) && (nowdiv == 0))
-                                    {
-                                        nowdiv = 1; root.values[var0].data[1].RemoveAt(0);  par.pos++; 
-                                    } else par.sys.error("wrong");
-                                }
-                            }
-                            if (root.values[var0].tfunc == 2) root.values[var0].revert_mult(0); 
-                            else root.values[var0].simple();
-                            root.values[var0].print(0); 
-                        }
-                     break;
                      case ':':
                         var0 = root.find_var_ex(par.name);
                         for (int i = 0; par.more() && (i < root.deep); i++) root.set_val(root.var_to_val(var0) + i,par.nnext(true));
@@ -3426,4 +3720,126 @@ namespace shard0
         }
         public int getfirst() {return first;}
     }
+*/
+/*
+                            BigInteger[] ua, da;
+                            int val = (int)(pfunc.get_up()),fe = 0, se,ne;
+                            ne = data[0].Count;
+                            if ((ne < 4) || (ne > 1000)) head.sys.error("row: wrong");
+                            ua = new BigInteger[ne];
+                            da = new BigInteger[ne];
+                            fe = (int)(data[0][0].exps[val].non.get_sup());
+                            se = (int)(data[0][1].exps[val].non.get_up()) - fe;
+                            if ((fe < 0) || (se < 0) || (se > 11)) head.sys.error("row: wrong exp");
+                            BigInteger _u,_d,_um, _dm;
+                            num tn = new num(head.get_val(val)); tn.exp(fe);
+                            _u = tn.get_sup(); _d = 1;
+                            tn.set(head.get_val(val)); tn.exp(se);
+                            _um = tn.get_sup(); _dm = tn.get_down();
+                            for (int i = 0; i < ne; i++)
+                            {
+                                ua[i] = _u; da[i] = _d; _u *= _um; _d *= _dm;
+                            }
+                            _u = 0;
+                            for (int i = 0; i < ne; i++)
+                            {
+                                if (data[0][i].exps[val].non.get_sup() != fe + se*i) head.sys.error("row: wrong exp");
+                                if (data[0][i].mult.get_down() > 1) 
+                                    head.sys.error("row: wrong mul");
+                                _u += ua[i] * da[ne - i - 1] * data[0][i].mult.get_sup();
+                            }
+                            tn.set(head.get_val(val)); tn.exp(fe);
+                            _d = da[ne-1] * tn.get_down() * head.values[id].data[1][0].mult.get_sup();
+                            rt.set(_u, _d);
+ */
+/*
+        static void slice(ids root, many dv, one _ml, string s_val)
+        {
+            num e = new num(); int ip = root.last;
+            one odv = null;
+            one _dv = new one(_ml); _dv.div();
+            SortedDictionary<num, many> res = new SortedDictionary<num, many>();
+            int i1 = dv.data[0].Count;
+            while (dv.data[0].Count > 0)
+            {
+                e.zero();
+                odv = dv.data[0][0];
+                if (odv.test_mul(_ml))
+                {
+                    while (odv.mul_t(_ml)) e.add(-1);
+                    odv.mul(_dv);
+                }
+                else if (odv.test_mul(_dv))
+                {
+                    while (odv.mul_t(ref _dv)) e.add(1);
+                    odv.mul(ref _ml);
+                }
+                if (!res.ContainsKey(e)) res.Add(new num(e), new many(root, -1));
+                res[e].data[0].Add(odv);
+                e.zero(); dv.data[0].RemoveAt(0);
+                root.sys.progr(i1 - dv.data[0].Count, i1);
+            }
+            if (res.ContainsKey(e))
+            {
+                dv.set(res[e]); res.Remove(e);
+            }
+            e = null;
+            string nn; int var1;
+            foreach (KeyValuePair<num, many> _d in res)
+            {
+                nn = s_val + _d.Key.toname(false) + "_" + par.name;
+                if ((var1 = root.find_var(nn)) < 0)
+                {
+                    var1 = root.set_empty(nn);
+                    _d.Value.id = var1;
+                    root.values[var1] = _d.Value;
+                }
+                else par.sys.error("@ overwrite " + nn);
+            }
+            for (int i0 = ip; i0 < root.last; i0++) root.values[i0].print(0);
+        }
+        static void r_slice(ref ids root, ref many dv, ref one _ml)
+        {
+            num e = new num(); int ip = root.last, var1;
+            SortedDictionary<string, many> res = new SortedDictionary<string, many>();
+            string _k;
+            int i0 = 0, i1 = dv.data[0].Count, i2;
+            while (dv.data[0].Count > i0)
+            {
+                i2 = 0; _k = "";
+                while (i2 < root.size)
+                {
+                    if (!_ml.exps[i2].iszero())
+                    {
+                        if (!dv.data[0][i0].exps[i2].iszero())
+                        {
+                            if (dv.data[0][i0].exps[i2].vars != null) root.sys.error(" cant extract on multiexp");
+                            _k += root.get_name_onval(i2) + dv.data[0][i0].exps[i2].non.toname(true);
+                            dv.data[0][i0].exps[i2].zero();
+                        }
+                    }
+                    i2++;
+                }
+                if (_k == "") i0++;
+                else
+                {
+                    if (!res.ContainsKey(_k)) res.Add(_k, new many(root, -1));
+                    res[_k].data[0].Add(dv.data[0][i0]);
+                    dv.data[0].RemoveAt(i0);
+                }
+                root.sys.progr(i1 - dv.data[0].Count - i0, i1);
+            }
+            foreach (KeyValuePair<string, many> _d in res)
+            {
+                _k = _d.Key + "_" + par.name;
+                if ((var1 = root.find_var(_k)) < 0)
+                {
+                    var1 = root.set_empty(_k);
+                    _d.Value.id = var1;
+                    root.values[var1] = _d.Value;
+                }
+                else par.sys.error("@ overwrite " + _d.Key);
+            }
+            for (i0 = ip; i0 < root.last; i0++) root.values[i0].print(0);
+        }
 */
