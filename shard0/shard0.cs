@@ -178,6 +178,7 @@ namespace shard0
 //        public num prec;
         public BigInteger exp_max;
         public SortedDictionary<string,vars> var;
+        public vars var0,var1;
         public fileio sys;
         public func fzero;
         public one ozero;
@@ -787,6 +788,11 @@ namespace shard0
             exps = new SortedDictionary<func,func>();
             exps.Add(new func(f),new func(Program.root.nums[ids.znums+1]));
         }
+        public one(func fe, func fp)
+        {
+            exps = new SortedDictionary<func,func>();
+            exps.Add(new func(fe),new func(fp));
+        }
         public one(one o)
         {
             exps = new SortedDictionary<func,func>();
@@ -905,13 +911,23 @@ namespace shard0
             }
             return fv || fk;
         }
+//        static public Action<func,func,func,num>[] reple = {
+//              (func e, func p, func f, , num n) => {},
+
+        public void replace(vals v, func f) {
+            foreach(KeyValuePair<func,func> ff in exps) {
+                ff.Key.replace(v,f); ff.Value.replace(v,f);
+            }
+        }
+
         public num simple()
         {
             num rt = new num(1);
             SortedDictionary<func,func> r = new SortedDictionary<func,func>();
-            KeyValuePair<func,func> ff;
-            for(int i = 0; i < exps.Count; i++) {
-                ff = exps.ElementAt(i);
+//            KeyValuePair<func,func> ff;
+//            for(int i = 0; i < exps.Count; i++) {
+//                ff = exps.ElementAt(i);
+            foreach(KeyValuePair<func,func> ff in exps) {
                 ff.Value.simple();
                 if (! ff.Value.isconst(0)) {
                     ff.Key.simple();
@@ -924,7 +940,7 @@ namespace shard0
         }
         public void deeper(int deep) {
             SortedDictionary<func,func> r = new SortedDictionary<func,func>();
-            foreach(KeyValuePair<func,func> m in exps) r.Add(func.deeper(m.Key,deep),func.deeper(m.Value,deep));
+            foreach(KeyValuePair<func,func> ff in exps) r.Add(func.deeper(ff.Key,deep),func.deeper(ff.Value,deep));
             exps = r;
         }
         public num calc() {
@@ -1049,6 +1065,16 @@ namespace shard0
                 r = new num(data.ElementAt(0).Value);
             return r;
         }
+        public num get_int()
+        {
+            num r = new num(1);
+            BigInteger b;
+            foreach (KeyValuePair<one,num> on in data) {
+                b = BigInteger.GreatestCommonDivisor(r.up,on.Value.down);
+                r.up *= on.Value.down/b;
+            }
+            return r;
+        }
         public bool isint(int i)
         {
             num n = get_num();
@@ -1097,6 +1123,10 @@ namespace shard0
         public void mul(num n)
         {
             for (int _i = 0; _i < data.Count; _i++) data[data.ElementAt(_i).Key] = num.mul(data.ElementAt(_i).Value,n);
+        }
+        public void mul_simple(num n)
+        {
+            for (int _i = 0; _i < data.Count; _i++) data[data.ElementAt(_i).Key] = num.mul(data.ElementAt(_i).Value,n).simple();
         }
 
         public many expand()
@@ -1167,6 +1197,9 @@ namespace shard0
             }
             data = res.data;
             return rt;
+        }
+        public void replace(vals v, func f) {
+            foreach (KeyValuePair<one,num> o in data) o.Key.replace(v, f);
         }
 
         public int type_exp() 
@@ -1425,23 +1458,6 @@ namespace shard0
             down.add_toexp(val,f);
         }
 
-        public bool expand(func fv)
-        {
-            if (fv.type != 0) return false;
-            vals v = (vals)(fv.data);
-            func f_exp = v.var.var;
-            if ((f_exp == null) || ((f_exp.type != 1) && (f_exp.type != 2))) Program.root.sys.error("wrong expand");
-            func val = new func(); val.type = 0; val.data = v;
-            if (f_exp.type == 2) {
-                exps_f exu = new exps_f(((many2)(f_exp.data)).up,v.deep);
-                exps_f exd = new exps_f(((many2)(f_exp.data)).down,v.deep);
-                return expand(val, exu, exd);
-            } else {
-                exps_f exu = new exps_f(new many(f_exp),0);
-                exps_f exd = new exps_f(new many(Program.root.nums[ids.znums+1]),0);
-                return expand(val, exu, exd);
-            }
-        }
         public bool expand(func val, exps_f exu, exps_f exd)
         {
             bool rt0,rt02;
@@ -1468,6 +1484,11 @@ namespace shard0
             many tod = up.expand(); many tou = down.expand();
             up.mul(tou); down.mul(tod);
         }
+        public void replace(vals v, func f) {
+            up.replace(v, f);
+            down.replace(v, f);
+        }
+
         public int type_exp() 
         {
             int u = up.type_exp();
@@ -1504,7 +1525,7 @@ namespace shard0
             if (d == null) return null;
             d.div(); u.mul(d); return u;
         }
-        public num get_num_part()
+        public num get_num_part() //up[num_one]/down(num)
         {
             num d = down.get_num();
             if ((d == null) || (! up.data.ContainsKey(Program.root.ozero))) return new num(0);
@@ -1518,10 +1539,18 @@ namespace shard0
                 up.common(t);                
             }
         }
+        public void toint()
+        {
+            num u = up.get_int();
+            num d = down.get_int();
+            u.mul(d); up.mul_simple(u); down.mul_simple(u);
+        }
         public num simple()
         {
             many _up = up, _dw = down;
             KeyValuePair<one,num> f_up, f_down, f_both;
+            up.simple();
+            down.simple();
             f_up = up.extract();
             f_down = down.extract();
             f_both = new KeyValuePair<one,num>(new one(f_up.Key), new num(f_up.Value));
@@ -1551,12 +1580,11 @@ namespace shard0
             if ((t != null) && (t.type == 2) && ((many2)(t.data)).down.isint(1)) down = ((many2)(t.data)).up;
             num nd = down.get_num();
             if (nd == null) return null;
-            num nu = up.get_num();
-            if (nu != null) {nd.div(); nu.mul(nd); return nu;}
-            if ((nd != null) && (! nd.isint(1))) {
-                down.data.ElementAt(0).Value.div();
-                down.mul(down.data.ElementAt(0).Value);
-                down.data.ElementAt(0).Value.set1();
+            num nu = up.get_num(); nd.div();
+            if (nu != null) {nu.mul(nd); return nu;}
+            if (! nd.isint(1)) {
+                up.mul(nd);
+                down.set1();
             }
             return null;
         }
@@ -1670,37 +1698,60 @@ namespace shard0
         public int point;
         public SortedDictionary<int,many2> data;
         public many2 calc;
-        public vals val;
-        public int step;
         public row() {
             point = 0;
             data = new SortedDictionary<int,many2>();
-            calc = null; val = null; step = 0;
+            calc = null;
         }
         public row(row r) {
             point = r.point;
             data = new SortedDictionary<int,many2>();
             calc = null;
             foreach(KeyValuePair<int,many2> m in r.data) data.Add(m.Key,new many2(m.Value));
-            val = r.val; step = r.step;
         }
-        public void prep_calc()
+        public void set(row r) {
+            point = r.point;
+            data.Clear();
+            calc = null;
+            foreach(KeyValuePair<int,many2> m in r.data) data.Add(m.Key,new many2(m.Value));
+        }
+        many2 step(many2 ind, int exp, vals val)
+        {
+            many2 r = new many2(ind);
+            r.replace(Program.root.var0.vals[0],new func(val));
+            r.replace(Program.root.var1.vals[0],new func(Program.root.nums[ids.znums+exp]));
+            num n = r.simple();
+            if (n != null) return new many2(n); else return r;
+        }
+        public void prep_calc(vals val, int steps)
         {
             int len = data.Count - point;
             if (len < 1) Program.root.sys.error("row: empty");
-
-
-
+            calc = new many2(Program.root.nums[ids.znums]);
+            int i0 = 0; while (i0 < point) {calc.add(step(data[i0],i0,val),1); i0++;}
+            int e = point, i1 = 0; while (i1 < steps) {
+                i0 = 0; while (i0 < len) {calc.add(step(data[point + i0],e,val),1); i0++; e++;}
+                i1++;
+            }
+            calc.simple();
+            calc.toint();
         }
         public bool expand(func val, exps_f exu, exps_f exd)
         {
             bool r = false;
             foreach(KeyValuePair<int,many2> m in data) r = m.Value.expand(val,exu,exd) || r;
+            if (calc != null) calc.expand(val,exu,exd);
             return r;
+        }
+        public void expand()
+        {
+            foreach(KeyValuePair<int,many2> m in data) m.Value.expand();
+            if (calc != null) calc.expand();
         }
         public void simple()
         {
             foreach(KeyValuePair<int,many2> m in data) m.Value.simple();
+            if (calc != null) calc.simple();
         }
 
         public void deeper(int d) 
@@ -1731,23 +1782,26 @@ namespace shard0
             type = -1; data = null;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public func(int t, num n)
-        {
-            func.set_num[t](this, n);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public func(vals v)
         {
             type = 0; data = v;
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public func(num n)
         {
             type = 1; data = n;
         }
-        public func (KeyValuePair<one,num> on)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public func (one o, num n)
         {
-            type = 1; data = new many2(on.Key,on.Value);
+            type = 2; data = new many2(o,n);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public func(row r)
+        {
+            type = 3; data = r;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public func (int t, many2 m)
         {
             type = t; data = m;
@@ -1755,25 +1809,17 @@ namespace shard0
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public func(func f)
         {
+            type = f.type;
             func.set_func[f.type](this,f);
         }
-        static public Action<func,num>[] set_num = {
-              (func t, num n) => {},
-              (func t, num n) => {t.type = 1; t.data = n;},
-              (func t, num n) => {t.type = 2; t.data = new many2(n);},
-              (func t, num n) => {t.type = 3; t.data = new row();},
-              (func t, num n) => {t.type = 4; t.data = new many2(n);},
-              (func t, num n) => {t.type = 5; t.data = new many2(n);},
-              (func t, num n) => {t.type = 6; t.data = new many2(n);},
-                         };
         static public Action<func,func>[] set_func = {
-              (func t, func f) => {t.type = 0; t.data = f.data;},
-              (func t, func f) => {t.type = 1; t.data = f.data;},
-              (func t, func f) => {t.type = 2; t.data = new many2((many2)(f.data));},
-              (func t, func f) => {t.type = 3; t.data = new row((row)(f.data));},
-              (func t, func f) => {t.type = 4; t.data = new many2((many2)(f.data));},
-              (func t, func f) => {t.type = 5; t.data = new many2((many2)(f.data));},
-              (func t, func f) => {t.type = 6; t.data = new many2((many2)(f.data));},
+              (func t, func f) => {t.data = f.data;},
+              (func t, func f) => {t.data = f.data;},
+              (func t, func f) => {t.data = new many2((many2)(f.data));},
+              (func t, func f) => {t.data = new row((row)(f.data));},
+              (func t, func f) => {t.data = new many2((many2)(f.data));},
+              (func t, func f) => {t.data = new many2((many2)(f.data));},
+              (func t, func f) => {t.data = new many2((many2)(f.data));},
                          };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override void set(func f)
@@ -1788,12 +1834,12 @@ namespace shard0
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override void set0()
         {
-            func.set_num[type](this,Program.root.nums[ids.znums]);
+            type = 1; data = Program.root.nums[ids.znums];
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override void set1()
         {
-            func.set_num[type](this,Program.root.nums[ids.znums+1]);
+            type = 1; data = Program.root.nums[ids.znums+1];
         }
         static public Func<func,num>[] get_num_part_func = {
                 (func t) => {return Program.root.nums[ids.znums];},
@@ -1830,15 +1876,69 @@ namespace shard0
         {
             if (type == 2) ((many2)data).revert(val);
         }
+        static public Action<func,vals,func>[] repl_func = {
+                (func t, vals v, func f) => {
+                    if (((vals)(t.data) == v)) {t.type = f.type; t.data = f.data;}
+                },
+                (func t, vals v, func f) => {},
+                (func t, vals v, func f) => {((many2)(t.data)).replace(v,f);},
+                (func t, vals v, func f) => {},
+                (func t, vals v, func f) => {((many2)(t.data)).replace(v,f);},
+                (func t, vals v, func f) => {((many2)(t.data)).replace(v,f);},
+                (func t, vals v, func f) => {((many2)(t.data)).replace(v,f);}
+         };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void expand(func val)
+        public void replace(vals v, func f)
         {
-            if (type == 2) ((many2)data).expand(val);
+            func.repl_func[type](this,v,f);
         }
+
+        static public Func<func, func,exps_f,exps_f,bool>[] expand2_func = {
+                (func t, func v, exps_f u, exps_f d) => {return false;},
+                (func t, func v, exps_f u, exps_f d) => {return false;},
+                (func t, func v, exps_f u, exps_f d) => {return ((many2)(t.data)).expand(v,u,d);},
+                (func t, func v, exps_f u, exps_f d) => {return ((row)(t.data)).expand(v,u,d);},
+                (func t, func v, exps_f u, exps_f d) => {return ((many2)(t.data)).expand(v,u,d);},
+                (func t, func v, exps_f u, exps_f d) => {return ((many2)(t.data)).expand(v,u,d);},
+                (func t, func v, exps_f u, exps_f d) => {return ((many2)(t.data)).expand(v,u,d);}
+            };
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool expand(func val, exps_f exu, exps_f exd)
+        {
+            return func.expand2_func[type](this, val, exu, exd);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool expand(func fv)
+        {
+            if (fv.type != 0) return false;
+            vals v = (vals)(fv.data);
+            func f_exp = v.var.var;
+            if ((f_exp == null) || ((f_exp.type != 1) && (f_exp.type != 2))) Program.root.sys.error("wrong expand");
+            exps_f exu,exd;
+            if (f_exp.type == 2) {
+                exu = new exps_f(((many2)(f_exp.data)).up,v.deep);
+                exd = new exps_f(((many2)(f_exp.data)).down,v.deep);
+            } else {
+                exu = new exps_f(new many(f_exp),0);
+                exd = new exps_f(new many(Program.root.nums[ids.znums+1]),0);
+            }
+
+            return func.expand2_func[type](this,fv,exu,exd);
+        }
+        static public Action<func>[] expand_func = {
+                (func t) => {},
+                (func t) => {},
+                (func t) => {((many2)(t.data)).expand();},
+                (func t) => {((row)(t.data)).expand();},
+                (func t) => {((many2)(t.data)).expand();},
+                (func t) => {((many2)(t.data)).expand();},
+                (func t) => {((many2)(t.data)).expand();}
+                };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void expand()
         {
-            if (type == 2) ((many2)data).expand();
+            func.expand_func[type](this);
         }
         static public Action<func>[] neg_func = {
                 (func t) => {
@@ -1880,8 +1980,12 @@ namespace shard0
                     t.type = 2; t.data = new many2(new many(_o));
                 },
                 (func t, func f) => {
-                    one _o = new one(t);
-                    t.type = 2; t.data = new many2(new many(_o,(num)(f.data)));
+                    if (((num)(f.data)).sign == 0) {
+                        t.type = 1; t.data = f.data;
+                    } else if (! ((num)(f.data)).isint(1)) {
+                        one _o = new one(t);
+                        t.type = 2; t.data = new many2(new many(_o,(num)(f.data)));
+                    }
                 },
                 (func t, func f) => {
                     one _o = new one(t);
@@ -1894,15 +1998,27 @@ namespace shard0
                 (func t, func f) => {},
 
                 (func t, func f) => {//1 *= 0
-                    one _o = new one(f);
-                    t.type = 2; t.data = new many2(new many(_o,(num)(t.data)));
+                    if (((num)(t.data)).sign != 0) {
+                        if (((num)(t.data)).isint(1)) {
+                            t.type = f.type; t.data = f.data;
+                        } else {
+                            one _o = new one(f);
+                            t.type = 2; t.data = new many2(new many(_o,(num)(t.data)));
+                        }
+                    }
                 },
                 (func t, func f) => {  //1 *= 1
                     t.data = num.mul((num)(t.data),(num)(f.data));
                 },
                 (func t, func f) => { //1 *= 2
-                        t.type = 2; t.data = new many2((num)(t.data));
-                        ((many2)(t.data)).mul((many2)f.data);
+                    if (((num)(t.data)).sign != 0) {
+                        if (((num)(t.data)).isint(1)) {
+                            t.type = f.type; t.data = f.data;
+                        } else {
+                            t.type = 2; t.data = new many2((num)(t.data));
+                            ((many2)(t.data)).mul((many2)f.data);
+                        }
+                    }
                 },
                 (func t, func f) => {},
                 (func t, func f) => {},
@@ -1913,7 +2029,13 @@ namespace shard0
                     ((many2)(t.data)).mul(new one(f),Program.root.nums[ids.znums+1]);
                 },
                 (func t, func f) => {  //2 *= 1
-                    ((many2)(t.data)).mul((num)f.data);
+                    if (! ((num)(f.data)).isint(1)) {
+                        if (((num)(f.data)).sign == 0) {
+                            t.type = f.type; t.data = f.data;
+                        } else {
+                            ((many2)(t.data)).mul((num)f.data);
+                        }
+                    }
                 },
                 (func t, func f) => { //2 *= 2
                     ((many2)(t.data)).mul((many2)f.data);
@@ -1979,7 +2101,13 @@ namespace shard0
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void mul(num n)
         {
-            func.muln_func[type](this,n);
+            if (! n.isint(1)) {
+                if (n.sign == 0) {
+                    type = 1; data = n;
+                } else {
+                    func.muln_func[type](this,n);
+                }
+            }
         }
 
         static public Action<func,func>[] common_func = {
@@ -2087,21 +2215,6 @@ namespace shard0
 
 
 
-        static public Func<func, func,exps_f,exps_f,bool>[] expand2_func = {
-                (func t, func v, exps_f u, exps_f d) => {return false;},
-                (func t, func v, exps_f u, exps_f d) => {return false;},
-                (func t, func v, exps_f u, exps_f d) => {return ((many2)(t.data)).expand(v,u,d);},
-                (func t, func v, exps_f u, exps_f d) => {return ((row)(t.data)).expand(v,u,d);},
-                (func t, func v, exps_f u, exps_f d) => {return ((many2)(t.data)).expand(v,u,d);},
-                (func t, func v, exps_f u, exps_f d) => {return ((many2)(t.data)).expand(v,u,d);},
-                (func t, func v, exps_f u, exps_f d) => {return ((many2)(t.data)).expand(v,u,d);}
-            };
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool expand(func val, exps_f exu, exps_f exd)
-        {
-            return func.expand2_func[type](this, val, exu, exd);
-        }
-
         static public Action<func,func,int>[] add_func = {
                 (func t, func f, int s) => {//0:0
                     one _o = new one(t);
@@ -2111,10 +2224,12 @@ namespace shard0
                     t.type = 2; t.data = new many2(_u,new many(Program.root.nums[ids.znums+1]));                
                 },
                 (func t, func f, int s) => {
-                    one _o = new one(t);
-                    many _u = new many(); _u.data.Add(_o,Program.root.nums[ids.znums+1]);
-                    _o = new one(); _u.data.Add(_o,(num)(f.data));
-                    t.type = 2; t.data = new many2(_u,new many(Program.root.nums[ids.znums+1]));                
+                    if (((num)(f.data)).sign != 0) {
+                        one _o = new one(t);
+                        many _u = new many(); _u.data.Add(_o,Program.root.nums[ids.znums+1]);
+                        _o = new one(); _u.data.Add(_o,(num)(f.data));
+                        t.type = 2; t.data = new many2(_u,new many(Program.root.nums[ids.znums+1]));                
+                    }
                 },
                 (func t, func f, int s) => {
                     one _o = new one(t);
@@ -2128,17 +2243,25 @@ namespace shard0
                 (func t, func f, int s) => {},
 
                 (func t, func f, int s) => {//1:0
-                    one _o = new one(f);
-                    many _u = new many(); _u.data.Add(_o,Program.root.nums[ids.znums+1]);
-                    _o = new one(); _u.add(_o,(num)(t.data),s);
-                    t.type = 2; t.data = new many2(_u,new many(Program.root.nums[ids.znums+1]));                
+                    if (((num)(t.data)).sign == 0) {
+                        t.type = f.type; t.data = f.data;
+                    } else {
+                        one _o = new one(f);
+                        many _u = new many(); _u.data.Add(_o,Program.root.nums[ids.znums+1]);
+                        _o = new one(); _u.add(_o,(num)(t.data),s);
+                        t.type = 2; t.data = new many2(_u,new many(Program.root.nums[ids.znums+1]));                
+                    }
                 },
                 (func t, func f, int s) => { //1:1
                         t.data = num.add((num)(t.data),(num)(f.data),s);
                 },
                 (func t, func f, int s) => { //1:2
+                    if (((num)(t.data)).sign == 0) {
+                        t.type = f.type; t.data = f.data;
+                    } else {
                         t.type = 2; t.data = new many2((num)(t.data));
                         ((many2)(t.data)).add((many2)f.data,s);
+                    }
                 },
                 (func t, func f, int s) => {},
                 (func t, func f, int s) => {},
@@ -2151,7 +2274,9 @@ namespace shard0
                     ((many2)(t.data)).add(new many2(_u,new many(Program.root.nums[ids.znums+1])),s);
                 },
                 (func t, func f, int s) => { //2:1
+                    if (((num)(f.data)).sign != 0) {
                         ((many2)(t.data)).add((num)f.data,s);
+                    }
                 },
                 (func t, func f, int s) => { //2:2
                         ((many2)(t.data)).add((many2)(f.data),s);
@@ -2210,7 +2335,7 @@ namespace shard0
                 (func t, func f) => {return 1;},
 
                 (func t, func f) => {return -1;}, //1:0
-                (func t, func f) => {return ((num)(t.data)).CompareTo((num)(f.data));},
+                (func t, func f) => {return ((num)(t.data)).CompareTo(f.data);},
                 (func t, func f) => {return 1;},
                 (func t, func f) => {return 1;},
                 (func t, func f) => {return 1;},
@@ -2220,7 +2345,7 @@ namespace shard0
 
                 (func t, func f) => {return -1;}, //2:0
                 (func t, func f) => {return -1;},
-                (func t, func f) => {return ((many2)(t.data)).CompareTo((many2)(f.data));},
+                (func t, func f) => {return ((many2)(t.data)).CompareTo(f.data);},
                 (func t, func f) => {return 1;},
                 (func t, func f) => {return 1;},
                 (func t, func f) => {return 1;},
@@ -2230,7 +2355,7 @@ namespace shard0
                 (func t, func f) => {return -1;}, //3:0
                 (func t, func f) => {return -1;},
                 (func t, func f) => {return -1;},
-                (func t, func f) => {return ((row)(t.data)).CompareTo((row)(f.data));},
+                (func t, func f) => {return ((row)(t.data)).CompareTo(f.data);},
                 (func t, func f) => {return 1;},
                 (func t, func f) => {return 1;},
                 (func t, func f) => {return 1;},
@@ -2240,7 +2365,7 @@ namespace shard0
                 (func t, func f) => {return -1;},
                 (func t, func f) => {return -1;},
                 (func t, func f) => {return -1;},
-                (func t, func f) => {return ((many2)(t.data)).CompareTo((many2)(f.data));},
+                (func t, func f) => {return ((many2)(t.data)).CompareTo(f.data);},
                 (func t, func f) => {return 1;},
                 (func t, func f) => {return 1;},
                 (func t, func f) => {return ((many2)(t.data)).CompareTo(null);},
@@ -2250,7 +2375,7 @@ namespace shard0
                 (func t, func f) => {return -1;},
                 (func t, func f) => {return -1;},
                 (func t, func f) => {return -1;},
-                (func t, func f) => {return ((many2)(t.data)).CompareTo((many2)(f.data));},
+                (func t, func f) => {return ((many2)(t.data)).CompareTo(f.data);},
                 (func t, func f) => {return 1;},
                 (func t, func f) => {return ((many2)(t.data)).CompareTo(null);},
 
@@ -2282,9 +2407,27 @@ namespace shard0
                     }
                 },
                 (func t) => {((row)(t.data)).simple();},
-                (func t) => {((many2)(t.data)).simple();},
-                (func t) => {((many2)(t.data)).simple();},
-                (func t) => {((many2)(t.data)).simple();}
+                (func t) => {
+                    ((many2)(t.data)).simple();
+                    num n = ((many2)(t.data)).get_num();
+                    if (n != null) {
+                        t.type = 1; t.data = func.f_fact(n);
+                    }
+                },
+                (func t) => {
+                    ((many2)(t.data)).simple();
+                    num n = ((many2)(t.data)).get_num();
+                    if (n != null) {
+                        t.type = 1; t.data = func.f_int(n);
+                    }
+                },
+                (func t) => {
+                    ((many2)(t.data)).simple();
+                    num n = ((many2)(t.data)).get_num();
+                    if (n != null) {
+                        t.type = 1; t.data = func.f_sign(n);
+                    }
+                }
                               };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void simple()
@@ -2330,28 +2473,33 @@ namespace shard0
             func.deeper_func[r.type](r,d);
             return r;
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static num f_fact(num n)
+        {
+            if ((! n.isint()) || (n.sign < 0) || (n.up >= Program.root.fact.Count())) Program.root.sys.error("fact: wrong");
+            return Program.root.fact[(int)n.up];
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static num f_int(num n)
+        {
+            if (n.down != 1) return new num(n.sign*n.up/n.down); else  return n;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static num f_sign(num n)
+        {
+            return Program.root.nums[n.sign + ids.znums];
+        }
         static public Func<func,num>[] calc_func = {
                 (func t) => {return Program.root.get_val((vals)(t.data)); },
                 (func t) => {return (num)(t.data);},
                 (func t) => {return ((many2)(t.data)).calc();},
                 (func t) => {
-                    if (((row)(t.data)).calc == null) ((row)(t.data)).prep_calc();
+                    if (((row)(t.data)).calc == null) Program.root.sys.error("row:not prep");
                     return ((row)(t.data)).calc.calc();
                 },
-                (func t) => {
-                    num r = ((many2)(t.data)).calc();
-                    if ((! r.isint()) || (r.sign <= 0) || (r.up >= Program.root.fact.Count())) Program.root.sys.error("fact: wrong");
-                    return Program.root.fact[(int)r.up];
-                },
-                (func t) => {
-                    num r = ((many2)(t.data)).calc();
-                    if (r.down != 1) {r = new num(r.sign*r.up/r.down);}
-                    return r;
-                },
-                (func t) => {
-                    return Program.root.nums[((many2)(t.data)).calc().sign + ids.znums];
-                }
+                (func t) => {return func.f_fact(((many2)(t.data)).calc());},
+                (func t) => {return func.f_int(((many2)(t.data)).calc());},
+                (func t) => {return func.f_sign(((many2)(t.data)).calc());}
               };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public num calc()
@@ -2364,7 +2512,7 @@ namespace shard0
                 (func t, num e) => {return num.exp((num)(t.data),e);},
                 (func t, num e) => {return num.exp(((many2)(t.data)).calc(),e);},
                 (func t, num e) => {
-                    if (((row)(t.data)).calc == null) ((row)(t.data)).prep_calc();
+                    if (((row)(t.data)).calc == null) Program.root.sys.error("row: not prep");
                     return num.exp(((row)(t.data)).calc.calc(),e);
                 },
                 (func t, num e) => {
@@ -3098,7 +3246,6 @@ namespace shard0
             bool repeat;
             func eval = null;
             func ex = new func(Program.root.nums[ids.znums+1]);
-            KeyValuePair<one,num> on = new KeyValuePair<one,num>(new one(),new num(1));
             one ro = new one(); num rn = new num(now == '-' ? -1: +1);
             if ((now == '-') || (now == '+')) next();
             bool l = true;
@@ -3116,9 +3263,7 @@ namespace shard0
             char[] pc = {isabc,isnum,'{','('};
             Action[] pf = {
                       () => { 
-                          on.Key.exps.Clear(); 
-                          on.Key.exps.Add(new func(Program.root.find_val(get(isname,""))),new func(Program.root.nums[ids.znums+1]));
-                          ex.mul(new func(on));
+                          ex.mul(new func(new one(new func(Program.root.find_val(get(isname,"")))),Program.root.nums[ids.znums+1]));
                       },
                       () => ex.mul(new num(get(isnum,""))),
                       () => ex.mul(calc()),
@@ -3191,14 +3336,14 @@ namespace shard0
             if (_pair) { if (isequnow('(')) next(); else sys.error("parse: func"); }
             switch (tp) { 
                 case 3:
-                    r = new func(3,Program.root.nums[ids.znums]);
+                    r = new func(new row());
                     if (! isequnow(isnum)) sys.error("parse:row");
                     Int32.TryParse(get(isnum,""),out ((row)(r.data)).point);
                     if (! isequnow(',')) sys.error("parse:row");
                     next();
                     int i = 0; while(true) {
                         if (! isequnow('(')) sys.error("parse:row");
-                        ((row)(r.data)).data.Add(i,m2pars());
+                        next(); ((row)(r.data)).data.Add(i,m2pars()); next();
                         if (! isequnow(',')) break;
                         next(); i++;
                     }
@@ -3324,8 +3469,12 @@ namespace shard0
                   },
                   () => {ret = print((many2)(f.data));},
                   () => {
-                  
-                  
+                      ret = "(" + ((row)(f.data)).point.ToString();
+                      foreach(KeyValuePair<int,many2> m in ((row)(f.data)).data) {
+                          ret += "," + print(m.Value);
+                      }
+                      ret += ")";
+                      if (((row)(f.data)).calc != null) ret += "=" + print(((row)(f.data)).calc);
                   },
                   () => {ret = print((many2)(f.data));},
                   () => {ret = print((many2)(f.data));},
@@ -3336,7 +3485,7 @@ namespace shard0
         }
         public string print(vars v)
         {
-            return v.name + " = " + (v.var == null ? "" : print(v.var,false) + "`" + v.var.type.ToString());
+            return v.name + " = " + (v.var == null ? "" : print(v.var,false));
         }
 
         public BigInteger get_parm()
@@ -3376,7 +3525,8 @@ namespace shard0
             bm1 = new System.Drawing.Bitmap(sx, sy);
             for (int i0 = 0; i0 < sx; i0++) for (int i1 = 0; i1 < sy; i1++) bm1.SetPixel(i0, i1, Color.FromArgb(0, 0, 0));
             par.lnext(); root = new ids((int)par.get_parm(),(int)par.get_parm(),par.get_parm(),par.get_parm(), par.sys);
-            par.lnext(); root.findadd_var(par.get(parse.isabc,"")); par.next(); root.findadd_var(par.get(parse.isabc,""));
+            par.lnext(); root.var0 = root.findadd_var(par.get(parse.isabc,"")); 
+            par.next(); root.var1 = root.findadd_var(par.get(parse.isabc,""));
             Thread calc = new Thread(doit);
             calc.Start();
             Application.Run(m0);
@@ -3420,45 +3570,53 @@ namespace shard0
                                 par.next();
                                 if (! par.isequnow('!'))
                                 {
-                                List<func> _id = new List<func>();
-                                if (par.isequnow('*')) {
-                                    foreach (KeyValuePair<string,vars> v in root.var) {
-                                        if ((v.Value != var0) && (v.Value.var != null)) {
-                                            int i = 0; while (i < v.Value.vals.Length) {
-                                                _id.Add(new func(v.Value.vals[i]));
+                                    List<func> _id = new List<func>();
+                                    if (par.isequnow('*')) {
+                                        foreach (KeyValuePair<string,vars> v in root.var) {
+                                            if ((v.Value != var0) && (v.Value.var != null)) {
+                                                int i = 0; while (i < v.Value.vals.Length) {
+                                                    _id.Add(new func(v.Value.vals[i]));
+                                                }
                                             }
                                         }
+                                        par.next();
+                                    } else while (par.isequnow(parse.isname)) {
+                                        val = par.get(parse.isname,""); 
+                                        if (par.isequnow(',')) par.next();
+                                        val0 = root.find_val(val);
+                                        if (val0.var == var0) par.sys.error(name + " $recursion - look recursion");
+                                        if (val0.var.var != null) _id.Add(new func(val0));
                                     }
-                                    par.next();
-                                } else while (par.isequnow(parse.isname)) {
-                                    val = par.get(parse.isname,""); 
-                                    if (par.isequnow(',')) par.next();
-                                    val0 = root.find_val(val);
-                                    if (val0.var == var0) par.sys.error(name + " $recursion - look recursion");
-                                    if (val0.var.var != null) _id.Add(new func(val0));
+                                    if (par.isequnow('@')) {_exp0=true; par.next();}
+                                    if (par.isequnow('$')) {_div=true; par.next();}
+                                    foreach (func i in _id) {
+                                        var0.var.revert(i);
+                                        var0.var.expand(i);
+                                    }
+                                    if (_exp0) var0.var.expand();
+                                    var0.var.simple();
+                                    if (_div && ((var0.var.type == 2) && (((many2)(var0.var.data)).down.type_exp() < 2)))
+                                    {
+                                        ((many2)(var0.var.data)).down.div();
+                                        ((many2)(var0.var.data)).up.mul(((many2)(var0.var.data)).down.data.ElementAt(0).Key,((many2)(var0.var.data)).down.data.ElementAt(0).Value);
+                                        ((many2)(var0.var.data)).down = new many(Program.root.nums[ids.znums+1]);
+                                    }
+                                    par.sys.wline(0,par.print(var0));
                                 }
-                                if (par.isequnow('@')) {_exp0=true; par.next();}
-                                if (par.isequnow('$')) {_div=true; par.next();}
-                                foreach (func i in _id) {
-                                    var0.var.revert(i);
-                                    var0.var.expand(i);
-                                }
-                                if (_exp0) var0.var.expand();
-                                var0.var.simple();
-                                if (_div && ((var0.var.type == 2) && (((many2)(var0.var.data)).down.type_exp() < 2)))
-                                {
-                                    ((many2)(var0.var.data)).down.div();
-                                    ((many2)(var0.var.data)).up.mul(((many2)(var0.var.data)).down.data.ElementAt(0).Key,((many2)(var0.var.data)).down.data.ElementAt(0).Value);
-                                    ((many2)(var0.var.data)).down = new many(Program.root.nums[ids.znums+1]);
-                                }
+                            break;
+                            case '~':
+                                var0 = root.find_val_var(name);
+                                if ((var0.var == null) || (var0.var.type != 3)) par.sys.error("not row");
+                                par.next(); val0 = root.find_val(par.get(parse.isname,""));
+                                par.next(); Int32.TryParse(par.get(parse.isnum,""),out x0);
+                                ((row)(var0.var.data)).prep_calc(val0,x0);
                                 par.sys.wline(0,par.print(var0));
-                           }
-                                break;
+                            break;
                         }
                     }
                 }
             }
-            par.sys.wline(0,"finished, vars free = " + (root.var.Count()).ToString());
+            par.sys.wline(0,"finished, vars = " + (root.var.Count()).ToString());
             par.sys.close();
         }
     }
