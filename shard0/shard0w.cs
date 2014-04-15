@@ -14,6 +14,7 @@ namespace shard0w
 {
     public partial class shard0w : Form
     {
+
         string fname = "";
         public shard0w(string _f)
         {
@@ -285,6 +286,12 @@ namespace shard0w
                 Result.Clear();
                 Result.AppendText("And Then There Were None");
             }
+        }
+
+        private void tb_FontSize_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            Document.Font = new Font( "Consolas",Convert.ToInt32( tb_FontSize.SelectedItem.ToString()));
+            Result.Font = new Font("Consolas", Convert.ToInt32(tb_FontSize.SelectedItem.ToString())); 
         }
     
     }
