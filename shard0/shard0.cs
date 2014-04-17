@@ -130,8 +130,8 @@ namespace shard0
         {
             data = new SortedDictionary<Num,Num>();
             val = v;
-            data.Add(Program.root.nums[IDS.znums],Program.root.nums[IDS.znums+1]);
-            data.Add(Program.root.nums[IDS.znums+1],v);
+            data.Add(IDS.n0,IDS.n1);
+            data.Add(IDS.n1,v);
         }
         public Num exp(Num e) //link to
         {
@@ -231,17 +231,21 @@ namespace shard0
     }
     class IDS
     {
+        public static Num n0,n1;
         public int stat_uncalc, stat_calc, exp_prec;
 //        public Num prec;
         public BigInteger exp_max;
+        public SortedDictionary<Num,Num> ln;
         public SortedDictionary<string,Vars> var;
-        public Vars var0,var1;
+        public Num  n_e,n_pi,n_ln2,ln_prec;
+        public Vars v_e,v_pi,v_ln2,v_x,v_n;
+        public int v_res;
         public Fileio sys;
         public Func fzero;
         public One ozero;
         public const int znums = 100;
         public Num[] nums, e10;
-        public string[] funcs_name = {"","","","row","fact","int","sign"};
+        public string[] funcs_name = {"","","","ln","fact","int","sign","row"};
         public SortedDictionary<string,int> fnames;
         public Num[] fact;
         public IDS(BigInteger e, Fileio f)
@@ -250,8 +254,10 @@ namespace shard0
             sys = f; stat_uncalc = 1; stat_calc = 2;
             fnames = new SortedDictionary<string,int>();
             var = new SortedDictionary<string,Vars>();
+            ln = new SortedDictionary<Num,Num>();
             exp_max = e;
             exp_prec = (int)(BigInteger.Log(e,10)/2);
+            ln_prec = new Num(exp_prec*2+1); ln_prec.div();
             ozero = new One();
             nums = new Num[IDS.znums*2];
             i = 0; while (i < IDS.znums*2) { nums[i] = new Num(i-IDS.znums); i++; }
@@ -266,6 +272,8 @@ namespace shard0
             while (i < e10.Count()) {
                 e10[i] = new Num(b); b *= 10; i++;
             }
+            IDS.n0 = nums[IDS.znums];
+            IDS.n1 = nums[IDS.znums+1];
         }
         int deep(string n)
         {
@@ -393,7 +401,7 @@ namespace shard0
         }
         static public Num common(Num n0, Num n1)//no new
         {
-            if (n0.sign != n1.sign) return Program.root.nums[IDS.znums];
+            if (n0.sign != n1.sign) return IDS.n0;
             if (n0.up*n1.down > n1.up*n0.down) return n1; else return n0;
             
         }
@@ -596,23 +604,24 @@ namespace shard0
         public void add(Num a, int s)
         {
             if (sign == 0) set(a,s); else {
+            BigInteger c = BigInteger.GreatestCommonDivisor(down, a.down);
+            BigInteger d = a.down / c;
             if (sign * (a.sign * s) < 0)
             {
-                up = up * a.down - a.up * down;
+                up = d * up - (down / c) * a.up;
+            } else {
+                up = d * up + (down / c) * a.up;
             }
-            else
-            {
-                up = up * a.down + a.up * down;
-            }
-            down *= a.down;
+            down *= d;
             if (up < 0) { up = -up; sign = -sign; } else if (up == 0) { sign = 0; down = 1; }
             }
         }
         public void add(Num a) { add(a, 1); }
         public void sub(Num a) { add(a, -1); }
-        void prec(int l)
+        public void prec()
         {
-            double lu, ld; int _l;
+            double lu, ld; int _l, l = Program.root.exp_prec;
+            if ((up < 2) || (down < 2)) return;
             lu = BigInteger.Log(up,10);
             ld = BigInteger.Log(down,10);
             if (lu > ld) lu = ld;
@@ -661,7 +670,7 @@ namespace shard0
             if (ex.up == 0) { set1(); return; }
             if ((ex.up > Program.root.exp_max) || (ex.down > Program.root.exp_max)) {
                 Num e1 = new Num(ex);
-                e1.prec(Program.root.exp_prec);
+                e1.prec();
                 if (e1.down > Program.root.exp_max) { set1(); return; }
                 if (e1.up > Program.root.exp_max) Program.root.sys.error("exp too large");
                 u = (int)e1.get_sup(); d = (int)e1.down;
@@ -801,7 +810,7 @@ namespace shard0
         public One(Func f)
         {
             exps = new SortedDictionary<Func,Func>();
-            exps.Add(new Func(f),new Func(Program.root.nums[IDS.znums+1]));
+            exps.Add(new Func(f),new Func(IDS.n1));
         }
         public One(Func fe, Func fp)
         {
@@ -845,6 +854,10 @@ namespace shard0
         public void addto(Func val,Func exp)
         {
             if (exps.ContainsKey(val)) exps[val].add(exp,1); else exps.Add(new Func(val),new Func(exp));
+        }
+        public void addto(Func val)
+        {
+            if (exps.ContainsKey(val)) exps[val].add(new Func(IDS.n1),1); else exps.Add(new Func(val),new Func(IDS.n1));
         }
         public void mul(One o)
         {
@@ -937,8 +950,8 @@ namespace shard0
 
         public Num simple()
         {
-            Num rt = new Num(1);
-            SortedDictionary<Func,Func> r = new SortedDictionary<Func,Func>();
+            Num nt, rt = new Num(1); Func p,e;
+            One r = new One();
 //            KeyValuePair<Func,Func> ff;
 //            for(int i = 0; i < exps.Count; i++) {
 //                ff = exps.ElementAt(i);
@@ -947,10 +960,25 @@ namespace shard0
                 if (! ff.Value.isconst(0)) {
                     ff.Key.simple();
                     if ((ff.Key.type == 1) && (ff.Value.type_pow() == 0)) rt.mul(Num.exp((Num)(ff.Key.data),(Num)(ff.Value.data)));
-                    else r.Add(ff.Key, ff.Value);
+                    else {
+
+                        if ((ff.Key.type == 0) && (((Vals)(ff.Key.data)).var == Program.root.v_e) && (ff.Value.type == 3))
+                        {p = new Func((Many2)(ff.Value.data)); e = new Func(IDS.n1);}
+                        else {p = ff.Key; e = ff.Value;}
+                        if ((p.type == 2) && (((Many2)(p.data)).type_exp() < 2)) {
+                            ((Many2)(p.data)).up.data.ElementAt(0).Key.exp(e);
+                            ((Many2)(p.data)).down.data.ElementAt(0).Key.exp(e);
+                            ((Many2)(p.data)).down.data.ElementAt(0).Key.div();
+                            nt = Num.mul(((Many2)(p.data)).up.data.ElementAt(0).Value,Num._div(((Many2)(p.data)).down.data.ElementAt(0).Value));
+                            r.mul(((Many2)(p.data)).up.data.ElementAt(0).Key);
+                            r.mul(((Many2)(p.data)).down.data.ElementAt(0).Key);
+                            if (e.type_pow() < 1) rt.mul(Num.exp(nt,(Num)(e.data))); 
+                            else r.addto(new Func(nt),e);
+                        } else r.addto(p, e);
+                    }
                 }
             }
-            exps = r;
+            exps = r.exps;
             return rt;
         }
         public void deeper(int deep) {
@@ -963,6 +991,39 @@ namespace shard0
             foreach(KeyValuePair<Func,Func> f in exps) rt.mul(f.Key.calc(f.Value.calc()));
             return rt;
         }
+        public void findvals(One o)
+        {
+            foreach(KeyValuePair<Func,Func> f in exps) {f.Key.findvals(o); f.Value.findvals(o);}
+        }
+        public Many diff_down(Vals at)
+        {
+            List<Func> d = new List<Func>(), p = new List<Func>(), e = new List<Func>();
+            One f_d0 = new One();
+            Func t;
+            foreach(KeyValuePair<Func,Func> ff in exps) {
+                t = ff.Key.diff_down(ff.Value,at);
+                if (t.isconst(0)) f_d0.addto(ff.Key,ff.Value); else {
+                    p.Add(ff.Key); e.Add(ff.Value); d.Add(t);
+                }
+            }
+            Many r = new Many(); One a;
+            int i1, i0 = 0; while (i0 < d.Count) {
+                a = new One(f_d0);
+                i1 = 0; while (i1 < d.Count) {
+                    if (i0 == i1) {
+                        a.addto(d[i1]);
+                    } else {
+                        a.addto(new Func(p[i1]),new Func(e[i1]));
+                    }
+                    i1++;
+                }
+                r.add(a,1);
+                i0++;
+            }
+            r.simple();
+            return r;
+        }
+
     }
 
     class Many: Power<Many>, IPower, IComparable
@@ -980,12 +1041,12 @@ namespace shard0
         public Many(Func f)
         {
             data = new SortedDictionary<One,Num>();
-            data.Add(new One(f),Program.root.nums[IDS.znums+1]);
+            data.Add(new One(f),IDS.n1);
         }
         public Many(One o)
         {
             data = new SortedDictionary<One,Num>();
-            data.Add(o,Program.root.nums[IDS.znums+1]);
+            data.Add(o,IDS.n1);
         }
         public Many(Num n)
         {
@@ -1013,19 +1074,18 @@ namespace shard0
         public override void set0()
         {
             data.Clear(); 
-            data.Add(new One(), Program.root.nums[IDS.znums]);
+            data.Add(new One(), IDS.n0);
         }
         public override void set1()
         {
             data.Clear();
-            data.Add(new One(), Program.root.nums[IDS.znums+1]);
+            data.Add(new One(), IDS.n1);
         }
         public override void div()
         {
             if (data.Count != 1) Program.root.sys.error("cant divide many");
-            SortedDictionary<One,Num> r = new SortedDictionary<One,Num>();
-            One o = data.ElementAt(0).Key; Num n = new Num(data.ElementAt(0).Value);
-            o.div(); n.div(); r.Add(o,n); data = r;
+            data[data.ElementAt(0).Key] = Num._div(data.ElementAt(0).Value); 
+            data.ElementAt(0).Key.div(); 
         }
 
         public int sign() {
@@ -1053,14 +1113,14 @@ namespace shard0
             while (true) {
                 do n0 = o0.MoveNext(); while (n0 && (o0.Current.Value.sign == 0));
                 do n1 = o1.MoveNext(); while (n1 && (o1.Current.Value.sign == 0));
-                if (n0 ^ n1) return (n0 ? o0.Current.Value.CompareTo(Program.root.nums[IDS.znums]) : Program.root.nums[IDS.znums].CompareTo(o1.Current.Value));
+                if (n0 ^ n1) return (n0 ? o0.Current.Value.CompareTo(IDS.n0) : IDS.n0.CompareTo(o1.Current.Value));
                 else {
                     if (! n0) return 0;
                     if ((r = o0.Current.Key.CompareTo(o1.Current.Key)) == 0) {
                         if ((r = o0.Current.Value.CompareTo(o1.Current.Value)) != 0) return r;
                     } else {
-                        if (r > 0) return o0.Current.Value.CompareTo(Program.root.nums[IDS.znums]);
-                        else return Program.root.nums[IDS.znums].CompareTo(o1.Current.Value);
+                        if (r > 0) return o0.Current.Value.CompareTo(IDS.n0);
+                        else return IDS.n0.CompareTo(o1.Current.Value);
                     }
                 }
             }
@@ -1099,8 +1159,11 @@ namespace shard0
 
         public void add(One o, Num n, int s) {
             if (data.ContainsKey(o)) {
-                data[o] = Num.add(data[o],n,s).simple();
+                data[o] = Num.add(data[o],n,s);
             } else data.Add(new One(o),new Num(n,s));
+        }
+        public void add(One o, int s) {
+            add(o,IDS.n1,s);
         }
         public void add(Many from, int s)
         {
@@ -1133,12 +1196,11 @@ namespace shard0
                     else r.Add(o, n);
                 }
             }
-            for (int _i = 0; _i < r.Count; _i++) r.ElementAt(_i).Value.simple();
             data = r;
         }
         public void mul(Num n)
         {
-            for (int _i = 0; _i < data.Count; _i++) data[data.ElementAt(_i).Key] = Num.mul(data.ElementAt(_i).Value,n);
+            for (int _i = 0; _i < data.Count; _i++) data[data.ElementAt(_i).Key] = Num.mul(data.ElementAt(_i).Value,n).simple();
         }
         public void mul_simple(Num n)
         {
@@ -1313,7 +1375,7 @@ namespace shard0
                     n = Num.common(on.Value,m.data[on.Key]);
                     if (n.sign == 0) ch = true;
                     data[on.Key] = n;
-                } else {ch = true; data[on.Key] = Program.root.nums[IDS.znums];}
+                } else {ch = true; data[on.Key] = IDS.n0;}
             }
             if (ch) {
                 SortedDictionary<One,Num> r = new SortedDictionary<One,Num>();
@@ -1354,10 +1416,22 @@ namespace shard0
             foreach(KeyValuePair<One,Num> o in data) rt.add(Num.mul(o.Key.calc(),o.Value),1);
             return rt;
         }
+        public void findvals(One o)
+        {
+            foreach(KeyValuePair<One,Num> on in data) on.Key.findvals(o);
+        }
 
+        public Many diff_down(Vals at)
+        {
+            Many m,r = new Many(IDS.n0);
+            foreach(KeyValuePair<One,Num> on in data) {
+                m = on.Key.diff_down(at); m.mul(on.Value);
+                r.add(m,1);
+            }
+            return r;
+        }
     }
 
-    
     class Many2: Power<Many2>, IPower, IComparable
     {
         public Many up,down;
@@ -1373,25 +1447,37 @@ namespace shard0
         {
             up = u; 
             down = new Many();
-            down.data.Add(new One(), Program.root.nums[IDS.znums+1]);
+            down.data.Add(new One(), IDS.n1);
+        }
+        public Many2(One u) //no new 
+        {
+            up = new Many(u); 
+            down = new Many();
+            down.data.Add(new One(), IDS.n1);
+        }
+        public Many2(Func u) //no new 
+        {
+            up = new Many(new One(u)); 
+            down = new Many();
+            down.data.Add(new One(), IDS.n1);
         }
         public Many2(int n)
         {
             up = new Many(); down = new Many();
             up.data.Add(new One(), Program.root.nums[IDS.znums+n]);
-            down.data.Add(new One(), Program.root.nums[IDS.znums+1]);
+            down.data.Add(new One(), IDS.n1);
         }
         public Many2(Num n)
         {
             up = new Many(); down = new Many();
             up.data.Add(new One(), n);
-            down.data.Add(new One(), Program.root.nums[IDS.znums+1]);
+            down.data.Add(new One(), IDS.n1);
         }
         public Many2(One o, Num n)
         {
             up = new Many(); down = new Many();
             up.data.Add(new One(o), n);
-            down.data.Add(new One(), Program.root.nums[IDS.znums+1]);
+            down.data.Add(new One(), IDS.n1);
         }
 
         public Many2(Many2 m)
@@ -1409,14 +1495,14 @@ namespace shard0
         public override void set0()
         {
             up.data.Clear(); down.data.Clear();
-            up.data.Add(new One(), Program.root.nums[IDS.znums]);
-            down.data.Add(new One(), Program.root.nums[IDS.znums+1]);
+            up.data.Add(new One(), IDS.n0);
+            down.data.Add(new One(), IDS.n1);
         }
         public override void set1()
         {
             up.data.Clear(); down.data.Clear();
-            up.data.Add(new One(), Program.root.nums[IDS.znums+1]);
-            down.data.Add(new One(), Program.root.nums[IDS.znums+1]);
+            up.data.Add(new One(), IDS.n1);
+            down.data.Add(new One(), IDS.n1);
         }
         public override void div()
         {
@@ -1563,19 +1649,25 @@ namespace shard0
         }
         public Num simple()
         {
-            Many _up = up, _dw = down;
-            KeyValuePair<One,Num> f_up, f_down, f_both;
             up.simple();
             down.simple();
-            f_up = up.extract();
-            f_down = down.extract();
-            f_both = new KeyValuePair<One,Num>(new One(f_up.Key), new Num(f_up.Value));
-            f_both.Key.extract(f_down.Key);
-            f_both.Value.extract(f_down.Value);
-            f_both.Key.div(); f_both.Value.div();
-            up.mul(f_both.Key,f_both.Value);
-            down.mul(f_both.Key,f_both.Value);
-
+            if ((up.data.Count > 1) || (down.data.Count > 1)) {
+                KeyValuePair<One,Num> f_up = up.extract(), f_down = down.extract();
+                if (f_up.Key.exps.Count + f_down.Key.exps.Count > 0) {
+                    One ou = new One(f_up.Key);
+                    f_up.Key.div(); up.mul(f_up.Key,IDS.n1);
+                    f_down.Key.div(); down.mul(f_down.Key,IDS.n1);
+                    ou.mul(f_down.Key); ou.simple();
+                    if (ou.exps.Count > 0) {
+                        f_up.Value.div(); up.mul(f_up.Value);
+                        f_down.Value.div(); down.mul(f_down.Value);
+                        f_up.Value.div(); f_up.Value.mul(f_down.Value);
+                        ou.addto(new Func(new Many2(up,down)),new Func(IDS.n1));
+                        down = new Many(IDS.n1);
+                        up = new Many(ou,f_up.Value);
+                    }
+                }
+/*
             foreach(KeyValuePair<Func,Func> u in f_up.Key.exps) if (u.Value.sign() >= 0) u.Value.set0();
             f_up.Value.set(f_up.Key.simple());
 
@@ -1588,17 +1680,21 @@ namespace shard0
             f_down.Key.div();
             up.mul(f_down.Key,f_down.Value);
             down.mul(f_down.Key,f_down.Value);
-            up.simple();
-            down.simple();
-            Func t = up.get_Func();
-            if ((t != null) && (t.type == 2) && ((Many2)(t.data)).down.isint(1)) up = ((Many2)(t.data)).up;
-            t = down.get_Func();
-            if ((t != null) && (t.type == 2) && ((Many2)(t.data)).down.isint(1)) down = ((Many2)(t.data)).up;
-            Num nd = down.get_Num();
-            if (nd == null) return null;
-            Num nu = up.get_Num();
-            if (nu != null) {
-                nd.div(); nu.mul(nd); return nu;
+*/
+            } else {
+                if (! down.isint(1)) {
+                    down.div(); up.mul(down); down = new Many(IDS.n1);
+                }
+                Func t = up.get_Func();
+                if ((t != null) && (t.type == 2) && ((Many2)(t.data)).down.isint(1)) up = ((Many2)(t.data)).up;
+                t = down.get_Func();
+                if ((t != null) && (t.type == 2) && ((Many2)(t.data)).down.isint(1)) down = ((Many2)(t.data)).up;
+                Num nd = down.get_Num();
+                if (nd == null) return null;
+                Num nu = up.get_Num();
+                if (nu != null) {
+                    nd.div(); nu.mul(nd); return nu;
+                }
             }
             return null;
         }
@@ -1606,6 +1702,19 @@ namespace shard0
             Num d = down.calc();
             if (d.sign == 0) Program.root.sys.error("div0");
             d.div(); d.mul(up.calc()); return d.simple();
+        }
+        public void findvals(One o)
+        {
+            up.findvals(o); down.findvals(o);
+        }
+
+        public Many2 diff_down(Vals at)
+        {
+            Many fu = up.diff_down(at), fd = down.diff_down(at);
+            Many2 r = new Many2(new Many(), new Many());
+            fu.mul(down); fd.mul(up); fu.add(fd,-1); r.up = fu;
+            r.down = new Many(down); r.down.mul(down);
+            r.simple(); return r;
         }
     }
     class Exps_f 
@@ -1621,11 +1730,11 @@ namespace shard0
         public Exps_f(Many m, int _deep){
             min = new Num(0); max = new Num(0);
             data = new SortedDictionary<Func,Many>();
-            Func e0 = new Func(Program.root.nums[IDS.znums]);
+            Func e0 = new Func(IDS.n0);
             data.Add(e0, new Many());
             data[e0].data.Add(new One(),new Num(1));
             deep = _deep;
-            e1 = new Func(Program.root.nums[IDS.znums+1]);
+            e1 = new Func(IDS.n1);
             mvar = new Many(m); if (deep > 0) mvar.deeper(deep);
             type = mvar.type_exp();
             data.Add(e1, mvar);
@@ -1680,7 +1789,7 @@ namespace shard0
             }
         }
         public void calc(){
-            Func dl = new Func(Program.root.nums[IDS.znums]);
+            Func dl = new Func(IDS.n0);
             foreach (KeyValuePair<Func,Many> d in data) {
 /*                if (d.Value.data.Count == 0) {
                     if (d.Key.type == 0) {
@@ -1728,8 +1837,8 @@ namespace shard0
         Many2 step(Many2 ind, int exp, Vals val)
         {
             Many2 r = new Many2(ind);
-            r.replace(Program.root.var0.vals[0],new Func(val));
-            r.replace(Program.root.var1.vals[0],new Func(Program.root.nums[IDS.znums+exp]));
+            r.replace(Program.root.v_x.vals[0],new Func(val));
+            r.replace(Program.root.v_n.vals[0],new Func(Program.root.nums[IDS.znums+exp]));
             Num n = r.simple();
             if (n != null) return new Many2(n); else return r;
         }
@@ -1737,7 +1846,7 @@ namespace shard0
         {
             int len = data.Count - point;
             if (len < 1) Program.root.sys.error("row: empty");
-            Many2 calc = new Many2(Program.root.nums[IDS.znums]), t;
+            Many2 calc = new Many2(IDS.n0), t;
             int i0 = 0; while (i0 < point) {calc.add(step(data[i0],i0,val),1); i0++;}
             int e = point, i1 = 0; while (i1 < steps) {
                 i0 = 0; while (i0 < len) {
@@ -1786,9 +1895,9 @@ namespace shard0
 
     class Func: Power<Func>, IPower, IComparable
     {
-        public const int types = 7;
-        public Object data; //SortedDictionary<int,many> data;
-        public int type; //0: &val, 1: &Num {imutable}, 2: &many2, 3: row(many2[]), 4: fact(Many2), 5: int(Many2), 6: sign(Many2)
+        public const int types = 8;
+        public Object data;
+        public int type; //0: &val, 1: &Num {imutable}, 2: &many2, 3: ln(Many2), 4: fact(Many2), 5: int(Many2), 6: sign(Many2), 7: row(Row)
         public Func()
         {
             type = -1; data = null;
@@ -1811,7 +1920,7 @@ namespace shard0
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Func(Row r)
         {
-            type = 3; data = r;
+            type = 7; data = r;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Func(Many2 m)
@@ -1833,10 +1942,11 @@ namespace shard0
               (Func t, Func f) => {t.data = f.data;},
               (Func t, Func f) => {t.data = f.data;},
               (Func t, Func f) => {t.data = new Many2((Many2)(f.data));},
-              (Func t, Func f) => {t.data = new Row((Row)(f.data));},
               (Func t, Func f) => {t.data = new Many2((Many2)(f.data));},
               (Func t, Func f) => {t.data = new Many2((Many2)(f.data));},
               (Func t, Func f) => {t.data = new Many2((Many2)(f.data));},
+              (Func t, Func f) => {t.data = new Many2((Many2)(f.data));},
+              (Func t, Func f) => {t.data = new Row((Row)(f.data));}
                          };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override void set(Func f)
@@ -1851,21 +1961,22 @@ namespace shard0
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override void set0()
         {
-            type = 1; data = Program.root.nums[IDS.znums];
+            type = 1; data = IDS.n0;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override void set1()
         {
-            type = 1; data = Program.root.nums[IDS.znums+1];
+            type = 1; data = IDS.n1;
         }
         static public Func<Func,Num>[] get_num_part_func = {
-                (Func t) => {return Program.root.nums[IDS.znums];},
+                (Func t) => {return IDS.n0;},
                 (Func t) => {return (Num)(t.data);},
                 (Func t) => {return ((Many2)(t.data)).get_num_part();},
-                (Func t) => {return Program.root.nums[IDS.znums];},
-                (Func t) => {return Program.root.nums[IDS.znums];},
-                (Func t) => {return Program.root.nums[IDS.znums];},
-                (Func t) => {return Program.root.nums[IDS.znums];}
+                (Func t) => {return IDS.n0;},
+                (Func t) => {return IDS.n0;},
+                (Func t) => {return IDS.n0;},
+                (Func t) => {return IDS.n0;},
+                (Func t) => {return IDS.n0;}
         };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Num get_num_part()
@@ -1877,6 +1988,7 @@ namespace shard0
         static public Func<Func,int>[] type_pow_func = {
                 (Func t) => {return 2;},
                 (Func t) => {return ((((Num)(t.data)).isint()) ? 0 : 1);},
+                (Func t) => {return 2;},
                 (Func t) => {return 2;},
                 (Func t) => {return 2;},
                 (Func t) => {return 2;},
@@ -1899,10 +2011,11 @@ namespace shard0
                 },
                 (Func t, Vals v, Func f) => {},
                 (Func t, Vals v, Func f) => {((Many2)(t.data)).replace(v,f);},
-                (Func t, Vals v, Func f) => {},
                 (Func t, Vals v, Func f) => {((Many2)(t.data)).replace(v,f);},
                 (Func t, Vals v, Func f) => {((Many2)(t.data)).replace(v,f);},
-                (Func t, Vals v, Func f) => {((Many2)(t.data)).replace(v,f);}
+                (Func t, Vals v, Func f) => {((Many2)(t.data)).replace(v,f);},
+                (Func t, Vals v, Func f) => {((Many2)(t.data)).replace(v,f);},
+                (Func t, Vals v, Func f) => {}
          };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void replace(Vals v, Func f)
@@ -1914,10 +2027,11 @@ namespace shard0
                 (Func t, Func v, Exps_f u, Exps_f d) => {return false;},
                 (Func t, Func v, Exps_f u, Exps_f d) => {return false;},
                 (Func t, Func v, Exps_f u, Exps_f d) => {return ((Many2)(t.data)).expand(v,u,d);},
-                (Func t, Func v, Exps_f u, Exps_f d) => {return ((Row)(t.data)).expand(v,u,d);},
                 (Func t, Func v, Exps_f u, Exps_f d) => {return ((Many2)(t.data)).expand(v,u,d);},
                 (Func t, Func v, Exps_f u, Exps_f d) => {return ((Many2)(t.data)).expand(v,u,d);},
-                (Func t, Func v, Exps_f u, Exps_f d) => {return ((Many2)(t.data)).expand(v,u,d);}
+                (Func t, Func v, Exps_f u, Exps_f d) => {return ((Many2)(t.data)).expand(v,u,d);},
+                (Func t, Func v, Exps_f u, Exps_f d) => {return ((Many2)(t.data)).expand(v,u,d);},
+                (Func t, Func v, Exps_f u, Exps_f d) => {return ((Row)(t.data)).expand(v,u,d);}
             };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool expand(Func val, Exps_f exu, Exps_f exd)
@@ -1938,7 +2052,7 @@ namespace shard0
                 exd = new Exps_f(((Many2)(f_exp.data)).down,v.deep);
             } else {
                 exu = new Exps_f(new Many(f_exp),0);
-                exd = new Exps_f(new Many(Program.root.nums[IDS.znums+1]),0);
+                exd = new Exps_f(new Many(IDS.n1),0);
             }
 
             return Func.expand2_func[type](this,fv,exu,exd);
@@ -1947,10 +2061,11 @@ namespace shard0
                 (Func t) => {},
                 (Func t) => {},
                 (Func t) => {((Many2)(t.data)).expand();},
-                (Func t) => {((Row)(t.data)).expand();},
                 (Func t) => {((Many2)(t.data)).expand();},
                 (Func t) => {((Many2)(t.data)).expand();},
-                (Func t) => {((Many2)(t.data)).expand();}
+                (Func t) => {((Many2)(t.data)).expand();},
+                (Func t) => {((Many2)(t.data)).expand();},
+                (Func t) => {((Row)(t.data)).expand();}
                 };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void expand()
@@ -1964,6 +2079,7 @@ namespace shard0
                 },
                 (Func t) => {t.data = Num.neg((Num)(t.data));},
                 (Func t) => {((Many2)(t.data)).neg();},
+                (Func t) => {},
                 (Func t) => {},
                 (Func t) => {},
                 (Func t) => {},
@@ -1984,6 +2100,7 @@ namespace shard0
                 (Func t) => {},
                 (Func t) => {},
                 (Func t) => {},
+                (Func t) => {},
                 (Func t) => {}
                 };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1993,7 +2110,7 @@ namespace shard0
         }
         static public Action<Func,Func>[] mul_func = {
                 (Func t, Func f) => {//0:0
-                    One _o = new One(t); _o.addto(f,new Func(Program.root.nums[IDS.znums+1]));
+                    One _o = new One(t); _o.addto(f,new Func(IDS.n1));
                     t.type = 2; t.data = new Many2(new Many(_o));
                 },
                 (Func t, Func f) => {
@@ -2007,8 +2124,9 @@ namespace shard0
                 (Func t, Func f) => {
                     One _o = new One(t);
                     t.type = 2; t.data = new Many2((Many2)(f.data));
-                    ((Many2)(t.data)).mul(_o,Program.root.nums[IDS.znums+1]);
+                    ((Many2)(t.data)).mul(_o,IDS.n1);
                 },
+                (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
@@ -2041,9 +2159,10 @@ namespace shard0
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
+                (Func t, Func f) => {},
 
                 (Func t, Func f) => {//2 *= 0
-                    ((Many2)(t.data)).mul(new One(f),Program.root.nums[IDS.znums+1]);
+                    ((Many2)(t.data)).mul(new One(f),IDS.n1);
                 },
                 (Func t, Func f) => {  //2 *= 1
                     if (! ((Num)(f.data)).isint(1)) {
@@ -2061,8 +2180,10 @@ namespace shard0
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
+                (Func t, Func f) => {},
 
                 (Func t, Func f) => {},//3 *= 0
+                (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
@@ -2077,6 +2198,7 @@ namespace shard0
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
+                (Func t, Func f) => {},
 
                 (Func t, Func f) => {},//5 *= 0
                 (Func t, Func f) => {},
@@ -2085,8 +2207,19 @@ namespace shard0
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
+                (Func t, Func f) => {},
 
                 (Func t, Func f) => {},//6 *= 0
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+
+                (Func t, Func f) => {},//7 *= 0
+                (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
@@ -2113,6 +2246,7 @@ namespace shard0
                 (Func t, Num n) => {},
                 (Func t, Num n) => {},
                 (Func t, Num n) => {},
+                (Func t, Num n) => {},
                 (Func t, Num n) => {}
                 };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -2130,30 +2264,31 @@ namespace shard0
         static public Action<Func,Func>[] common_func = {
                 (Func t, Func f) => {//0:0
                     if (t.data != f.data) {
-                        t.type = 1; t.data = Program.root.nums[IDS.znums];
+                        t.type = 1; t.data = IDS.n0;
                     }
                 },
                 (Func t, Func f) => {
-                        t.type = 1; t.data = Program.root.nums[IDS.znums];
+                        t.type = 1; t.data = IDS.n0;
                 },
                 (Func t, Func f) => {
                     One _o = new One(t); 
                     Num _nd = ((Many2)(f.data)).down.get_Num(); _nd.div();
                     if ((_nd != null) && ((Many2)(f.data)).up.data.ContainsKey(_o) && (((Many2)(f.data)).up.data[_o].sign * _nd.sign > 0)) {
                         _nd.mul(((Many2)(f.data)).up.data[_o]);
-                        if (_nd.great(Program.root.nums[IDS.znums+1])) {
+                        if (_nd.great(IDS.n1)) {
                             Many _u = new Many(); _u.data.Add(_o,_nd);
-                            t.type = 2; t.data = new Many2(_u,new Many(Program.root.nums[IDS.znums+1]));
+                            t.type = 2; t.data = new Many2(_u,new Many(IDS.n1));
                         }
-                    } else {t.type = 1; t.data = Program.root.nums[IDS.znums];}
+                    } else {t.type = 1; t.data = IDS.n0;}
                 },
+                (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
 
                 (Func t, Func f) => {
-                        t.type = 1; t.data = Program.root.nums[IDS.znums];
+                        t.type = 1; t.data = IDS.n0;
                 }, //1:0
                 (Func t, Func f) => { //1 1
                         t.data = Num.common((Num)(t.data),(Num)(f.data)); //no new - just select
@@ -2165,19 +2300,20 @@ namespace shard0
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
+                (Func t, Func f) => {},
 
                 (Func t, Func f) => {//2:0
                     One _o = new One(f);
                     Num _nd = ((Many2)(t.data)).down.get_Num(); _nd.div();
                     if ((_nd != null) && ((Many2)(t.data)).up.data.ContainsKey(_o) && (((Many2)(t.data)).up.data[_o].sign * _nd.sign > 0)) {
                         _nd.mul(((Many2)(t.data)).up.data[_o]);
-                        if (_nd.great(Program.root.nums[IDS.znums+1])) {
-                            ((Many2)(t.data)).up = new Many(); ((Many2)(t.data)).up.data.Add(_o,_nd);
-                            ((Many2)(t.data)).down = new Many(Program.root.nums[IDS.znums+1]);
+                        if (_nd.great(IDS.n1)) {
+                            ((Many2)(t.data)).up = new Many(_o,_nd);
+                            ((Many2)(t.data)).down = new Many(IDS.n1);
                         } else {
                             t.type = 0; t.data = f.data;
                         }
-                    } else {t.type = 1; t.data = Program.root.nums[IDS.znums];}
+                    } else {t.type = 1; t.data = IDS.n0;}
                 },
                 (Func t, Func f) => { //2:1
                         t.type = 1; t.data = Num.common(((Many2)(t.data)).get_num_part(),(Num)(f.data)); 
@@ -2191,8 +2327,10 @@ namespace shard0
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
+                (Func t, Func f) => {},
 
                 (Func t, Func f) => {}, //3:0
+                (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
@@ -2207,6 +2345,7 @@ namespace shard0
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
+                (Func t, Func f) => {},
 
                 (Func t, Func f) => {}, //5:0
                 (Func t, Func f) => {},
@@ -2215,8 +2354,19 @@ namespace shard0
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
+                (Func t, Func f) => {},
 
                 (Func t, Func f) => {}, //6:0
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+
+                (Func t, Func f) => {}, //7:0
+                (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
@@ -2234,26 +2384,24 @@ namespace shard0
 
         static public Action<Func,Func,int>[] add_func = {
                 (Func t, Func f, int s) => {//0:0
-                    One _o = new One(t);
-                    Many _u = new Many(); _u.data.Add(_o,Program.root.nums[IDS.znums+1]);
-                    _o = new One(); _o.exps.Add(new Func(f),new Func(Program.root.nums[IDS.znums+1]));
-                    _u.add(_o,Program.root.nums[IDS.znums+1],s);
-                    t.type = 2; t.data = new Many2(_u,new Many(Program.root.nums[IDS.znums+1]));                
+                    Many _u = new Many(t);
+                    One _o = new One(new Func(f));
+                    _u.add(_o,s);
+                    t.type = 2; t.data = new Many2(_u);
                 },
                 (Func t, Func f, int s) => {
                     if (((Num)(f.data)).sign != 0) {
-                        One _o = new One(t);
-                        Many _u = new Many(); _u.data.Add(_o,Program.root.nums[IDS.znums+1]);
-                        _o = new One(); _u.data.Add(_o,(Num)(f.data));
-                        t.type = 2; t.data = new Many2(_u,new Many(Program.root.nums[IDS.znums+1]));                
+                        Many _u = new Many(t);
+                        _u.add(new One(),(Num)(f.data),s);
+                        t.type = 2; t.data = new Many2(_u);
                     }
                 },
                 (Func t, Func f, int s) => {
-                    One _o = new One(t);
-                    Many2 _fm = new Many2((Many2)(f.data)), _tm = new Many2(0);
-                    _tm.up.data.Add(_o,Program.root.nums[IDS.znums+1]); _tm.add(_fm,s);
+                    Many2 _fm = new Many2((Many2)(f.data)), _tm = new Many2(new One(t));
+                    _tm.add(_fm,s);
                     t.type = 2; t.data = _tm;
                 },
+                (Func t, Func f, int s) => {},
                 (Func t, Func f, int s) => {},
                 (Func t, Func f, int s) => {},
                 (Func t, Func f, int s) => {},
@@ -2263,10 +2411,9 @@ namespace shard0
                     if (((Num)(t.data)).sign == 0) {
                         t.type = f.type; t.data = f.data;
                     } else {
-                        One _o = new One(f);
-                        Many _u = new Many(); _u.data.Add(_o,Program.root.nums[IDS.znums+1]);
-                        _o = new One(); _u.add(_o,(Num)(t.data),s);
-                        t.type = 2; t.data = new Many2(_u,new Many(Program.root.nums[IDS.znums+1]));                
+                        Many _u = new Many(new One(f));
+                        _u.add(new One(),(Num)(t.data),s);
+                        t.type = 2; t.data = new Many2(_u);
                     }
                 },
                 (Func t, Func f, int s) => { //1:1
@@ -2284,11 +2431,12 @@ namespace shard0
                 (Func t, Func f, int s) => {},
                 (Func t, Func f, int s) => {},
                 (Func t, Func f, int s) => {},
+                (Func t, Func f, int s) => {},
 
                 (Func t, Func f, int s) => {//2:0
                     One _o = new One(f);
-                    Many _u = new Many(); _u.data.Add(_o,Program.root.nums[IDS.znums+1]);
-                    ((Many2)(t.data)).add(new Many2(_u,new Many(Program.root.nums[IDS.znums+1])),s);
+                    Many _u = new Many(); _u.data.Add(_o,IDS.n1);
+                    ((Many2)(t.data)).add(new Many2(_u,new Many(IDS.n1)),s);
                 },
                 (Func t, Func f, int s) => { //2:1
                     if (((Num)(f.data)).sign != 0) {
@@ -2302,8 +2450,10 @@ namespace shard0
                 (Func t, Func f, int s) => {},
                 (Func t, Func f, int s) => {},
                 (Func t, Func f, int s) => {},
+                (Func t, Func f, int s) => {},
 
                 (Func t, Func f, int s) => {}, //3:0
+                (Func t, Func f, int s) => {},
                 (Func t, Func f, int s) => {},
                 (Func t, Func f, int s) => {},
                 (Func t, Func f, int s) => {},
@@ -2318,6 +2468,7 @@ namespace shard0
                 (Func t, Func f, int s) => {},
                 (Func t, Func f, int s) => {},
                 (Func t, Func f, int s) => {},
+                (Func t, Func f, int s) => {},
 
                 (Func t, Func f, int s) => {}, //5:0
                 (Func t, Func f, int s) => {},
@@ -2326,8 +2477,19 @@ namespace shard0
                 (Func t, Func f, int s) => {},
                 (Func t, Func f, int s) => {},
                 (Func t, Func f, int s) => {},
+                (Func t, Func f, int s) => {},
 
                 (Func t, Func f, int s) => {}, //6:0
+                (Func t, Func f, int s) => {},
+                (Func t, Func f, int s) => {},
+                (Func t, Func f, int s) => {},
+                (Func t, Func f, int s) => {},
+                (Func t, Func f, int s) => {},
+                (Func t, Func f, int s) => {},
+                (Func t, Func f, int s) => {},
+
+                (Func t, Func f, int s) => {}, //7:0
+                (Func t, Func f, int s) => {},
                 (Func t, Func f, int s) => {},
                 (Func t, Func f, int s) => {},
                 (Func t, Func f, int s) => {},
@@ -2350,9 +2512,11 @@ namespace shard0
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
+                (Func t, Func f) => {return 1;},
 
                 (Func t, Func f) => {return -1;}, //1:0
                 (Func t, Func f) => {return ((Num)(t.data)).CompareTo(f.data);},
+                (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
@@ -2367,22 +2531,25 @@ namespace shard0
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
+                (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return ((Many2)(t.data)).CompareTo(null);},
 
                 (Func t, Func f) => {return -1;}, //3:0
                 (Func t, Func f) => {return -1;},
                 (Func t, Func f) => {return -1;},
-                (Func t, Func f) => {return ((Row)(t.data)).CompareTo(f.data);},
+                (Func t, Func f) => {return ((Many2)(t.data)).CompareTo(f.data);},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
+                (Func t, Func f) => {return ((Many2)(t.data)).CompareTo(null);},
 
                 (Func t, Func f) => {return -1;}, //4:0
                 (Func t, Func f) => {return -1;},
                 (Func t, Func f) => {return -1;},
                 (Func t, Func f) => {return -1;},
                 (Func t, Func f) => {return ((Many2)(t.data)).CompareTo(f.data);},
+                (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return ((Many2)(t.data)).CompareTo(null);},
@@ -2394,6 +2561,7 @@ namespace shard0
                 (Func t, Func f) => {return -1;},
                 (Func t, Func f) => {return ((Many2)(t.data)).CompareTo(f.data);},
                 (Func t, Func f) => {return 1;},
+                (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return ((Many2)(t.data)).CompareTo(null);},
 
                 (Func t, Func f) => {return -1;}, //6:0
@@ -2403,7 +2571,19 @@ namespace shard0
                 (Func t, Func f) => {return -1;},
                 (Func t, Func f) => {return -1;},
                 (Func t, Func f) => {return ((Many2)(t.data)).CompareTo((Many2)(f.data));},
-                (Func t, Func f) => {return ((Many2)(t.data)).CompareTo(null);}
+                (Func t, Func f) => {return -1;},
+                (Func t, Func f) => {return ((Many2)(t.data)).CompareTo(null);},
+
+                (Func t, Func f) => {return -1;}, //7:0
+                (Func t, Func f) => {return -1;},
+                (Func t, Func f) => {return -1;},
+                (Func t, Func f) => {return -1;},
+                (Func t, Func f) => {return -1;},
+                (Func t, Func f) => {return -1;},
+                (Func t, Func f) => {return -1;},
+                (Func t, Func f) => {return ((Row)(t.data)).CompareTo((Row)(f.data));},
+                (Func t, Func f) => {return 1;}
+
                };
         public int CompareTo(object obj) {
             Func f = obj as Func;
@@ -2423,7 +2603,9 @@ namespace shard0
                         }
                     }
                 },
-                (Func t) => {((Row)(t.data)).simple();},
+                (Func t) => {
+                    ((Many2)(t.data)).simple();
+                },
                 (Func t) => {
                     ((Many2)(t.data)).simple();
                     Num n = ((Many2)(t.data)).get_Num();
@@ -2444,7 +2626,8 @@ namespace shard0
                     if (n != null) {
                         t.type = 1; t.data = Func.f_sign(n);
                     }
-                }
+                },
+                (Func t) => {((Row)(t.data)).simple();}
                               };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void simple()
@@ -2456,6 +2639,7 @@ namespace shard0
                 (Func t) => {return 1;},
                 (Func t) => {return ((Num)(t.data)).sign;},
                 (Func t) => {return ((Many2)(t.data)).sign();},
+                (Func t) => {return 1;},
                 (Func t) => {return 1;},
                 (Func t) => {return 1;},
                 (Func t) => {return 1;},
@@ -2475,10 +2659,11 @@ namespace shard0
                 },
                 (Func t, int d) => {},
                 (Func t, int d) => {((Many2)(t.data)).deeper(d);},
-                (Func t, int d) => {((Row)(t.data)).deeper(d);},
                 (Func t, int d) => {((Many2)(t.data)).deeper(d);},
                 (Func t, int d) => {((Many2)(t.data)).deeper(d);},
-                (Func t, int d) => {((Many2)(t.data)).deeper(d);}
+                (Func t, int d) => {((Many2)(t.data)).deeper(d);},
+                (Func t, int d) => {((Many2)(t.data)).deeper(d);},
+                (Func t, int d) => {((Row)(t.data)).deeper(d);}
                };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void deeper(int d) {
@@ -2488,6 +2673,29 @@ namespace shard0
         public static Func deeper(Func f, int d) {
             Func r = new Func(f);
             Func.deeper_func[r.type](r,d);
+            return r;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Num f_ln(Num n)
+        {
+            if (n.sign < 1) Program.root.sys.error("ln: not pos");
+            Num r;
+            if (Program.root.ln.ContainsKey(n)) r = Program.root.ln[n]; else {
+                int l2 = (int)(BigInteger.Log(n.toint()+2,2)) - 1;
+                Num t = new Num(n);
+                t.down *= BigInteger.Pow(2,l2);
+                t.simple_this(); t.prec();
+                Num y = Num.div(Num.sub(t,Program.root.nums[IDS.znums + 1]),Num.add(t,Program.root.nums[IDS.znums + 1])).simple();
+                r = Num.mul(y,Program.root.nums[IDS.znums + 2]); y = Num.mul(y,y);
+                Num z = new Num(Program.root.ln_prec);
+                Num l = new Num(z);
+                while (z.down > 1) {
+                    z.down -= 2;
+                    l = Num.add(z,Num.mul(y,l));
+                }
+                r.mul(l); r.simple_this(); r.add(Num.mul(Program.root.n_ln2,Program.root.nums[IDS.znums + l2]));
+                Program.root.ln.Add(n, r);
+            }
             return r;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -2510,13 +2718,14 @@ namespace shard0
                 (Func t) => {return ((Vals)(t.data)).get_val(); },
                 (Func t) => {return (Num)(t.data);},
                 (Func t) => {return ((Many2)(t.data)).calc();},
+                (Func t) => {return Func.f_ln(((Many2)(t.data)).calc());},
+                (Func t) => {return Func.f_fact(((Many2)(t.data)).calc());},
+                (Func t) => {return Func.f_int(((Many2)(t.data)).calc());},
+                (Func t) => {return Func.f_sign(((Many2)(t.data)).calc());},
                 (Func t) => {
                     Program.root.sys.error("row:not prep");
                     return new Num(0);
-                },
-                (Func t) => {return Func.f_fact(((Many2)(t.data)).calc());},
-                (Func t) => {return Func.f_int(((Many2)(t.data)).calc());},
-                (Func t) => {return Func.f_sign(((Many2)(t.data)).calc());}
+                }
               };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Num calc()
@@ -2529,13 +2738,10 @@ namespace shard0
                 (Func t, Num e) => {return Num.exp((Num)(t.data),e);},
                 (Func t, Num e) => {return Num.exp(((Many2)(t.data)).calc(),e);},
                 (Func t, Num e) => {
-                    Program.root.sys.error("row: not prep");
-                    return new Num(0);
+                    return Num.exp(Func.f_ln(((Many2)(t.data)).calc()),e);
                 },
                 (Func t, Num e) => {
-                    Num r = ((Many2)(t.data)).calc();
-                    if ((! r.isint()) || (r.sign <= 0) || (r.up >= Program.root.fact.Count())) Program.root.sys.error("fact: wrong");
-                    return Num.exp(Program.root.fact[(int)r.up],e);
+                    return Num.exp(Func.f_fact(((Many2)(t.data)).calc()),e);
                 },
                 (Func t, Num e) => {
                     Num r = ((Many2)(t.data)).calc();
@@ -2545,14 +2751,303 @@ namespace shard0
                 (Func t, Num e) => {
                     int s = ((Many2)(t.data)).calc().sign;
                     return Program.root.nums[((e.up & 1) == 0 ? s*s : s) + IDS.znums];
+                },
+                (Func t, Num e) => {
+                    Program.root.sys.error("row: not prep");
+                    return new Num(0);
                 }
               };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Num calc(Num e)
         {
-            return (e == Program.root.nums[IDS.znums+1] ? Func.calc_func[type](this) : Func.calce_func[type](this,e));
+            return (e == IDS.n1 ? Func.calc_func[type](this) : Func.calce_func[type](this,e));
+        }
+        static public Action<Func,One>[] findvals_func = {
+              (Func t, One o) => {if (! o.exps.ContainsKey(t)) o.exps.Add(new Func(t),new Func(IDS.n1));},
+              (Func t, One o) => {},
+              (Func t, One o) => {((Many2)(t.data)).findvals(o);},
+              (Func t, One o) => {},
+              (Func t, One o) => {},
+              (Func t, One o) => {},
+              (Func t, One o) => {},
+              (Func t, One o) => {}
+        };
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void findvals(One o)
+        {
+            Func.findvals_func[type](this,o);
         }
 
+        static public Action<Func,Vals>[] diff_down_func = {
+              (Func t, Vals a) => {if (t.data == a) t.set1(); else t.set0();},
+              (Func t, Vals a) => {t.set0();},
+              (Func t, Vals a) => {t.data = ((Many2)(t.data)).diff_down(a); t.simple();},
+              (Func t, Vals a) => {},
+
+              (Func t, Vals a) => {},
+              (Func t, Vals a) => {},
+              (Func t, Vals a) => {},
+              (Func t, Vals a) => {}
+        };
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void diff_down(Vals d) 
+        {
+            Func.diff_down_func[type](this,d);
+        }
+
+        static public Func<Func,Func,Vals, Func>[] diffe_down_func = {
+                (Func t, Func e, Vals a) => { //0:0
+                    One o;
+                    if (t.data == a) {
+                        if (e.data == a) {
+                            o = new One(new Func(t),new Func(e));
+                            Many m = new Many(IDS.n1);
+                            m.add(new One(new Func(3,new Many2(new Func(t)))),IDS.n1,1);
+                            o.addto(new Func(new Many2(m)));
+                        } else {
+                            Func tt = new Func(e); tt.add(new Func(IDS.n1),-1);
+                            o = new One (new Func(t),tt); o.addto(new Func(e)); 
+                        }
+                    } else  {
+                        if (e.data == a) {
+                            o = new One(new Func(t),new Func(e)); o.addto(new Func(3,new Many2(new Func(t))));
+                        } else {
+                            return new Func(IDS.n0);
+                        }
+                    }
+                    return new Func(new Many2(o));
+                },
+                (Func t, Func e, Vals a) => {//0:1
+                    if (t.data == a) {
+                        One o = new One (new Func(t),new Func(Num.sub((Num)(e.data),IDS.n1)));
+                        return new Func(new Many2(o,(Num)(e.data)));
+                    }
+                    return new Func(IDS.n0);
+                },
+                (Func t, Func e, Vals a) => {//0:2
+                    Many2 dm = ((Many2)(e.data)).diff_down(a);
+                    One o = new One(new Func(3,new Many2(new Func(t))));
+                    if (t.data == a) {
+                        dm.mul(new One(t),IDS.n1);
+                        o.addto(new Func(dm));
+                        Many2 m0 = new Many2((Many2)(e.data));
+                        m0.add(new Many2(o),1);
+                        Many2 m1 = new Many2((Many2)(e.data));
+                        m1.add(IDS.n1,-1);
+                        One o0 = new One(new Func(t),new Func(m1));
+                        o0.addto(new Func(m0));
+                        return new Func(new Many2(o0));
+                    } else {
+                        o.addto(new Func(dm)); 
+                        o.addto(new Func(t),new Func(e));
+                        return new Func(new Many2(o));
+                    }
+                },
+                (Func t, Func e, Vals a) => {//0:3
+                    if (t.data == a) {
+
+
+
+                    } else {
+
+
+
+
+                    }
+                    return new Func(IDS.n0);
+                },
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+
+
+                (Func t, Func e, Vals a) => {//1:0
+                    if (e.data == a) {
+                        One o = new One(new Func(t),new Func(e)); o.addto(new Func(3,new Many2(new Func(t))));
+                    }
+                    return new Func(IDS.n0);
+                },
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},//1:1
+                (Func t, Func e, Vals a) => {//1:2
+                    Many2 dm = ((Many2)(e.data)).diff_down(a);
+                    One o = new One(new Func(3,new Many2(new Func(t))));
+                    o.addto(new Func(dm)); 
+                    o.addto(new Func(t),new Func(e));
+                    return new Func(new Many2(o));
+                },
+                (Func t, Func e, Vals a) => {//1:3
+
+
+                    return new Func(IDS.n0);
+                },
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+
+                (Func t, Func e, Vals a) => {//2:0
+                    Func _e = new Func(e); _e.add(new Func(IDS.n1),-1);
+                    One o = new One(new Func(t),_e);
+                    Many2 dm = ((Many2)(t.data)).diff_down(a);
+                    if (e.data == a) {
+                        One om = new One(new Func(t)); 
+                        om.addto(new Func(3,new Many2((Many2)(t.data))));
+                        dm.mul(new One(e),IDS.n1);
+                        Many m0 = new Many(om);
+                        m0.add(new One(new Func(dm)),1);
+                        o.addto(new Func(new Many2(m0)));
+                    } else {
+                        o.addto(new Func(dm));
+                        o.addto(new Func(e));
+                    }
+                    return new Func(new Many2(o));
+                },
+                (Func t, Func e, Vals a) => {//2:1
+                    One o = new One(new Func(t),new Func(Num.sub((Num)(e.data),IDS.n1)));
+                    Many2 dm = ((Many2)(t.data)).diff_down(a);
+                    o.addto(new Func(dm));
+                    return new Func(new Many2(o));
+                },
+                (Func t, Func e, Vals a) => {//2:2
+                    Many2 dt = ((Many2)(t.data)).diff_down(a);
+                    Many2 de = ((Many2)(e.data)).diff_down(a);
+
+                    One o0 = new One(new Func(dt)); o0.addto(new Func(e));
+                    One o1 = new One(new Func(de)); o1.addto(new Func(t));
+                    o1.addto(new Func(3,new Many2((Many2)(t.data))));
+                    Many m = new Many(o0); m.add(o1,1);
+
+                    Many2 _e = new Many2((Many2)(e.data)); _e.add(IDS.n1,-1);
+                    One o = new One(new Func(t),new Func(_e));
+
+                    o.addto(new Func(new Many2(m)));
+
+                    return new Func(new Many2(o));
+                },
+                (Func t, Func e, Vals a) => {//2:3
+                    
+                    
+                    return new Func(IDS.n0);
+                },
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+
+                (Func t, Func e, Vals a) => {//3:0
+                    Many2 dm = ((Many2)(t.data)).diff_down(a);
+                    if (e.data == a) {
+                        One o0 = new One(new Func(t),new Func(Program.root.nums[IDS.znums-1]));
+                        o0.addto(new Func(new Many2((Many2)(t.data))),new Func(Program.root.nums[IDS.znums-1]));
+                        dm.mul(new One(e),IDS.n1);
+                        o0.addto(new Func(dm));
+                        Many _m = new Many(new Func(3,new Many2(new Func(t))));
+                        _m.add(o0,1);
+                        One o = new One(new Func(t), new Func(e));
+                        o.addto(new Func(new Many2(_m)));
+                        return new Func(new Many2(o));
+                    } else {
+                        Many2 m = new Many2((Many2)(t.data));
+                        One o = new One(new Func(dm));
+                        o.addto(new Func(m),new Func(Program.root.nums[IDS.znums-1]));
+                        Many _m = new Many(new Func(e)); _m.add(new One(),IDS.n1,-1);
+                        o.addto(new Func(t),new Func(new Many2(_m)));
+                        o.addto(new Func(e));
+                        return new Func(new Many2(o));
+                    }
+                },
+                (Func t, Func e, Vals a) => {//3:1
+                    Many2 m = new Many2((Many2)(t.data));
+                    Many2 dm = ((Many2)(t.data)).diff_down(a);
+                    One o = new One(new Func(dm));
+                    o.addto(new Func(m),new Func(Program.root.nums[IDS.znums-1]));
+                    o.addto(new Func(t),new Func(Num.sub((Num)(e.data),IDS.n1)));
+                    return new Func(new Many2(o,(Num)(e.data)));
+                },
+                (Func t, Func e, Vals a) => {//3:2
+                    Many2 dt = ((Many2)(t.data)).diff_down(a);
+                    Many2 de = ((Many2)(e.data)).diff_down(a);
+
+                    One o0 = new One(new Func(dt)); o0.addto(new Func(new Many2((Many2)(e.data))));
+                    o0.addto(new Func(new Many2((Many2)(t.data))),new Func(Program.root.nums[IDS.znums-1]));
+                    o0.addto(new Func(t),new Func(Program.root.nums[IDS.znums-1]));
+                    One o1 = new One(new Func(3,new Many2(new Func(t))));
+                    o1.addto(new Func(de));
+                    Many _m = new Many(o0); _m.add(o1,1);
+
+                    One o = new One(new Func(t), new Func(e));
+                    o.addto(new Func(new Many2(_m)));
+                    
+                    return new Func(new Many2(o));
+                },
+                (Func t, Func e, Vals a) => {//3:3
+                    Many2 dt = ((Many2)(t.data)).diff_down(a);
+                    Many2 de = ((Many2)(e.data)).diff_down(a);
+
+                    One o0 = new One(new Func(dt)); o0.addto(new Func(e));
+                    o0.addto(new Func(new Many2((Many2)(t.data))),new Func(Program.root.nums[IDS.znums-1]));
+                    o0.addto(new Func(t),new Func(Program.root.nums[IDS.znums-1]));
+                    One o1 = new One(new Func(3,new Many2(new Func(t))));
+                    o1.addto(new Func(de));
+                    o1.addto(new Func(new Many2((Many2)(e.data))),new Func(Program.root.nums[IDS.znums-1]));
+                    Many _m = new Many(o0); _m.add(o1,1);
+
+                    One o = new One(new Func(t), new Func(e));
+                    o.addto(new Func(new Many2(_m)));
+                    
+                    return new Func(new Many2(o));
+                    
+                },
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);}, //4:0
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);}, //5:0
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);}, //6:0
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);}, //7:0
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(IDS.n0);}
+               };
+
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Func diff_down(Func exp, Vals d) 
+        {
+            Func r = Func.diffe_down_func[type*Func.types + exp.type](this,exp,d);
+            r.simple(); return r;
+        }
     }
 
     class MAO_dict {
@@ -2622,7 +3117,6 @@ namespace shard0
             {
                 Num sum = new Num(exps[e0]);
                 sum.add(exps[e1]);
-                sum.simple();
                 eadd[ee] = exp(sum);
                 eflg_a[ee] = ((sum.up == 0) || (exps[e1].up == 0) || (sum.sign != exps[e1].sign));
             }
@@ -3287,12 +3781,29 @@ namespace shard0
         {
             branch(now,i,f);
         }
-
+        Func infunc() {
+            Func r;
+            string _n = get(isname);
+            if (isequnow('(')) {
+                if (Program.root.fnames.ContainsKey(_n)) r = fpars(_n,true);
+                else {
+                    Vars vr = Program.root.find_var(_n);
+                    if ((vr.var == null) || (vr.var.type != 7)) Program.root.sys.error("not row");
+                    next(); if (!isequnow(isabc)) Program.root.sys.error("wrong row call");
+                    Vals vl = Program.root.find_val(get(isname));
+                    if (!isequnow(',')) Program.root.sys.error("wrong row call");
+                    next(); if (!isequnow(isnum)) Program.root.sys.error("wrong row call");
+                    int st; Int32.TryParse(get(isnum),out st);
+                    r = new Func(((Row)(vr.var.data)).prep_calc(vl,st));
+                }
+            } else r = new Func(Program.root.find_val(_n));
+            return r;
+        }
         public KeyValuePair<One,Num> opars()
         {
             bool repeat;
             Func eval = null;
-            Func ex = new Func(Program.root.nums[IDS.znums+1]);
+            Func ex = new Func(IDS.n1);
             One ro = new One(); Num rn = new Num(now == '-' ? -1: +1);
             if ((now == '-') || (now == '+')) next();
             bool l = true;
@@ -3304,14 +3815,13 @@ namespace shard0
                 } else {
                     if (ro.exps.ContainsKey(eval)) ro.exps[eval].add(ex,1); else ro.exps.Add(eval,ex);
                 }
-                eval = null; ex = new Func(Program.root.nums[IDS.znums+1]);
+                eval = null; ex = new Func(IDS.n1);
                 }
             };
             char[] pc = {isabc,isnum,'{','('};
             Action[] pf = {
                       () => { 
-                          Vals _v = Program.root.find_val(get(isname));
-                          ex.mul(new Func(new One(new Func(_v)),Program.root.nums[IDS.znums+1]));
+                          ex.mul(new Func(new One(infunc()),IDS.n1));
                       },
                       () => ex.mul(new Num(get(isnum))),
                       () => ex.mul(calc()),
@@ -3334,21 +3844,7 @@ namespace shard0
                 };
             char[] nc = {isabc,isnum,'{','('};
             Action[] nf = {
-                () => {string _n = get(isname);
-                        if (isequnow('(')) {
-                            if (Program.root.fnames.ContainsKey(_n)) eval = fpars(_n,true);
-                            else {
-                                Vars vr = Program.root.find_var(_n);
-                                if ((vr.var == null) || (vr.var.type != 3)) Program.root.sys.error("not row");
-                                next(); if (!isequnow(isabc)) Program.root.sys.error("worng row call");
-                                Vals vl = Program.root.find_val(get(isname));
-                                if (!isequnow(',')) Program.root.sys.error("worng row call");
-                                next(); if (!isequnow(isnum)) Program.root.sys.error("worng row call");
-                                int st; Int32.TryParse(get(isnum),out st);
-                                eval = new Func(((Row)(vr.var.data)).prep_calc(vl,st));
-                            }
-                        } else eval = new Func(Program.root.find_val(_n));
-                      },
+                () => {eval = infunc();},
                 () => {eval = new Func(new Num(get(isnum)));},
                 () => {eval = new Func(calc());},
                 () => {eval = fpars("",true);},
@@ -3385,7 +3881,7 @@ namespace shard0
         }
         public Many2 m2pars()
         {
-            return new Many2(mpars(),new Many(Program.root.nums[IDS.znums+1]));
+            return new Many2(mpars(),new Many(IDS.n1));
         }
         public Func fpars(string _fn, bool _pair)
         {
@@ -3394,8 +3890,7 @@ namespace shard0
             if (! Program.root.fnames.ContainsKey(_fn)) sys.error("parse: func");
             tp = Program.root.fnames[_fn];
             if (_pair) { if (isequnow('(')) next(); else sys.error("parse: func"); }
-            switch (tp) { 
-                case 3:
+            if (tp == 7) {
                     r = new Func(new Row());
                     if (! isequnow(isnum)) sys.error("parse:row");
                     ((Row)(r.data)).point = get_int();
@@ -3407,11 +3902,7 @@ namespace shard0
                         if (! isequnow(',')) break;
                         next(); i++;
                     }
-                    break;
-                default:
-                    r = new Func(tp,m2pars());
-                    break;
-            }
+            } else r = new Func(tp,m2pars());
             if (d < deep.Count) next();
             r.simple(); return r;
         }
@@ -3528,16 +4019,17 @@ namespace shard0
                       ret = print((Num)(f.data),false,! inpow,2);
                   },
                   () => {ret = print((Many2)(f.data));},
+                  () => {ret = print((Many2)(f.data));},
+                  () => {ret = print((Many2)(f.data));},
+                  () => {ret = print((Many2)(f.data));},
+                  () => {ret = print((Many2)(f.data));},
                   () => {
                       ret = "(" + ((Row)(f.data)).point.ToString();
                       foreach(KeyValuePair<int,Many2> m in ((Row)(f.data)).data) {
                           ret += "," + print(m.Value);
                       }
                       ret += ")";
-                  },
-                  () => {ret = print((Many2)(f.data));},
-                  () => {ret = print((Many2)(f.data));},
-                  () => {ret = print((Many2)(f.data));}
+                  }
                  };
             p[f.type]();
             return Program.root.funcs_name[f.type] + ret;
@@ -3554,7 +4046,7 @@ namespace shard0
         public Num now,from,step,to;
         public Fdim(Num n)
         {
-            from = n; now = new Num(n); step = Program.root.nums[IDS.znums]; to = Program.root.nums[IDS.znums];
+            from = n; now = new Num(n); step = IDS.n0; to = IDS.n0;
         }
         public Fdim(Num f, Num s, Num t)
         {
@@ -3566,7 +4058,7 @@ namespace shard0
         {
             bool r = false;
             if (step.sign != 0) {
-                now = Num.add(now,step).simple();
+                now = Num.add(now,step);
                 if (to.great(now)) now.set(from); else r = true;
             }
             return r;
@@ -3591,7 +4083,7 @@ namespace shard0
             Num t = Num.sub(n,nfr);
             if (ndiv.sign != t.sign) return ifr;
             t.mul(ndiv);
-            if (Program.root.nums[IDS.znums+1].great(t)) return ifr + isiz;
+            if (IDS.n1.great(t)) return ifr + isiz;
             t.mul(isiz);
             return ifr + (int)(t.toint());
         }
@@ -3625,7 +4117,7 @@ namespace shard0
                         case '.':
                             int p = 0; Int32.TryParse((str + "   ").Substring(1,3), out p);
                             Num tn = new Num(x.get_val().toint());
-                            s = tn.up.ToString().Trim() + ".";
+                            s = (tn.sign < 0 ? "-" : "+") + tn.up.ToString().Trim() + ".";
                             if (p > 0) {
                                 tn = Num.sub(x.get_val(),tn); tn.add(1); tn.mul(Program.root.e10[p]);
                                 s += tn.toint().ToString().Trim().Substring(1);
@@ -3676,8 +4168,11 @@ namespace shard0
             par.lnext(); 
             BigInteger e; if (! BigInteger.TryParse(par.get(Parse.isnum),out e)) par.sys.error("no");
             root = new IDS(e, par.sys);
-            par.lnext(); root.var0 = root.findadd_var(par.get(Parse.isabc)); 
-            par.next(); root.var1 = root.findadd_var(par.get(Parse.isabc));
+            par.lnext(); root.v_e = root.findadd_var(par.get(Parse.isname)); root.n_e = par.calc(); root.v_e.var = new Func(root.n_e);
+            par.lnext(); root.v_ln2 = root.findadd_var(par.get(Parse.isname)); root.n_ln2 = par.calc(); root.v_ln2.var = new Func(root.n_ln2);
+            par.lnext(); root.v_pi = root.findadd_var(par.get(Parse.isname)); root.n_pi = par.calc(); root.v_pi.var = new Func(root.n_pi);
+            par.lnext(); root.v_x = root.findadd_var(par.get(Parse.isname)); par.next(); root.v_n = root.findadd_var(par.get(Parse.isname));
+            root.v_res = 4;
             Thread calc = new Thread(doit);
             calc.Start();
             Application.Run(m0);
@@ -3691,10 +4186,30 @@ namespace shard0
                 str = s; val = v; nout = o;
             }
         };
+        static Ftoint d_toint(SortedDictionary<Vars,Fdim> fdim, Vals v, int fr, int sz) {
+            Ftoint r;
+            if (par.isequnow('{')) r = new Ftoint(par.calc(),par.calc(),fr,fr+sz,false);
+            else {
+                if ((! fdim.ContainsKey(v.var)) || (fdim[v.var].step.sign == 0)) root.sys.error("draw: no interval");
+                r = new Ftoint(fdim[v.var].from, fdim[v.var].to,fr,fr+sz,false);
+            }
+            return r;
+        }
+        static List<Func> d_vals(Vars v)
+        {
+            List<Func> r = new List<Func>();
+            One o = new One();
+            v.var.findvals(o);
+            foreach(KeyValuePair<Func,Func> m in o.exps) r.Add(m.Key);
+            return r;
+        }
+
         static void doit() {
             Vars var0;
             Vals val0,val1;
+            List<Func> id;
             string val,name;
+            bool wasdraw = false;
             while (par.sys.has)
             {
                 if (par.lnext()) 
@@ -3706,7 +4221,7 @@ namespace shard0
                             case '=':
                                 if (root.fnames.ContainsKey(name)) root.sys.error("reserved name");
                                 var0 = root.findadd_var(name);
-                                if (var0.ind < 2) root.sys.error("reserved var");
+                                if (var0.ind < root.v_res) root.sys.error("reserved var");
                                 par.next();
                                 var0.var = (par.isequnow(Parse.isend) ? null : par.fpars("",false));
                                 par.sys.wline(0,par.print(var0));
@@ -3721,33 +4236,28 @@ namespace shard0
                                 {
                                     _fast = true; par.next(); mao = new MAO_dict(par.get_int()); par.next();
                                 }
-                                List<Func> _id = new List<Func>();
                                 if (par.isequnow('*')) {
-                                    foreach (KeyValuePair<string,Vars> v in root.var) {
-                                        if ((v.Value != var0) && (v.Value.var != null)) {
-                                            int i = 0; while (i < v.Value.vals.Length) {
-                                                _id.Add(new Func(v.Value.vals[i]));
-                                            }
-                                        }
+                                    id = d_vals(var0); par.next();
+                                } else {
+                                    id = new List<Func>();
+                                    while (par.isequnow(Parse.isname)) {
+                                        val = par.get(Parse.isname); 
+                                        if (par.isequnow(',')) par.next();
+                                        val0 = root.find_val(val);
+                                        if (val0.var == var0) par.sys.error(name + " $recursion - look recursion");
+                                        if (val0.var.var != null) id.Add(new Func(val0));
                                     }
-                                    par.next();
-                                } else while (par.isequnow(Parse.isname)) {
-                                    val = par.get(Parse.isname); 
-                                    if (par.isequnow(',')) par.next();
-                                    val0 = root.find_val(val);
-                                    if (val0.var == var0) par.sys.error(name + " $recursion - look recursion");
-                                    if (val0.var.var != null) _id.Add(new Func(val0));
                                 }
                                 if (par.isequnow('@')) {
                                     _exp0=true; par.next();
                                     if (_fast) root.sys.error("cant @ on !");
                                 }
                                 if (par.isequnow('$')) {_div=true; par.next();}
-                                foreach (Func i in _id) {
+                                foreach (Func i in id) {
                                     var0.var.revert(i);
                                 }
                                 if (_fast) mao.val(new Func(var0.vals[0]));
-                                foreach (Func i in _id) {
+                                foreach (Func i in id) {
                                     if (_fast) mao.expand(0,mao.val(i)); else var0.var.expand(i);
                                 }
                                 if (_exp0) var0.var.expand();
@@ -3757,11 +4267,18 @@ namespace shard0
                                 {
                                     ((Many2)(var0.var.data)).down.div();
                                     ((Many2)(var0.var.data)).up.mul(((Many2)(var0.var.data)).down.data.ElementAt(0).Key,((Many2)(var0.var.data)).down.data.ElementAt(0).Value);
-                                    ((Many2)(var0.var.data)).down = new Many(Program.root.nums[IDS.znums+1]);
+                                    ((Many2)(var0.var.data)).down = new Many(IDS.n1);
                                 }
                                 par.sys.wline(0,par.print(var0));
-                                
                             break;
+                            case '<':
+                                var0 = root.find_var(name);
+                                if (var0.var == null) par.sys.error("empty name");
+                                par.next();
+                                val0 = root.find_val(par.get(Parse.isname));
+                                var0.var.diff_down(val0);
+                                par.sys.wline(0,par.print(var0));
+                                break;
                         }
                     } else {
                         switch (par.now) 
@@ -3805,7 +4322,7 @@ namespace shard0
                                             break;
                                         case '[':
                                             int _fx,_sx,_fy,_sy;
-                                            par.next();
+                                            par.next(); wasdraw = true;
                                             if (par.isequnow('[')) {
                                                 par.next(); _fx = par.get_int();
                                                 par.next(); _sx = par.get_int();
@@ -3817,25 +4334,25 @@ namespace shard0
                                                 _fx = 0; _sx = m0.sx-1; _fy = 0; _sy = m0.sy-1;
                                             }
                                             val0 = root.find_val(par.get(Parse.isname));
-                                            Ftoint ftx = new Ftoint(par.calc(),par.calc(),_fx,_fx+_sx,false);
+                                            Ftoint ftx = d_toint(fdim,val0,_fx,_sx);
                                             if (! par.isequnow(',')) root.sys.error("draw:wrong"); par.next();
                                             val1 = root.find_val(par.get(Parse.isname));
-                                            Ftoint fty = new Ftoint(par.calc(),par.calc(),_fy,_fy+_sy,false);
+                                            Ftoint fty = d_toint(fdim,val1,_fy,_sy);
                                             Fdo _fd = new Fdo(val0,ftx,val1,fty,0,0,0);
                                             if (! par.isequnow(',')) root.sys.error("draw:wrong"); par.next();
                                             if (par.isequnow(Parse.isnum)) _fd.ir = par.get_int(); else {
                                                 _fd.r = root.find_val(par.get(Parse.isname));
-                                                _fd.tr = new Ftoint(par.calc(),par.calc(),0,255,false);
+                                                _fd.tr = d_toint(fdim,_fd.r,0,255);
                                             }
                                             if (! par.isequnow(',')) root.sys.error("draw:wrong"); par.next();
                                             if (par.isequnow(Parse.isnum)) _fd.ig = par.get_int(); else {
                                                 _fd.g = root.find_val(par.get(Parse.isname));
-                                                _fd.tg = new Ftoint(par.calc(),par.calc(),0,255,false);
+                                                _fd.tg = d_toint(fdim,_fd.g,0,255);
                                             }
                                             if (! par.isequnow(',')) root.sys.error("draw:wrong"); par.next();
                                             if (par.isequnow(Parse.isnum)) _fd.ib = par.get_int(); else {
                                                 _fd.b = root.find_val(par.get(Parse.isname));
-                                                _fd.tb = new Ftoint(par.calc(),par.calc(),0,255,false);
+                                                _fd.tb = d_toint(fdim,_fd.b,0,255);
                                             }
                                             par.next(); fdo.Add(_fd);
                                             break;
@@ -3859,6 +4376,7 @@ namespace shard0
             }
             par.sys.wline(0,"finished, vars = " + (root.var.Count()).ToString());
             par.sys.close();
+            if (! wasdraw) Environment.Exit(-1);
         }
     }
 }
