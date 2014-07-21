@@ -13,6 +13,7 @@ using System.Runtime.CompilerServices;
 
 namespace shard0
 {
+/*
     public partial class Shard0 : Form
     {
         private System.ComponentModel.IContainer components = null;
@@ -121,27 +122,27 @@ namespace shard0
             base.Dispose(disposing);
         }
     }
-
+*/
     class Exps_n
     {
-        public SortedDictionary<Num,Num> data;
-        public Num val;
-        public Exps_n(Num v)
+        public SortedDictionary<Complex,Complex> data;
+        public Complex val;
+        public Exps_n(Complex v)
         {
-            data = new SortedDictionary<Num,Num>();
+            data = new SortedDictionary<Complex,Complex>();
             val = v;
-            data.Add(IDS.n0,IDS.n1);
-            data.Add(IDS.n1,v);
+            data.Add(new Complex(0),new Complex(1));
+            data.Add(new Complex(1),v);
         }
-        public Num exp(Num e) //link to
+        public Complex exp(Complex e)
         {
             if (! data.ContainsKey(e)) {
-                Num v = new Num(val); v.exp(e);
+                Complex v = new Complex(val); v.exp(e);
                 data.Add(e,v);
             }
             return data[e];
         }
-        public Num exp() //link to
+        public Complex exp()
         {
             return val;
         }
@@ -154,7 +155,7 @@ namespace shard0
         public Exps_n val;
         public Vars var;
         public int deep;
-        public Vals(Vars vr, Num vl, int d)
+        public Vals(Vars vr, Complex vl, int d)
         {
             val = new Exps_n(vl);
             var = vr; deep = d; ind = Vals._ind++;
@@ -172,11 +173,11 @@ namespace shard0
            }
            return val;
         }
-        public Num get_val(Num e)
+        public Complex get_val(Complex e)
         {
            return get_exp().exp(e);
         }
-        public Num get_val()
+        public Complex get_val()
         {
            return get_exp().exp();
         }
@@ -194,7 +195,7 @@ namespace shard0
         public Func var;
         public int stat;
         public string name;
-        public Vars(string n, int valn, Num vl)
+        public Vars(string n, int valn, Complex vl)
         {
             name = n; stat = 0; var = null; vals = new Vals[valn+1];
             int i = 0; while (i <= valn) {
@@ -202,7 +203,7 @@ namespace shard0
             }
             ind = Vars._ind++;
         }
-        public Vars(string n, Num[] vl)
+        public Vars(string n, Complex[] vl)
         {
             name = n; stat = 0; var = null; vals = new Vals[vl.Length+1];
             int i = 0; while (i <= vl.Length) {
@@ -210,7 +211,7 @@ namespace shard0
             }
             ind = Vars._ind++;
         }
-        public void set_now(Num v0)
+        public void set_now(Complex v0)
         {
             if (stat != Program.root.stat_calc) {
                 int i = vals.Length-1;
@@ -232,7 +233,7 @@ namespace shard0
     class IDS
     {
         public const int znums = 100;
-        public static Num n0,n1,n_1,ln_prec,n_e_full,n_e,n_pi_full,n_pi,n_ln2_full,n_ln2;
+        public static Num ln_prec,n_e_full,n_e,n_pi_full,n_pi,n_ln2_full,n_ln2;
         public static Fileio sys;
         public static Parse par;
         public static IDS root;
@@ -242,6 +243,7 @@ namespace shard0
         public static Num[] e2,e10, sqr2, nums;
         public static SortedDictionary<Num,Num> ln;
         public static Func now_func = null;
+        public static int sx,sy;
         public int stat_uncalc, stat_calc;
         public SortedDictionary<string,Vars> var;
         public Vars v_e,v_pi,v_ln2,v_x,v_n;
@@ -275,9 +277,10 @@ namespace shard0
 
             IDS.nums = new Num[IDS.znums*2];
             i = 0; while (i < IDS.znums*2) {IDS.nums[i] = new Num(i-IDS.znums); i++;}
-            IDS.n0 = nums[IDS.znums];
-            IDS.n1 = nums[IDS.znums+1];
-            IDS.n_1 = nums[IDS.znums-1];
+            Complex._0 = new Complex(0);
+            Complex._r1 = new Complex(1);
+            Complex._i1 = new Complex(nums[IDS.znums], nums[IDS.znums+1]);
+            Complex._r_1 = new Complex(-1);
             IDS.n_pi_full = new Num("3.14159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848111745028410270193852110555964462294895493038196442881097566593344612847564823378678316527120190914564856692346034861045432664821339360726024914127372458700660631558817488152092096282925409171536436789259036001133053054882046652138414695194151160943305727036575959195309218611738193261179310511854807446237996274956735188575272489122793818301194912983367336244065664308602139494639522473719070217986094370277053921717629317675238467481846766940513200056812714526356082778577134275778960917363717872146844090122495343014654958537105079227968925892354201995611212902196086403441815981362977477130996051870721134999999837297804995105973173281609631859502445945534690830264252230825334468503526193118817101000313783875288658753320838142061717766914730359825349042875546873115956286388235378759375195778185778053217122680661300192787661119590921642019893809525720106548586327886593615338182796823030195203530185296899577362259941389124972177528347913151557485724245415069595082953311686172785588907509838175463746493931925506040092770167113900984882401285836160356370766010471018194295559619894676783744944825537977472684710404753464620804668425906949129331367702898915210475216205696602405803815019351125338243003558764024749647326391419927260426992279678235478163600934172164121992458631503028618297455570674983850549458858692699569092721079750930295532116534498720275596023648066549911988183479775356636980742654252786255181841757467289097777279380008164706001614524919217321721477235014144197356854816136115735255213347574184946843852332390739414333454776241686251898356948556209921922218427255025425688767179049460165346680498862723279178608578438382796797668145410095388378636095068006422512520511739298489608412848862694560424196528502221066118630674427862203919494504712371378696095636437191728");
             IDS.n_e_full = new Num("2.71828182845904523536028747135266249775724709369995957496696762772407663035354759457138217852516642742746639193200305992181741359662904357290033429526059563073813232862794349076323382988075319525101901157383418793070215408914993488416750924476146066808226480016847741185374234544243710753907774499206955170276183860626133138458300075204493382656029760673711320070932870912744374704723069697720931014169283681902551510865746377211125238978442505695369677078544996996794686445490598793163688923009879312773617821542499922957635148220826989519366803318252886939849646510582093923982948879332036250944311730123819706841614039701983767932068328237646480429531180232878250981945581530175671736133206981125099618188159304169035159888851934580727386673858942287922849989208680582574927961048419844436346324496848756023362482704197862320900216099023530436994184914631409343173814364054625315209618369088870701676839642437814059271456354906130310720851038375051011574770417189861068739696552126715468895703503540212340784981933432106817012100562788023519303322474501585390473041995777709350366041699732972508868769664035557071622684471625607988265178713419512466520103059212366771943252786753985589448969709640975459185695638023637016211204774272283648961342251644507818244235294863637214174023889344124796357437026375529444833799801612549227850925778256209262264832627793338656648162772516401910590049164499828931505660472580277863186415519565324425869829469593080191529872117255634754639644791014590409058629849679128740687050489585867174798546677575732056812884592054133405392200011378630094556068816674001698420558040336379537645203040243225661352783695117788386387443966253224985065499588623428189970773327617178392803494650143455889707194258639877275471096295374152111513683506275260232648472870392076431005958411661205452970302364725492966693811513732275364509888903136020572481765851180630364428123149655070475102544650117272115551948668508003685322818");
             IDS.n_ln2_full = new Num("0.69314718055994530941723212145817656807550013436025525412068000949339362196969471560586332699641868754200148102057068573368552023575813055703267075163507596193072757082837143519030703862389167347112335011536449795523912047517268157493206515552473413952588295045300709532636664265410423915781495204374043038550080194417064167151864471283996817178454695702627163106454615025720740248163777338963855069526066834113727387372292895649354702576265209885969320196505855476470330679365443254763274495125040606943814710468994650622016772042452452961268794654619316517468139267250410380254625965686914419287160829380317271436778265487756648508567407764845146443994046142260319309673540257444607030809608504748663852313818167675143866747664789088143714198549423151997354880375165861275352916610007105355824987941472950929311389715599820565439287170007218085761025236889213244971389320378439353088774825970171559107088236836275898425891853530243634214367061189236789192372314672321720534016492568727477823445353476481149418642386776774406069562657379600867076257199184734022651462837904883062033061144630073719489002743643965002580936519443041191150608094879306786515887090060520346842973619384128965255653968602219412292420757432175748909770675268711581705113700915894266547859596489065305846025866838294002283300538207400567705304678700184162404418833232798386349001563121889560650553151272199398332030751408426091479001265168243443893572472788205486271552741877243002489794540196187233980860831664811490930667519339312890431641370681397776498176974868903887789991296503619270710889264105230924783917373501229842420499568935992206602204654941510613918788574424557751020683703086661948089641218680779020818158858000168811597305618667619918739520076671921459223672060253959543654165531129517598994005600036651356756905124592682574394648316833262490180382424082423145230614096380570070255138770268178516306902551370323405380214501901537402950994226299577964742713");
@@ -315,7 +318,7 @@ namespace shard0
             }
 
             ozero = new One();
-            fzero = new Func(IDS.nums[IDS.znums]);
+            fzero = new Func(new Complex(0));
             i = 2; while (i < funcs_name.Count()) { fnames.Add(funcs_name[i],i); i++; }
             fact = new Num[1000];
             b = new BigInteger(1); c = new BigInteger(1); fact[0] = new Num(b);
@@ -347,7 +350,7 @@ namespace shard0
             if (var.ContainsKey(n0)) {
                 if (var[n0].vals.Length != i+1) sys.error(n0 + " wrong deep");
             } else {
-                var.Add(n0,new Vars(n0,i,nums[IDS.znums]));
+                var.Add(n0,new Vars(n0,i,new Complex(0)));
             }
             return var[n0];
         }
@@ -373,7 +376,17 @@ namespace shard0
         public void exp2() {
             T m0 = new T(); copy(ref m0); mul(m0);
         }
+        public void exp(BigInteger ex)
+        {
+            if (ex > IDS.exp_max) IDS.sys.error("exp: too");
+            _exp((int)ex);
+        }
         public void exp(int ex)
+        {
+            if (ex > IDS.exp_max) IDS.sys.error("exp: too");
+            _exp(ex);
+        }
+        public void _exp(int ex)
         {
             int _e;
             _e = ((ex < 0) ? -ex : ex);
@@ -429,6 +442,10 @@ namespace shard0
         {
             set(n,s);
         }
+        static public Num get(int r) 
+        {
+            if (Math.Abs(r) < IDS.znums) return IDS.nums[IDS.znums + r]; else return new Num(r);
+        }
         static public Num add(Num a0, Num a1, int s)
         {
             Num r = new Num(a0); r.add(a1,s);
@@ -470,13 +487,21 @@ namespace shard0
         }
         static public Num common(Num n0, Num n1)//no new
         {
-            if (n0.sign != n1.sign) return IDS.n0;
+            if (n0.sign != n1.sign) return IDS.nums[IDS.znums];
             if (n0.up*n1.down > n1.up*n0.down) return n1; else return n0;
             
+        }
+        static public Num extract(Num n0, Num n1)
+        {
+            Num ret = new Num(n0); ret.extract(n1); return ret;
         }
         public Num(BigInteger u)
         {
             set(u);
+        }
+        public Num(int s, BigInteger u, BigInteger d)
+        {
+            sign = s; up = u; down = d;
         }
         public Num(string s)
         {
@@ -516,10 +541,6 @@ namespace shard0
             } else down = 1;
             BigInteger.TryParse(ss[0], out up);
             sign = (up > 0 ? 1 : 0);
-        }
-        private Num(int _s, BigInteger _u, BigInteger _d)
-        {
-            sign = _s; up = _u; down = _d;
         }
 
         public void set(BigInteger _u)
@@ -566,10 +587,6 @@ namespace shard0
         public void min(Num a)
         {
             if (a.great(this)) set(a);
-        }
-        public bool equ(Num a)
-        {
-            return ((sign == a.sign) && (up == a.up) && (down == a.down));
         }
 
         public bool isint()
@@ -762,15 +779,14 @@ namespace shard0
         {
             int se; bool dv = (down > up);
             if ((sign == 0) || isint(1) || ex.isint(1)) return;
-            if (ex.up == 0) {set1(); return; }
+            if (ex.sign == 0) {set1(); return;}
             Num _e = new Num(ex), r0 = (dv ? new Num(sign,down,up) : new Num(this));
             se = _e.sign; _e.sign = 1;
             BigInteger _ei = _e.toint();
-            if (_ei > IDS.exp_max) IDS.sys.error("exp too large");
             if (_ei > 0) {
                 _e.up -= _ei*_e.down;
                 Num r1 = new Num(r0);
-                r0.exp((int)(_ei));
+                r0.exp(_ei);
                 r0.mul(r1.sq_exp(_e));
             } else r0 = r0.sq_exp(_e);
             sign = r0.sign; 
@@ -864,22 +880,6 @@ namespace shard0
         {
             return (double)(sign * up) / (double)(down);
         }
-        public string print(string plus, string minus, string non_one)
-        {
-            string s0; 
-            s0 = ((sign < 0) ? minus : plus);
-            if ((non_one == "") || (! isint(1))) {
-                s0 += up.ToString().Trim();
-                if (down > 1) s0 += "/" + down.ToString().Trim();
-                s0 +=  non_one;
-            }
-            return s0;
-        }
-        public string toname(bool group) {
-            if (isint(0)) return "0";
-            if (isint(1) && group) return "";
-            return (sign < 0 ? "_" : "") + up.ToString().Trim() + (down > 1 ? ("_" + down.ToString().Trim()) : "");
-        }
         public int CompareTo(object obj) {
             if (obj == null) return 1;
             Num k = obj as Num;
@@ -889,92 +889,294 @@ namespace shard0
             return (u0 < u1 ? -1 : 1);
         }
     }
-    class Complex: Power<Complex>, IPower
+    class Complex: Power<Complex>, IPower, IComparable
     {
-        Num k, i;
-        public Complex(Num _k, Num _i) 
-        {
-            k = new Num(_k);
-            i = new Num(_i);
+        public static Complex _0,_r1,_i1,_r_1;
+        public Num r, i;
+        Num s;
+        public static Complex exp(Complex ex, Complex p) {
+            Complex rt = new Complex(ex);
+            rt.exp(p);
+            return rt;
         }
-        public Complex(Num _k)
+        public static Complex exp(Complex ex, int p) {
+            Complex rt = new Complex(ex);
+            rt.exp(p);
+            return rt;
+        }
+        static public Complex max(Complex m0, Complex m1)//no new 
         {
-            k = new Num(_k);
-            i = new Num(0);
+            if (m0.great(m1)) return m1; else return m0;
+        }
+        static public Complex min(Complex m0, Complex m1) //no new
+        {
+            if (m0.great(m1)) return m0; else return m1;
+        }
+
+        static public Complex common(Complex n0, Complex n1)
+        {
+            return new Complex(Num.common(n0.r,n1.r),Num.common(n0.r,n1.r));
+        }
+
+        static public Complex neg(Complex a)
+        {
+            Complex r = new Complex(a); r.neg();
+            return r;
+        }
+        static public Complex add(Complex a0, Complex a1)
+        {
+            Complex r = new Complex(a0); r.add(a1);
+            return r;
+        }
+        static public Complex sub(Complex s0, Complex s1)
+        {
+            Complex r = new Complex(s0); r.sub(s1);
+            return r;
+        }
+        static public Complex _div(Complex d0)
+        {
+            Complex r = new Complex(d0); r.div();
+            return r;
+        }
+        static public Complex mul(Complex m0, Complex m1)
+        {
+            Complex r = new Complex(m0); r.mul(m1);
+            return r;
+        }
+        static public Complex div(Complex d0, Complex d1)
+        {
+            Complex r = new Complex(d0); r.div(d1);
+            return r;
+        }
+
+        public Complex(Num _r, Num _i) 
+        {
+            r = new Num(_r);
+            i = new Num(_i);
+            s = null;
+        }
+        public Complex(int _r, string _s)
+        {
+            r = Num.get(_r);
+            i = new Num(_s);
+            s = null;
+        }
+        public Complex(string _s)
+        {
+            r = new Num(_s);
+            i = IDS.nums[IDS.znums];
+            s = r;
+        }
+        public Complex(int _r)
+        {
+            r = Num.get(_r);
+            i = IDS.nums[IDS.znums];
+            s = r;
+        }
+        public Complex(Num _r)
+        {
+            r = new Num(_r);
+            i = IDS.nums[IDS.znums];
+            s = r;
         }
         public Complex()
         {
-            k = new Num(0);
-            i = new Num(0);
+            r = IDS.nums[IDS.znums];
+            i = IDS.nums[IDS.znums];
+            s = IDS.nums[IDS.znums];
         }
         public Complex(Complex _k)
         {
-            k = new Num(_k.k);
-            i = new Num(_k.i);
+            r = _k.r;
+            i = _k.i;
+            s = _k.s;
         }
         public override void set0()
         {
-            k.set0(); i.set0();
+            r = IDS.nums[IDS.znums];
+            i = IDS.nums[IDS.znums];
+            s = IDS.nums[IDS.znums];
         }
         public override void set1()
         {
-            k.set1(); i.set0();
-        }
-        public void simple()
-        {
-            k = k.simple(); i = i.simple();
+            r = IDS.nums[IDS.znums+1];
+            i = IDS.nums[IDS.znums];
+            s = IDS.nums[IDS.znums+1];
         }
         public override void set(Complex a)
         {
-            k.set(a.k); i.set(a.i);
+            r = a.r;
+            i = a.i;
+            s = a.s;
         }
         public override void copy(ref Complex a)
         {
-            k.copy(ref a.k); i.copy(ref a.i);
+            a.r = r;
+            a.i = i;
+            a.s = s;
         }
-        public bool equ(Complex a)
+        public int sign() {
+            return (r.sign != 0 ? r.sign : i.sign);
+        }
+        public void max(Complex a)
         {
-            return k.equ(a.k) && i.equ(a.i);
+            if (great(a)) set(a);
         }
+        public void min(Complex a)
+        {
+            if (a.great(this)) set(a);
+        }
+
+        public void extract(Complex n)
+        {
+            r = Num.extract(r,n.r);
+            i = Num.extract(i,n.i);
+        }
+
+        public bool isint()
+        {
+            return (i.sign == 0) && r.isint();
+        }
+        public bool isint(int _r)
+        {
+            return (i.sign == 0) && r.isint(_r);
+        }
+        public static bool isint(Complex n, int _i)
+        {
+            if (n == null) return false; else return n.isint(_i);
+        }
+
         public void neg()
         {
-            k.neg(); i.neg();
+            r = Num.neg(r); i = Num.neg(i); if (s != null) s = Num.neg(s);
+        }
+        public Num mod()
+        {
+            BigInteger id = i.down*i.down, rd = r.down*r.down;
+            Num _r = new Num(1,r.up*r.up*id + i.up*i.up*rd,id*rd);
+            _r.exp(new Num(1,1,2));
+            return _r;
         }
         public void add(Complex a)
         {
-            k.add(a.k); i.add(a.i);
+            r = Num.add(r,a.r); i = Num.add(i,a.i); s = null;
+        }
+        public void sub(Complex a)
+        {
+            r = Num.sub(r,a.r); i = Num.sub(i,a.i); s = null;
         }
         public override void div()
         {
+            //k/(k*k+i*i) : -i/(k*k+i*i)
             Num x0, x1;
-            x0 = new Num(k); x0.exp2();
+            x0 = new Num(r); x0.exp2();
             x1 = new Num(i); x1.exp2();
             x0.add(x1); x0.div();
-            k.mul(x0); i.mul(x0);
+            r = Num.mul(r,x0); i = Num.mul(i,x0);
+            s = null;
         }
+//ku/kd : iu/id  | * kd*id:kd*id
+//ku/kd * kd*id - iu/id * kd*id : ku/kd * kd*id + iu/id * kd*id
+//ku*id - iu*kd : ku*id + iu*kd
         public override void mul(Complex a)
         {
-            Num x,_k;
-            _k = new Num(k); _k.mul(a.k);
+            //k*a.k - i*a.i : k*a.i + i*a.k
+            Num x,_r;
+            _r = new Num(r); _r.mul(a.r);
             x = new Num(i); x.mul(a.i);
-            x.neg(); _k.add(x);
-            i.mul(a.k); k.mul(a.i);
-            i.add(k); k.set(_k);
+            x.neg(); _r.add(x);
+            i = Num.mul(i, a.r); i.add(Num.mul(r, a.i));
+            r = _r;
+            s = null;
+        }
+        public void div(Complex a)
+        {
+            Complex _r = new Complex(a);
+            _r.div();
+            mul(_r);
         }
         public new void exp2()
         {
             //k^2-i^2 : 2*k*i
-            Num k2,i2;
-            k2 = new Num(k); k2.exp2();
+            Num r2,i2;
+            r2 = new Num(r); r2.exp2();
             i2 = new Num(i); i2.exp2();
-            i2.neg(); k2.add(i2);
-            i.mul(k); i.mul(2);
-            k.set(k2);
+            r2.add(i2,-1);
+            i = Num.mul(i,r); i.mul(2);
+            r = r2;
+            s = null;
         }
-        public string print(string plus, string minus, string non_one)
+        public void exp(Complex pow) {
+            if (pow.i.sign != 0) IDS.sys.error("not yet");
+            exp(pow.r);
+        }
+        public void ln()
         {
-            if (i.isint(0)) return k.print(plus,minus,non_one);
-            return "[" + k.print("","-","") + "," + i.print("","-","") + "]" + non_one;
+            if (i.sign == 0) {
+                r = new Num(r); r.ln();
+            } else {
+
+
+            }
+        }
+        public void exp(Num pow) {
+            if (pow.isint()) exp(pow.toint()); else {
+                if (i.sign == 0) r = Num.exp(r,pow); else {
+                    IDS.sys.error("not yet");
+                }
+            }
+        }
+        public bool iszero()
+        {
+            return (r.sign == 0) && (i.sign == 0);
+        }
+        public bool isequ(Complex a)
+        {
+            return ((r.CompareTo(a.r) == 0) && (i.CompareTo(a.i) == 0));
+        }
+        public bool isint(int _r, int _i)
+        {
+            return r.isint(_r) && i.isint(_i);
+        }
+        public void simple()
+        {
+            r = r.simple(); i = i.simple();
+        }
+        public Complex get_simple()
+        {
+            return new Complex(r.simple(),i.simple());
+        }
+        public int CompareTo(object obj) {
+            if (obj == null) return 1;
+            Complex c = obj as Complex;
+            if (s == null) s = Num.add(r,i,1);
+            if (c.s == null) c.s = Num.add(c.r,c.i,1);
+            int _r = s.CompareTo(c.s); if (_r != 0) return _r;
+            return (r.CompareTo(c.r));
+        }
+        public bool great(Complex a) {
+            return CompareTo(a) < 0;
+        }
+        public BigInteger toint()
+        {
+            return (i.sign == 0 ? r.toint() : mod().toint());
+        }
+
+    }
+    class Row_simple
+    {
+
+
+        public Row_simple(Many2 p)
+        {
+        }
+        public Complex calc(Complex p)
+        {
+            Complex r = new Complex();
+
+
+
+            return r;
         }
     }
 
@@ -988,7 +1190,7 @@ namespace shard0
         public One(Func f)
         {
             exps = new SortedDictionary<Func,Func>();
-            exps.Add(new Func(f),new Func(IDS.n1));
+            exps.Add(new Func(f),new Func(new Complex(1)));
         }
         public One(Func fe, Func fp)
         {
@@ -1014,8 +1216,8 @@ namespace shard0
             bool n0,n1;
             int rk,rv;
             while (true) {
-                do n0 = e0.MoveNext(); while (n0 && (e0.Current.Value.isconst(0)));
-                do n1 = e1.MoveNext(); while (n1 && (e1.Current.Value.isconst(0)));
+                do n0 = e0.MoveNext(); while (n0 && (e0.Current.Value.isconst(0,0)));
+                do n1 = e1.MoveNext(); while (n1 && (e1.Current.Value.isconst(0,0)));
                 if (n0 ^ n1) return (n0 ? e0.Current.Value.CompareTo(Program.root.fzero) : Program.root.fzero.CompareTo(e1.Current.Value));
                 else {
                     if (! n0) return 0;
@@ -1031,18 +1233,18 @@ namespace shard0
 
         public void addto(Func val,Func exp) //no new
         {
-            if (exps.ContainsKey(val)) exps[val].add(exp,1); else exps.Add(val,exp);
+            if (exps.ContainsKey(val)) exps[val].add(exp); else exps.Add(val,exp);
         }
         public void addto(Func val)
         {
-            if (exps.ContainsKey(val)) exps[val].add(new Func(IDS.n1),1); else exps.Add(new Func(val),new Func(IDS.n1));
+            if (exps.ContainsKey(val)) exps[val].add(new Func(new Complex(1))); else exps.Add(new Func(val),new Func(new Complex(1)));
         }
         public void mul(One o)
         {
             foreach(KeyValuePair<Func,Func> m in o.exps) {
                 if (exps.ContainsKey(m.Key)) {
-                    exps[m.Key].add(m.Value,1);
-                    if (exps[m.Key].isconst(0)) exps.Remove(m.Key);
+                    exps[m.Key].add(m.Value);
+                    if (exps[m.Key].isconst(0,0)) exps.Remove(m.Key);
                 }
                 else exps.Add(new Func(m.Key), new Func(m.Value));
             }
@@ -1053,9 +1255,9 @@ namespace shard0
         }
         public void exp(int e)
         {
-            exp(IDS.nums[IDS.znums+e]);
+            exp(new Complex(e));
         }
-        public void exp(Num e)
+        public void exp(Complex e)
         {
             foreach(KeyValuePair<Func,Func> f in exps) f.Value.mul(e);
         }
@@ -1063,10 +1265,10 @@ namespace shard0
         {
             foreach(KeyValuePair<Func,Func> f in exps) f.Value.mul(e);
         }
-        public Func get_Func(Num n) {
+        public Func get_Func(Complex n) {
             Func r = null;
                 if (exps.Count == 0) r = new Func(n);
-                if ((exps.Count == 1) && n.isint(1) && exps.ElementAt(0).Value.isconst(1))
+                if ((exps.Count == 1) && (n.CompareTo(Complex._r1) == 0) && exps.ElementAt(0).Value.isconst(1,0))
                     r = exps.ElementAt(0).Key;
             return r;
         }
@@ -1081,7 +1283,7 @@ namespace shard0
                 }
             exps = r;
         }
-        public Many2 expand(Num n)
+        public Many2 expand(Complex n)
         {
             Many2 r = null,t; One o = new One();
             foreach(KeyValuePair<Func,Func> m in exps) if ((m.Key.type == Func.t_many2) && (m.Value.type_pow() == 0))
@@ -1112,7 +1314,7 @@ namespace shard0
             if (fk) {
                 One r = new One();
                 foreach(KeyValuePair<Func,Func> m in exps) 
-                    if ((! m.Value.isconst(0)) && (! m.Key.isconst(1))) r.addto(m.Key,m.Value);
+                    if ((! m.Value.isconst(0,0)) && (! m.Key.isconst(1,0))) r.addto(m.Key,m.Value);
                 exps = r.exps;
             }
             return fv || fk;
@@ -1124,27 +1326,27 @@ namespace shard0
             }
         }
 
-        public Num simple()
+        public Complex simple()
         {
-            Num nt, rt = new Num(1); Func p,e;
+            Complex nt, rt = new Complex(1); Func p,e;
             One r = new One();
             foreach(KeyValuePair<Func,Func> ff in exps) {
                 ff.Value.simple();
-                if (! ff.Value.isconst(0)) {
+                if (! ff.Value.isconst(0,0)) {
                     ff.Key.simple();
-                    if ((ff.Key.type == Func.t_num) && (ff.Value.type_pow() == 0)) rt.mul(Num.exp((Num)(ff.Key.data),(Num)(ff.Value.data)));
+                    if ((ff.Key.type == Func.t_num) && (ff.Value.type_pow() == 0)) rt.mul(Complex.exp((Complex)(ff.Key.data),(Complex)(ff.Value.data)));
                     else {
                         if ((ff.Key.type == Func.t_val) && (((Vals)(ff.Key.data)).var == Program.root.v_e) && (ff.Value.type == Func.t_ln))
-                        {p = new Func((Many2)(ff.Value.data)); e = new Func(IDS.n1);}
+                        {p = new Func((Many2)(ff.Value.data)); e = new Func(new Complex(1));}
                         else {p = ff.Key; e = ff.Value;}
                         if ((p.type == Func.t_many2) && (((Many2)(p.data)).type_exp() < 2)) {
                             ((Many2)(p.data)).up.data.ElementAt(0).Key.exp(e);
                             ((Many2)(p.data)).down.data.ElementAt(0).Key.exp(e);
                             ((Many2)(p.data)).down.data.ElementAt(0).Key.div();
-                            nt = Num.mul(((Many2)(p.data)).up.data.ElementAt(0).Value,Num._div(((Many2)(p.data)).down.data.ElementAt(0).Value));
+                            nt = Complex.mul(((Many2)(p.data)).up.data.ElementAt(0).Value,Complex._div(((Many2)(p.data)).down.data.ElementAt(0).Value));
                             r.mul(((Many2)(p.data)).up.data.ElementAt(0).Key);
                             r.mul(((Many2)(p.data)).down.data.ElementAt(0).Key);
-                            if (e.type_pow() < 1) rt.mul(Num.exp(nt,(Num)(e.data))); 
+                            if (e.type_pow() < 1) rt.mul(Complex.exp(nt,(Complex)(e.data))); 
                             else r.addto(new Func(nt),e);
                         } else r.addto(p, e);
                     }
@@ -1158,8 +1360,8 @@ namespace shard0
             foreach(KeyValuePair<Func,Func> ff in exps) r.Add(Func.deeper(ff.Key,deep),Func.deeper(ff.Value,deep));
             exps = r;
         }
-        public Num calc() {
-            Num rt = new Num(1);
+        public Complex calc() {
+            Complex rt = new Complex(1);
             foreach(KeyValuePair<Func,Func> f in exps) rt.mul(f.Key.calc(f.Value.calc()));
             return rt;
         }
@@ -1169,16 +1371,16 @@ namespace shard0
         }
         public Many diff_down(Vals at)
         {
+            Many r = new Many(); One a;
             List<Func> d = new List<Func>(), p = new List<Func>(), e = new List<Func>();
             One f_d0 = new One();
             Func t;
             foreach(KeyValuePair<Func,Func> ff in exps) {
                 t = ff.Key.diff_down(ff.Value,at);
-                if (t.isconst(0)) f_d0.addto(ff.Key,ff.Value); else {
+                if (t.isconst(0,0)) f_d0.addto(ff.Key,ff.Value); else {
                     p.Add(ff.Key); e.Add(ff.Value); d.Add(t);
                 }
             }
-            Many r = new Many(); One a;
             int i1, i0 = 0; while (i0 < d.Count) {
                 a = new One(f_d0);
                 i1 = 0; while (i1 < d.Count) {
@@ -1189,50 +1391,85 @@ namespace shard0
                     }
                     i1++;
                 }
-                r.add(a,1);
+                r.add(a);
                 i0++;
             }
-            r.simple();
-            return r;
+            r.simple(); return r;
+        }
+        public Many diff_up(Vals at)
+        {
+            Many r;
+            One o = new One();
+            Func fa = new Func(at), ex = new Func(new Complex(0));
+            foreach(KeyValuePair<Func,Func> ff in exps) {
+                if ((ff.Value.type > Func.t_num) || (ff.Key.type > Func.t_num)) IDS.sys.error("S: too complex");
+                if (ff.Value.type == Func.t_val) {
+                    if (ff.Value.data == at) {
+                        if (ff.Value.CompareTo(ff.Key) == 0) IDS.sys.error("S: x^x");
+                        IDS.sys.error("now not implemented");
+                    } else {
+                        if (ff.Key.CompareTo(fa) == 0) {
+                            if (! ex.isconst(0,0)) IDS.sys.error("now not implemented");
+                            ex.add(ff.Value);
+                        } else {
+                            o.addto(new Func(ff.Key),new Func(ff.Value));
+                        }
+                    }
+                } else {
+                    if (ff.Key.CompareTo(fa) == 0) {
+                        if (! ex.isconst(0,0)) IDS.sys.error("now not implemented");
+                        ex.add(ff.Value);
+                    } else {
+                        o.addto(new Func(ff.Key),new Func(ff.Value));
+                    }
+                }
+            }
+            if (ex.isconst(-1,0)) {
+                o.addto(new Func(Func.t_ln,new Many2(fa)));
+            } else {
+                ex.add(new Func(new Complex(1)));
+                o.addto(fa,new Func(ex)); o.addto(ex,new Func(new Complex(-1)));
+            }
+            r = new Many(o); r.simple(); return r;
         }
 
     }
 
     class Many: Power<Many>, IPower, IComparable
     {
-        public SortedDictionary<One,Num> data;
+        public SortedDictionary<One,Complex> data;
         public Many()
         {
-            data = new SortedDictionary<One,Num>();
+            data = new SortedDictionary<One,Complex>();
         }
-        public Many(One o,Num n)
+        public Many(One o,Complex n)
         {
-            data = new SortedDictionary<One,Num>();
+            data = new SortedDictionary<One,Complex>();
             data.Add(o,n);
         }
         public Many(Func f)
         {
-            data = new SortedDictionary<One,Num>();
-            data.Add(new One(f),IDS.n1);
+            data = new SortedDictionary<One,Complex>();
+            data.Add(new One(f),new Complex(1));
         }
         public Many(One o)
         {
-            data = new SortedDictionary<One,Num>();
-            data.Add(o,IDS.n1);
+            data = new SortedDictionary<One,Complex>();
+            data.Add(o,new Complex(1));
         }
-        public Many(Num n)
+        public Many(Complex n)
         {
-            data = new SortedDictionary<One,Num>();
+            data = new SortedDictionary<One,Complex>();
             data.Add(new One(),n);
         }
         public Many(Many m)
         {
             set(m);
         }
-        public static SortedDictionary<One,Num> copy(SortedDictionary<One,Num> c)
+        public static SortedDictionary<One,Complex> copy(SortedDictionary<One,Complex> c)
         {
-            SortedDictionary<One,Num> r = new SortedDictionary<One,Num>();
-            foreach (KeyValuePair<One,Num> o in c) r.Add(new One(o.Key),o.Value);
+            SortedDictionary<One,Complex> r = new SortedDictionary<One,Complex>();
+            foreach (KeyValuePair<One,Complex> o in c) r.Add(new One(o.Key),o.Value);
             return r;
         }
         public override void set(Many s)
@@ -1246,27 +1483,28 @@ namespace shard0
         public override void set0()
         {
             data.Clear(); 
-            data.Add(new One(), IDS.n0);
+            data.Add(new One(), new Complex(0));
         }
         public override void set1()
         {
             data.Clear();
-            data.Add(new One(), IDS.n1);
+            data.Add(new One(), new Complex(1));
         }
         public override void div()
         {
             if (data.Count != 1) IDS.sys.error("cant divide many");
-            data[data.ElementAt(0).Key] = Num._div(data.ElementAt(0).Value); 
+            data[data.ElementAt(0).Key].div(); 
             data.ElementAt(0).Key.div(); 
         }
 
         public int sign() {
-            bool p = false, m = false;
-            foreach (KeyValuePair<One,Num> o in data) {
-                if (o.Value.sign > 0) {
+            bool p = false, m = false; int cm;
+            foreach (KeyValuePair<One,Complex> o in data) {
+                cm = o.Value.CompareTo(Complex._0);
+                if (cm > 0) {
                     p = true; if (m) return 0;
                 }
-                if (o.Value.sign < 0) {
+                if (cm < 0) {
                     m = true; if (p) return 0;
                 }
             }
@@ -1276,23 +1514,23 @@ namespace shard0
         }
 
         public int CompareTo(object obj) {
-            if (obj == null) {int s = sign(); return (s != 0 ? s : data.ElementAt(0).Value.sign); }
+            if (obj == null) {int s = sign(); return (s != 0 ? s : data.ElementAt(0).Value.CompareTo(Complex._0)); }
             Many m = obj as Many;
-            SortedDictionary<One,Num>.Enumerator o0 = data.GetEnumerator();
-            SortedDictionary<One,Num>.Enumerator o1 = m.data.GetEnumerator();
+            SortedDictionary<One,Complex>.Enumerator o0 = data.GetEnumerator();
+            SortedDictionary<One,Complex>.Enumerator o1 = m.data.GetEnumerator();
             bool n0,n1;
             int r;
             while (true) {
-                do n0 = o0.MoveNext(); while (n0 && (o0.Current.Value.sign == 0));
-                do n1 = o1.MoveNext(); while (n1 && (o1.Current.Value.sign == 0));
-                if (n0 ^ n1) return (n0 ? o0.Current.Value.CompareTo(IDS.n0) : IDS.n0.CompareTo(o1.Current.Value));
+                do n0 = o0.MoveNext(); while (n0 && (o0.Current.Value.iszero()));
+                do n1 = o1.MoveNext(); while (n1 && (o1.Current.Value.iszero()));
+                if (n0 ^ n1) return (n0 ? o0.Current.Value.CompareTo(Complex._0) : Complex._0.CompareTo(o1.Current.Value));
                 else {
                     if (! n0) return 0;
                     if ((r = o0.Current.Key.CompareTo(o1.Current.Key)) == 0) {
                         if ((r = o0.Current.Value.CompareTo(o1.Current.Value)) != 0) return r;
                     } else {
-                        if (r > 0) return o0.Current.Value.CompareTo(IDS.n0);
-                        else return IDS.n0.CompareTo(o1.Current.Value);
+                        if (r > 0) return o0.Current.Value.CompareTo(Complex._0);
+                        else return Complex._0.CompareTo(o1.Current.Value);
                     }
                 }
             }
@@ -1300,56 +1538,66 @@ namespace shard0
         public Func get_Func()
         {
             Func r = null;
-            if (data.Count == 0) r = new Func(new Num(0));
+            if (data.Count == 0) r = new Func(new Complex(0));
             if (data.Count == 1) r = data.ElementAt(0).Key.get_Func(data.ElementAt(0).Value);
             return r;
         }
-        public Num get_Num()
+        public Complex get_Num()
         {
-            Num r = null;
-            if (data.Count == 0) r = new Num(0);
+            Complex r = null;
+            if (data.Count == 0) r = new Complex(0);
             if ((data.Count == 1) && (data.ElementAt(0).Key.CompareTo(Program.root.ozero) == 0))
-                r = new Num(data.ElementAt(0).Value);
+                r = new Complex(data.ElementAt(0).Value);
             return r;
         }
-        public Num get_int()
+        public BigInteger get_mult_for_int()
         {
-            Num r = new Num(1);
-            BigInteger b;
-            foreach (KeyValuePair<One,Num> on in data) {
-                b = BigInteger.GreatestCommonDivisor(r.up,on.Value.down);
-                r.up *= on.Value.down/b;
+            BigInteger r = 1, b;
+            foreach (KeyValuePair<One,Complex> on in data) {
+                b = BigInteger.GreatestCommonDivisor(r,on.Value.r.down);
+                r *= on.Value.r.down/b;
+                b = BigInteger.GreatestCommonDivisor(r,on.Value.i.down);
+                r *= on.Value.i.down/b;
             }
             return r;
         }
-        public bool isint(int i)
+        public bool isint(int r, int i)
         {
-            Num n = get_Num();
-            if (n != null) return n.isint(i);
+            Complex n = get_Num();
+            if (n != null) return n.isint(r, i);
             return false;
         }
 
-        public void add(One o, Num n, int s) {
+        public void add(One o, Complex n) {
             if (data.ContainsKey(o)) {
-                data[o] = Num.add(data[o],n,s);
-            } else data.Add(new One(o),new Num(n,s));
+                data[o].add(n);
+            } else data.Add(new One(o),new Complex(n));
         }
-        public void add(One o, int s) {
-            add(o,IDS.n1,s);
+        public void sub(One o, Complex n) {
+            if (data.ContainsKey(o)) {
+                data[o].sub(n);
+            } else data.Add(new One(o),Complex.neg(n));
         }
-        public void add(Many from, int s)
+        public void add(One o) {
+            add(o,Complex._r1);
+        }
+        public void add(Many from)
         {
-            foreach (KeyValuePair<One,Num> o in from.data) add(o.Key,o.Value,s);
+            foreach (KeyValuePair<One,Complex> o in from.data) add(o.Key,o.Value);
+        }
+        public void sub(Many from)
+        {
+            foreach (KeyValuePair<One,Complex> o in from.data) sub(o.Key,o.Value);
         }
 
-        public void mul(One o, Num n)
+        public void mul(One o, Complex n)
         {
-            SortedDictionary<One,Num> r = new SortedDictionary<One,Num>();
-            One _o; Num _n;
-            foreach (KeyValuePair<One,Num> m0 in data) {
+            SortedDictionary<One,Complex> r = new SortedDictionary<One,Complex>();
+            One _o; Complex _n;
+            foreach (KeyValuePair<One,Complex> m0 in data) {
                 _o = new One(m0.Key);
                 _o.mul(o);
-                _n = Num.mul(m0.Value,n);
+                _n = Complex.mul(m0.Value,n);
                 if (r.ContainsKey(_o)) r[_o].add(_n); //in r any Num is new
                 else r.Add(_o,_n);
             }
@@ -1357,61 +1605,61 @@ namespace shard0
         }
         public override void mul(Many _m)
         {
-            SortedDictionary<One,Num> r = new SortedDictionary<One,Num>();
-            One o; Num n;
-            foreach (KeyValuePair<One,Num> m0 in data) {
-                foreach (KeyValuePair<One,Num> m1 in _m.data) {
+            SortedDictionary<One,Complex> r = new SortedDictionary<One,Complex>();
+            One o; Complex n;
+            foreach (KeyValuePair<One,Complex> m0 in data) {
+                foreach (KeyValuePair<One,Complex> m1 in _m.data) {
                     o = new One(m0.Key);
                     o.mul(m1.Key);
-                    n = Num.mul(m0.Value,m1.Value);
-                    if (r.ContainsKey(o)) r[o].add(n,1); //in r any Num is new
+                    n = Complex.mul(m0.Value,m1.Value);
+                    if (r.ContainsKey(o)) r[o].add(n);
                     else r.Add(o, n);
                 }
             }
             data = r;
         }
-        public void mul(Num n)
+        public void mul(Complex n)
         {
-            for (int _i = 0; _i < data.Count; _i++) data[data.ElementAt(_i).Key] = Num.mul(data.ElementAt(_i).Value,n).simple();
+            for (int _i = 0; _i < data.Count; _i++) (data[data.ElementAt(_i).Key] = Complex.mul(data.ElementAt(_i).Value,n)).simple();
         }
-        public void mul_simple(Num n)
+        public void mul_simple(Complex n)
         {
-            for (int _i = 0; _i < data.Count; _i++) data[data.ElementAt(_i).Key] = Num.mul(data.ElementAt(_i).Value,n).simple();
+            for (int _i = 0; _i < data.Count; _i++) (data[data.ElementAt(_i).Key] = Complex.mul(data.ElementAt(_i).Value,n)).simple();
         }
 
         public Many expand()
         {
-            Many rt = new Many(new Num(1)), r = new Many(); Many2 t;
-            foreach (KeyValuePair<One,Num> o in data) {
+            Many rt = new Many(new Complex(1)), r = new Many(); Many2 t;
+            foreach (KeyValuePair<One,Complex> o in data) {
                 t = o.Key.expand(o.Value);
-                if (t == null) r.add(o.Key,o.Value,1); else {
-                    r.mul(t.down); t.up.mul(rt); r.add(t.up,1); rt.mul(t.down);
+                if (t == null) r.add(o.Key,o.Value); else {
+                    r.mul(t.down); t.up.mul(rt); r.add(t.up); rt.mul(t.down);
                 }
             }
             data = r.data;
             return rt;
         }
 
-        public void expand(Many from, One o, Num n, Func val)
+        public void expand(Many from, One o, Complex n, Func val)
         {
             One to = new One(o); to.exps[val].set0();
-            One _o; Num _n;
-            foreach (KeyValuePair<One,Num> on in from.data) {
+            One _o; Complex _n;
+            foreach (KeyValuePair<One,Complex> on in from.data) {
                 _o = new One(to); _o.mul(on.Key);
-                _n = Num.mul(n,on.Value);
-                add(_o,_n,1);
+                _n = Complex.mul(n,on.Value);
+                add(_o,_n);
             }
         }
         public bool expand_p0(Func val, Exps_f exu, Exps_f exd)
         {
             bool rt = false;
-            foreach (KeyValuePair<One,Num> o in data) rt = o.Key.expand_p0(val, exu, exd) || rt;
+            foreach (KeyValuePair<One,Complex> o in data) rt = o.Key.expand_p0(val, exu, exd) || rt;
             return rt;
         }
         public bool expand_2(Func val, Exps_f exu, Exps_f exd)
         {
             bool rt = false;
-            foreach (KeyValuePair<One,Num> o in data) rt = o.Key.expand_2(val,exu,exd) || rt;
+            foreach (KeyValuePair<One,Complex> o in data) rt = o.Key.expand_2(val,exu,exd) || rt;
             return rt;
         }
         //e0,e2,p0,p2
@@ -1424,7 +1672,7 @@ namespace shard0
             exd.add(this,val,-1); exd.calc();
             int type = (exu.type > exd.type ? exu.type : exd.type);
             Func eu, ed, e;
-            foreach (KeyValuePair<One,Num> o in data) 
+            foreach (KeyValuePair<One,Complex> o in data) 
             {
 //[+1]/[-1]
 //[-up] *= [+1]^min*[-1]^max 
@@ -1432,41 +1680,41 @@ namespace shard0
                 if (o.Key.exps.ContainsKey(val)) {
                     if (o.Key.exps[val].type_pow() + type < 3) {
                         e = o.Key.exps[val];
-                        eu = (exu.type > 1 ? new Func(Num.add(exu.min,(Num)(e.data))) : e);
-                        ed = (exd.type > 1 ? new Func(Num.sub(exd.max,(Num)(e.data))) : e);
+                        eu = (exu.type > 1 ? new Func(Complex.add(exu.min,(Complex)(e.data))) : e);
+                        ed = (exd.type > 1 ? new Func(Complex.sub(exd.max,(Complex)(e.data))) : e);
                         if (exu.data.ContainsKey(eu) && exd.data.ContainsKey(ed)) {
                             if (! ml.ContainsKey(e)) {
                                 ml.Add(new Func(e),new Many(exu.data[eu]));
                                 ml[e].mul(exd.data[ed]);
                             }
                             res.expand(ml[e],o.Key,o.Value,val);
-                        } else res.add(o.Key,o.Value,1);
-                    } else res.add(o.Key,o.Value,1);
-                } else res.add(o.Key,o.Value,1);
+                        } else res.add(o.Key,o.Value);
+                    } else res.add(o.Key,o.Value);
+                } else res.add(o.Key,o.Value);
             }
             data = res.data;
             return rt;
         }
         public void replace(Vals v, Func f) {
-            foreach (KeyValuePair<One,Num> o in data) o.Key.replace(v, f);
+            foreach (KeyValuePair<One,Complex> o in data) o.Key.replace(v, f);
         }
 
         public int type_exp() 
         {
-            if (data.Count == 1) {
-                if (data.ElementAt(0).Value.isint(1)) return 0; else return 1;
+            if ((data.Count == 1) && (data.ElementAt(0).Value.i.sign == 0)) {
+                if (data.ElementAt(0).Value.isint()) return 0; else return 1;
             } else return 2;
         }
         public void exp(Func e)
         {
             int te = type_exp(),tp = e.type_pow();
             if (te + tp > 2) IDS.sys.error("exp: cant Many to many");
-            if (te > 1) exp((int)(((Num)(e.data)).up));
+            if (te > 1) exp((int)(((Complex)(e.data)).r.up));
             else {
                 One to = data.ElementAt(0).Key;
                 if (tp < 2) {
-                    data[to] = Num.exp(data[to],(Num)(e.data));
-                    to.exp((Num)(e.data));
+                    data[to] = Complex.exp(data[to],(Complex)(e.data));
+                    to.exp((Complex)(e.data));
                 } else to.exp(e);
             }
         }
@@ -1475,37 +1723,37 @@ namespace shard0
         {
             if (data.Count > 1) base.exp(e); else if (data.Count == 1) {
                 One to = data.ElementAt(0).Key;
-                data[to] = Num.exp(data[to],e);
+                data[to] = Complex.exp(data[to],e);
                 to.exp(e);
             }
         }
-        public KeyValuePair<One,Num> extract()
+        public KeyValuePair<One,Complex> extract()
         {
-            if (data.Count == 0) return new KeyValuePair<One,Num>(new One(), new Num(1)); else 
+            if (data.Count == 0) return new KeyValuePair<One,Complex>(new One(), new Complex(1)); else 
             {
-                One ro = null; Num rn = null;
-                foreach (KeyValuePair<One,Num> m in data) {
+                One ro = null; Complex rn = null;
+                foreach (KeyValuePair<One,Complex> m in data) {
                     if (ro == null) {
-                        ro = new One(m.Key); rn = new Num(m.Value);
+                        ro = new One(m.Key); rn = new Complex(m.Value);
                     } else {
                         ro.extract(m.Key);
                         rn.extract(m.Value);
-                        if (ro.exps.Count < 1) new KeyValuePair<One,Num>(ro, new Num(0));
-                        if (rn.sign == 0) new KeyValuePair<One,Num>(new One(), rn);
+                        if (ro.exps.Count < 1) new KeyValuePair<One,Complex>(ro, new Complex(0));
+                        if (rn.iszero()) new KeyValuePair<One,Complex>(new One(), rn);
                     }
                 }
-                return new KeyValuePair<One,Num>(ro, rn);
+                return new KeyValuePair<One,Complex>(ro, rn);
             }
         }
 
         public void neg() {
-            for (int i = 0; i < data.Count; i++) data[data.ElementAt(i).Key] = Num.neg(data.ElementAt(i).Value);
+            for (int i = 0; i < data.Count; i++) data[data.ElementAt(i).Key] = Complex.neg(data.ElementAt(i).Value);
         }
 
         public void deeper(int deep) {
-            SortedDictionary<One,Num> r = new SortedDictionary<One,Num>();
+            SortedDictionary<One,Complex> r = new SortedDictionary<One,Complex>();
             One o;
-            foreach (KeyValuePair<One,Num> m in data)
+            foreach (KeyValuePair<One,Complex> m in data)
             {
                 o = new One(m.Key); o.deeper(deep);
                 r.Add(o,m.Value); //deeper dont remove val from one
@@ -1515,21 +1763,21 @@ namespace shard0
 
         public void add_toexp(Func val, Func _e) 
         {
-            SortedDictionary<One,Num> r = new SortedDictionary<One,Num>();
+            SortedDictionary<One,Complex> r = new SortedDictionary<One,Complex>();
             One o;
-            foreach (KeyValuePair<One,Num> m in data)
+            foreach (KeyValuePair<One,Complex> m in data)
             {
                 o = new One(m.Key); o.addto(val,_e);
                 if (r.ContainsKey(o)) r[o].add(m.Value); //in r any Num is new
-                else r.Add(o, new Num(m.Value));
+                else r.Add(o, new Complex(m.Value));
             }
             data = r;
         }
 
-        public Num find_minexp(Func val) //_val^(-x) -> /_val^(x)
+        public Complex find_minexp(Func val) //_val^(-x) -> /_val^(x)
         {
-            Num _min = new Num(0), t;
-            foreach (KeyValuePair<One,Num> o in data)
+            Complex _min = new Complex(0), t;
+            foreach (KeyValuePair<One,Complex> o in data)
                 if (o.Key.exps.ContainsKey(val)) {
                     t = o.Key.exps[val].get_num_part();
                     if (t.CompareTo(_min) < 0) _min.set(t);
@@ -1539,26 +1787,26 @@ namespace shard0
 
         public void common(Many m)
         {
-            bool ch = false; KeyValuePair<One,Num> on; Num n;
+            bool ch = false; KeyValuePair<One,Complex> on; Complex n;
             for (int i = 0; i < data.Count; i++) {
                 on = data.ElementAt(i);
                 if (m.data.ContainsKey(on.Key)) {
-                    n = Num.common(on.Value,m.data[on.Key]);
-                    if (n.sign == 0) ch = true;
+                    n = Complex.common(on.Value,m.data[on.Key]);
+                    if (n.iszero()) ch = true;
                     data[on.Key] = n;
-                } else {ch = true; data[on.Key] = IDS.n0;}
+                } else {ch = true; data[on.Key] = new Complex(0);}
             }
             if (ch) {
-                SortedDictionary<One,Num> r = new SortedDictionary<One,Num>();
-                foreach (KeyValuePair<One,Num> _on in data) if (_on.Value.sign != 0) r.Add(_on.Key,_on.Value);
+                SortedDictionary<One,Complex> r = new SortedDictionary<One,Complex>();
+                foreach (KeyValuePair<One,Complex> _on in data) if (! _on.Value.iszero()) r.Add(_on.Key,_on.Value);
                 data = r;
             }
         }
 /* ?????? common ?????
         public void extract(Many m)
         {
-            SortedDictionary<One,Num> r = new SortedDictionary<One,Num>();
-            foreach (KeyValuePair<One,Num> d in data)
+            SortedDictionary<One,Complex> r = new SortedDictionary<One,Complex>();
+            foreach (KeyValuePair<One,Complex> d in data)
             {
                 if (m.data.ContainsKey(d.Key)) {
                     if (d.Value.sign == m.data[d.Key].sign)
@@ -1571,33 +1819,42 @@ namespace shard0
         public void simple()
         {
             if (data.Count < 1) return;
-            One k; Num v;
-            SortedDictionary<One,Num> r = new SortedDictionary<One,Num>();
-            foreach (KeyValuePair<One,Num> d in data)
+            One k; Complex v;
+            SortedDictionary<One,Complex> r = new SortedDictionary<One,Complex>();
+            foreach (KeyValuePair<One,Complex> d in data)
             {
-                if (d.Value.up != 0) {
-                    v = new Num(d.Value); k = new One(d.Key); v.mul(k.simple());
-                    if (r.ContainsKey(k)) r[k].add(v,1); else r.Add(k,v.simple());
+                if (! d.Value.iszero()) {
+                    k = new One(d.Key); v = Complex.mul(k.simple(),d.Value);
+                    if (r.ContainsKey(k)) r[k] = Complex.add(r[k],v); else r.Add(k,v.get_simple());
                 }
             }
             data = r;
         }
-        public Num calc() {
-            Num rt = new Num(0);
-            foreach(KeyValuePair<One,Num> o in data) rt.add(Num.mul(o.Key.calc(),o.Value),1);
+        public Complex calc() {
+            Complex rt = new Complex(0);
+            foreach(KeyValuePair<One,Complex> o in data) rt.add(Complex.mul(o.Key.calc(),o.Value));
             return rt;
         }
         public void findvals(One o)
         {
-            foreach(KeyValuePair<One,Num> on in data) on.Key.findvals(o);
+            foreach(KeyValuePair<One,Complex> on in data) on.Key.findvals(o);
         }
 
         public Many diff_down(Vals at)
         {
-            Many m,r = new Many(IDS.n0);
-            foreach(KeyValuePair<One,Num> on in data) {
+            Many m,r = new Many(new Complex(0));
+            foreach(KeyValuePair<One,Complex> on in data) {
                 m = on.Key.diff_down(at); m.mul(on.Value);
-                r.add(m,1);
+                r.add(m);
+            }
+            return r;
+        }
+        public Many diff_up(Vals at)
+        {
+            Many m,r = new Many(new Complex(0));
+            foreach(KeyValuePair<One,Complex> on in data) {
+                m = on.Key.diff_up(at); m.mul(on.Value);
+                r.add(m);
             }
             return r;
         }
@@ -1618,37 +1875,37 @@ namespace shard0
         {
             up = u; 
             down = new Many();
-            down.data.Add(new One(), IDS.n1);
+            down.data.Add(new One(), new Complex(1));
         }
         public Many2(One u) //no new 
         {
             up = new Many(u); 
             down = new Many();
-            down.data.Add(new One(), IDS.n1);
+            down.data.Add(new One(), new Complex(1));
         }
         public Many2(Func u) //no new 
         {
             up = new Many(new One(u)); 
             down = new Many();
-            down.data.Add(new One(), IDS.n1);
+            down.data.Add(new One(), new Complex(1));
         }
         public Many2(int n)
         {
             up = new Many(); down = new Many();
-            up.data.Add(new One(), IDS.nums[IDS.znums+n]);
-            down.data.Add(new One(), IDS.n1);
+            up.data.Add(new One(), new Complex(n));
+            down.data.Add(new One(), new Complex(1));
         }
-        public Many2(Num n)
+        public Many2(Complex n)
         {
             up = new Many(); down = new Many();
-            up.data.Add(new One(), n);
-            down.data.Add(new One(), IDS.n1);
+            up.data.Add(new One(), new Complex(n));
+            down.data.Add(new One(), new Complex(1));
         }
-        public Many2(One o, Num n)
+        public Many2(One o, Complex n)
         {
             up = new Many(); down = new Many();
-            up.data.Add(new One(o), n);
-            down.data.Add(new One(), IDS.n1);
+            up.data.Add(new One(o), new Complex(n));
+            down.data.Add(new One(), new Complex(1));
         }
 
         public Many2(Many2 m)
@@ -1666,19 +1923,19 @@ namespace shard0
         public override void set0()
         {
             up.data.Clear(); down.data.Clear();
-            up.data.Add(new One(), IDS.n0);
-            down.data.Add(new One(), IDS.n1);
+            up.data.Add(new One(), new Complex(0));
+            down.data.Add(new One(), new Complex(1));
         }
         public override void set1()
         {
             up.data.Clear(); down.data.Clear();
-            up.data.Add(new One(), IDS.n1);
-            down.data.Add(new One(), IDS.n1);
+            up.data.Add(new One(), new Complex(1));
+            down.data.Add(new One(), new Complex(1));
         }
         public override void div()
         {
             Many t;
-            if ((up.data.Count == 1) && (up.data.ElementAt(0).Value.sign == 0)) IDS.sys.error("div0");
+            if ((up.data.Count == 1) && (up.data.ElementAt(0).Value.iszero())) IDS.sys.error("div0");
             t = up; up = down; down = t;
         }
 
@@ -1688,23 +1945,23 @@ namespace shard0
 
 
         public int CompareTo(object obj) {
-            if (obj == null) {int s = sign(); return (s != 0 ? s : down.data.ElementAt(0).Value.sign); }
+            if (obj == null) {int s = sign(); return (s != 0 ? s : down.data.ElementAt(0).Value.CompareTo(Complex._0)); }
             Many2 m = obj as Many2;
             int r = up.CompareTo(m.up);
             if (r != 0) return r;
             return -down.CompareTo(m.down);
         }
 
-        public void add(Num n, int s) 
+        public void add(Complex n) 
         {
-            Many t = new Many(n); t.mul(down); up.add(t,s);
+            Many t = new Many(n); t.mul(down); up.add(t);
         }
 
-        public void add(Many2 m, int s) 
+        public void add(Many2 m) 
         {
-            if (down.CompareTo(m.down) == 0) up.add(m.up,s); else {
+            if (down.CompareTo(m.down) == 0) up.add(m.up); else {
                   Many t = new Many(m.up);
-                  t.mul(down); up.mul(m.down); up.add(t,s);
+                  t.mul(down); up.mul(m.down); up.add(t);
                   down.mul(m.down);
             }
         }
@@ -1713,19 +1970,19 @@ namespace shard0
         {
             up.mul(m.up); down.mul(m.down);
         }
-        public void mul(Num n)
+        public void mul(Complex n)
         {
             up.mul(n); 
         }
-        public void mul(One o, Num n)
+        public void mul(One o, Complex n)
         {
             up.mul(o,n);
         }
 
         public void revert(Func val) //_val^(-x) -> /_val^(x)
         {
-            Num min = Num.min(up.find_minexp(val),down.find_minexp(val));
-            if (min.sign == 0) return;
+            Complex min = Complex.min(up.find_minexp(val),down.find_minexp(val));
+            if (min.iszero()) return;
             min.neg(); Func f = new Func(min);
             up.add_toexp(val,f);
             down.add_toexp(val,f);
@@ -1741,7 +1998,7 @@ namespace shard0
             rt02 = down.expand_p0(val,exu,exd) || rt02;
 
             rt0 = up.expand_e0(val,exu,exd);
-            Num minup = new Num(exu.min), maxdw = new Num(exd.max);
+            Complex minup = new Complex(exu.min), maxdw = new Complex(exd.max);
             rt0 = down.expand_e0(val,exu,exd) || rt0;
             if (rt0) {
                 up.mul(exu.data[new Func(exu.min)]);
@@ -1788,20 +2045,20 @@ namespace shard0
         }
         public Func get_Func()
         {
-            if (down.isint(1)) return up.get_Func(); else return null;
+            if (down.isint(1,0)) return up.get_Func(); else return null;
         }
-        public Num get_Num()
+        public Complex get_Num()
         {
-            Num u = up.get_Num();
+            Complex u = up.get_Num();
             if (u == null) return null;
-            Num d = down.get_Num();
+            Complex d = down.get_Num();
             if (d == null) return null;
             d.div(); u.mul(d); return u;
         }
-        public Num get_num_part() //up[num_one]/down(Num)
+        public Complex get_num_part() //up[num_one]/down(Num)
         {
-            Num d = down.get_Num();
-            if ((d == null) || (! up.data.ContainsKey(Program.root.ozero))) return new Num(0);
+            Complex d = down.get_Num();
+            if ((d == null) || (! up.data.ContainsKey(Program.root.ozero))) return new Complex(0);
             d.div(); d.mul(up.data[Program.root.ozero]); return d;
         }
         public void common(Many2 m)
@@ -1814,27 +2071,27 @@ namespace shard0
         }
         public void toint()
         {
-            Num u = up.get_int();
-            Num d = down.get_int();
-            u.mul(d); up.mul_simple(u); down.mul_simple(u);
+            BigInteger a = up.get_mult_for_int() * down.get_mult_for_int();
+            Complex m = new Complex(new Num(a));
+            up.mul_simple(m); down.mul_simple(m);
         }
-        public Num simple()
+        public Complex simple()
         {
             up.simple();
             down.simple();
             if ((up.data.Count > 1) || (down.data.Count > 1)) {
-                KeyValuePair<One,Num> f_up = up.extract(), f_down = down.extract();
-                if (f_up.Key.exps.Count + f_down.Key.exps.Count > 0) {
+                KeyValuePair<One,Complex> f_up = up.extract(), f_down = down.extract();
+                if ((f_up.Key.exps.Count + f_down.Key.exps.Count > 0)) {
                     One ou = new One(f_up.Key);
-                    f_up.Key.div(); up.mul(f_up.Key,IDS.n1);
-                    f_down.Key.div(); down.mul(f_down.Key,IDS.n1);
+                    f_up.Key.div(); up.mul(f_up.Key,Complex._r1);
+                    f_down.Key.div(); down.mul(f_down.Key,Complex._r1);
                     ou.mul(f_down.Key); ou.simple();
                     if (ou.exps.Count > 0) {
                         f_up.Value.div(); up.mul(f_up.Value);
                         f_down.Value.div(); down.mul(f_down.Value);
                         f_up.Value.div(); f_up.Value.mul(f_down.Value);
-                        ou.addto(new Func(new Many2(up,down)),new Func(IDS.n1));
-                        down = new Many(IDS.n1);
+                        ou.addto(new Func(new Many2(up,down)),new Func(new Complex(1)));
+                        down = new Many(new Complex(1));
                         up = new Many(ou,f_up.Value);
                     }
                 }
@@ -1853,26 +2110,26 @@ namespace shard0
             down.mul(f_down.Key,f_down.Value);
 */
             } else {
-                if (! down.isint(1)) {
-                    down.div(); up.mul(down); down = new Many(IDS.n1);
+                if (! down.isint(1,0)) {
+                    down.div(); up.mul(down); down = new Many(new Complex(1));
                 }
                 Func t = up.get_Func();
-                if ((t != null) && (t.type == Func.t_many2) && ((Many2)(t.data)).down.isint(1)) up = ((Many2)(t.data)).up;
+                if ((t != null) && (t.type == Func.t_many2) && ((Many2)(t.data)).down.isint(1,0)) up = ((Many2)(t.data)).up;
                 t = down.get_Func();
-                if ((t != null) && (t.type == Func.t_many2) && ((Many2)(t.data)).down.isint(1)) down = ((Many2)(t.data)).up;
-                Num nd = down.get_Num();
+                if ((t != null) && (t.type == Func.t_many2) && ((Many2)(t.data)).down.isint(1,0)) down = ((Many2)(t.data)).up;
+                Complex nd = down.get_Num();
                 if (nd == null) return null;
-                Num nu = up.get_Num();
+                Complex nu = up.get_Num();
                 if (nu != null) {
-                    nd.div(); nu.mul(nd); return nu;
+                    nd.div(); nu.mul(nd); nu.simple(); return nu;
                 }
             }
             return null;
         }
-        public Num calc() {
-            Num d = down.calc();
-            if (d.sign == 0) IDS.sys.error("div0");
-            d.div(); d.mul(up.calc()); return d.simple();
+        public Complex calc() {
+            Complex d = down.calc();
+            if (d.iszero()) IDS.sys.error("div0");
+            d.div(); d.mul(up.calc()); d.simple(); return d;
         }
         public void findvals(One o)
         {
@@ -1888,14 +2145,20 @@ namespace shard0
         {
             Many fu = up.diff_down(at), fd = down.diff_down(at);
             Many2 r = new Many2(new Many(), new Many());
-            fu.mul(down); fd.mul(up); fu.add(fd,-1); r.up = fu;
+            fu.mul(down); fd.mul(up); fu.sub(fd); r.up = fu;
             r.down = new Many(down); r.down.mul(down);
+            r.simple(); return r;
+        }
+        public Many2 diff_up(Vals at)
+        {
+            Many _u = new Many(up); Many _d = new Many(down); _d.div(); _u.mul(_d);
+            Many2 r = new Many2(_u.diff_up(at));
             r.simple(); return r;
         }
     }
     class Exps_f 
     {
-        public Num max, min;
+        public Complex max, min;
         int deep;
         public int type; 
         //0 - 1*one, 1 - n*one, 2 - many
@@ -1904,13 +2167,13 @@ namespace shard0
         public Many mvar;
         Func e1;
         public Exps_f(Many m, int _deep){
-            min = new Num(0); max = new Num(0);
+            min = new Complex(0); max = new Complex(0);
             data = new SortedDictionary<Func,Many>();
-            Func e0 = new Func(IDS.n0);
+            Func e0 = new Func(new Complex(0));
             data.Add(e0, new Many());
-            data[e0].data.Add(new One(),new Num(1));
+            data[e0].data.Add(new One(),new Complex(1));
             deep = _deep;
-            e1 = new Func(IDS.n1);
+            e1 = new Func(new Complex(1));
             mvar = new Many(m); if (deep > 0) mvar.deeper(deep);
             type = mvar.type_exp();
             data.Add(e1, mvar);
@@ -1920,15 +2183,15 @@ namespace shard0
         }
 
         public void add(Many m, Func val, int updown){
-            Num t; 
+            Complex t; 
             min.set0(); max.set0(); 
             Func te;
             if (type > 1) {
-                foreach (KeyValuePair<One,Num> on in m.data) {
+                foreach (KeyValuePair<One,Complex> on in m.data) {
                     if (on.Key.exps.ContainsKey(val)) {
                         te = on.Key.exps[val];
                         if (te.type_pow() + type < 3) {
-                            t = (Num)(te.data);
+                            t = (Complex)(te.data);
                             min.min(t); max.max(t);
                         }
                     }
@@ -1936,7 +2199,7 @@ namespace shard0
                 min.neg();
                 add(new Func(min)); add(new Func(max));
             }
-            t = new Num(0);
+            t = new Complex(0);
 /*
 [+1]^(pow - min)*[-1]^(max - pow)
 (a+b)/(c+d)
@@ -1946,17 +2209,17 @@ namespace shard0
  [+1]^(-2 - (-2))*[-1]^(+1 - (-2)) (0) (+3)
  [+1]^(+1 - (-2))*[-1]^(+1 - (+1)) (+3) (0)
 */
-            foreach (KeyValuePair<One,Num> on in m.data) {
+            foreach (KeyValuePair<One,Complex> on in m.data) {
                 if (on.Key.exps.ContainsKey(val)) {
                     te = on.Key.exps[val]; 
                     if (te.type_pow() + type < 3) {
                         if (type < 2) add(new Func(te)); else {
                             if (updown == +1) { //pow + (-min)
-                                t.set((Num)(te.data)); t.add(min,+1);
+                                t.set((Complex)(te.data)); t.add(min);
                                 add(new Func(t));
                             }
                             if (updown == -1) {//max - pow
-                                t.set(max); t.add((Num)(te.data),-1);
+                                t.set(max); t.sub((Complex)(te.data));
                                 add(new Func(t));
                             }
                         }
@@ -1965,7 +2228,7 @@ namespace shard0
             }
         }
         public void calc(){
-            Func dl = new Func(IDS.n0);
+            Func dl = new Func(new Complex(0));
             foreach (KeyValuePair<Func,Many> d in data) {
 /*                if (d.Value.data.Count == 0) {
                     if (d.Key.type == 0) {
@@ -2014,20 +2277,20 @@ namespace shard0
         {
             Many2 r = new Many2(ind);
             r.replace(Program.root.v_x.vals[0],new Func(val));
-            r.replace(Program.root.v_n.vals[0],new Func(IDS.nums[IDS.znums+exp]));
-            Num n = r.simple();
+            r.replace(Program.root.v_n.vals[0],new Func(new Complex(exp)));
+            Complex n = r.simple();
             if (n != null) return new Many2(n); else return r;
         }
         public Many2 prep_calc(Vals val, int steps)
         {
             int len = data.Count - point;
             if (len < 1) IDS.sys.error("row: empty");
-            Many2 calc = new Many2(IDS.n0), t;
-            int i0 = 0; while (i0 < point) {calc.add(step(data[i0],i0,val),1); i0++;}
+            Many2 calc = new Many2(new Complex(0)), t;
+            int i0 = 0; while (i0 < point) {calc.add(step(data[i0],i0,val)); i0++;}
             int e = point, i1 = 0; while (i1 < steps) {
                 i0 = 0; while (i0 < len) {
                     t = step(data[point + i0],e,val);
-                    calc.add(t,1);
+                    calc.add(t);
                     i0++; e++;
                 }
                 i1++;
@@ -2087,12 +2350,12 @@ namespace shard0
             type = Func.t_val; data = v;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Func(Num n)
+        public Func(Complex n)
         {
             type = Func.t_num; data = n;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Func(One o, Num n)
+        public Func(One o, Complex n)
         {
             type = Func.t_many2; data = new Many2(o,n);
         }
@@ -2119,7 +2382,7 @@ namespace shard0
         }
         static public Action<Func,Func>[] set_func = {
               (Func t, Func f) => {t.data = f.data;},
-              (Func t, Func f) => {t.data = f.data;},
+              (Func t, Func f) => {t.data = new Complex((Complex)(f.data));},
               (Func t, Func f) => {t.data = new Many2((Many2)(f.data));},
               (Func t, Func f) => {t.data = new Many2((Many2)(f.data));},
               (Func t, Func f) => {t.data = new Many2((Many2)(f.data));},
@@ -2140,33 +2403,33 @@ namespace shard0
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override void set0()
         {
-            type = Func.t_num; data = IDS.n0;
+            type = Func.t_num; data = new Complex(0);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override void set1()
         {
-            type = Func.t_num; data = IDS.n1;
+            type = Func.t_num; data = new Complex(1);
         }
-        static public Func<Func,Num>[] get_num_part_func = {
-                (Func t) => {return IDS.n0;},
-                (Func t) => {return (Num)(t.data);},
+        static public Func<Func,Complex>[] get_num_part_func = {
+                (Func t) => {return new Complex(0);},
+                (Func t) => {return (Complex)(t.data);},
                 (Func t) => {return ((Many2)(t.data)).get_num_part();},
-                (Func t) => {return IDS.n0;},
-                (Func t) => {return IDS.n0;},
-                (Func t) => {return IDS.n0;},
-                (Func t) => {return IDS.n0;},
-                (Func t) => {return IDS.n0;}
+                (Func t) => {return new Complex(0);},
+                (Func t) => {return new Complex(0);},
+                (Func t) => {return new Complex(0);},
+                (Func t) => {return new Complex(0);},
+                (Func t) => {return new Complex(0);}
         };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Num get_num_part()
+        public Complex get_num_part()
         {
             return Func.get_num_part_func[type](this);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool isconst(int n) { return (type == Func.t_num ? ((Num)data).isint(n): false); }
+        public bool isconst(int r, int i) { return (type == Func.t_num ? ((Complex)data).isint(r,i): false); }
         static public Func<Func,int>[] type_pow_func = {
                 (Func t) => {return 2;},
-                (Func t) => {return ((((Num)(t.data)).isint()) ? 0 : 1);},
+                (Func t) => {return (((Complex)(t.data)).i.sign == 0 ? (((Complex)(t.data)).isint() ? 0 : 1) : 2);},
                 (Func t) => {return 2;},
                 (Func t) => {return 2;},
                 (Func t) => {return 2;},
@@ -2231,7 +2494,7 @@ namespace shard0
                 exd = new Exps_f(((Many2)(f_exp.data)).down,v.deep);
             } else {
                 exu = new Exps_f(new Many(new Func(f_exp)),v.deep);
-                exd = new Exps_f(new Many(IDS.n1),v.deep);
+                exd = new Exps_f(new Many(new Complex(1)),v.deep);
             }
             return Func.expand2_func[type](this,fv,exu,exd);
         }
@@ -2255,7 +2518,7 @@ namespace shard0
                     t.data = new Many2(new Many(new One(t)));
                     t.type = Func.t_many2; ((Many2)(t.data)).neg();
                 },
-                (Func t) => {t.data = Num.neg((Num)(t.data));},
+                (Func t) => {((Complex)(t.data)).neg();},
                 (Func t) => {((Many2)(t.data)).neg();},
                 (Func t) => {},
                 (Func t) => {},
@@ -2273,7 +2536,7 @@ namespace shard0
                     t.data = new Many2(new Many(new One(t)));
                     t.type = 2; ((Many2)(t.data)).div();
                 },
-                (Func t) => {t.data = Num._div((Num)(t.data));},
+                (Func t) => {((Complex)(t.data)).div();},
                 (Func t) => {((Many2)(t.data)).div();},
                 (Func t) => {},
                 (Func t) => {},
@@ -2288,21 +2551,21 @@ namespace shard0
         }
         static public Action<Func,Func>[] mul_func = {
                 (Func t, Func f) => {//0:0
-                    One _o = new One(t); _o.addto(new Func(f),new Func(IDS.n1));
+                    One _o = new One(t); _o.addto(new Func(f),new Func(new Complex(0)));
                     t.type = 2; t.data = new Many2(new Many(_o));
                 },
                 (Func t, Func f) => {
-                    if (((Num)(f.data)).sign == 0) {
+                    if (((Complex)(f.data)).iszero()) {
                         t.type = 1; t.data = f.data;
-                    } else if (! ((Num)(f.data)).isint(1)) {
+                    } else if (! ((Complex)(f.data)).isint(1,0)) {
                         One _o = new One(t);
-                        t.type = 2; t.data = new Many2(new Many(_o,(Num)(f.data)));
+                        t.type = 2; t.data = new Many2(new Many(_o,(Complex)(f.data)));
                     }
                 },
                 (Func t, Func f) => {
                     One _o = new One(t);
                     t.type = 2; t.data = new Many2((Many2)(f.data));
-                    ((Many2)(t.data)).mul(_o,IDS.n1);
+                    ((Many2)(t.data)).mul(_o,Complex._r1);
                 },
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
@@ -2311,24 +2574,24 @@ namespace shard0
                 (Func t, Func f) => {},
 
                 (Func t, Func f) => {//1 *= 0
-                    if (((Num)(t.data)).sign != 0) {
-                        if (((Num)(t.data)).isint(1)) {
+                    if (! ((Complex)(t.data)).iszero()) {
+                        if (((Complex)(t.data)).isint(1,0)) {
                             t.type = f.type; t.data = f.data;
                         } else {
                             One _o = new One(f);
-                            t.type = 2; t.data = new Many2(new Many(_o,(Num)(t.data)));
+                            t.type = 2; t.data = new Many2(new Many(_o,(Complex)(t.data)));
                         }
                     }
                 },
                 (Func t, Func f) => {  //1 *= 1
-                    t.data = Num.mul((Num)(t.data),(Num)(f.data));
+                    t.data = Complex.mul((Complex)(t.data),(Complex)(f.data));
                 },
                 (Func t, Func f) => { //1 *= 2
-                    if (((Num)(t.data)).sign != 0) {
-                        if (((Num)(t.data)).isint(1)) {
+                    if (! ((Complex)(t.data)).iszero()) {
+                        if (((Complex)(t.data)).isint(1,0)) {
                             t.type = f.type; t.data = f.data;
                         } else {
-                            t.type = 2; t.data = new Many2((Num)(t.data));
+                            t.type = 2; t.data = new Many2((Complex)(t.data));
                             ((Many2)(t.data)).mul((Many2)f.data);
                         }
                     }
@@ -2340,14 +2603,14 @@ namespace shard0
                 (Func t, Func f) => {},
 
                 (Func t, Func f) => {//2 *= 0
-                    ((Many2)(t.data)).mul(new One(f),IDS.n1);
+                    ((Many2)(t.data)).mul(new One(f),Complex._r1);
                 },
                 (Func t, Func f) => {  //2 *= 1
-                    if (! ((Num)(f.data)).isint(1)) {
-                        if (((Num)(f.data)).sign == 0) {
+                    if (! ((Complex)(f.data)).isint(1,0)) {
+                        if (((Complex)(f.data)).iszero()) {
                             t.type = f.type; t.data = f.data;
                         } else {
-                            ((Many2)(t.data)).mul((Num)f.data);
+                            ((Many2)(t.data)).mul((Complex)f.data);
                         }
                     }
                 },
@@ -2410,28 +2673,28 @@ namespace shard0
         {
             Func.mul_func[type*Func.types + f.type ](this,f);
         }
-        static public Action<Func,Num>[] muln_func = {
-                (Func t, Num n) => {
+        static public Action<Func,Complex>[] muln_func = {
+                (Func t, Complex n) => {
                     One _o = new One(t);
                     t.type = 2; t.data = new Many2(new Many(_o,n));
                 },
-                (Func t, Num n) => { 
-                    t.data = Num.mul((Num)(t.data),n);
+                (Func t, Complex n) => { 
+                    ((Complex)(t.data)).mul(n);
                 },
-                (Func t, Num n) => { 
+                (Func t, Complex n) => { 
                     ((Many2)(t.data)).mul(n);
                 },
-                (Func t, Num n) => {},
-                (Func t, Num n) => {},
-                (Func t, Num n) => {},
-                (Func t, Num n) => {},
-                (Func t, Num n) => {}
+                (Func t, Complex n) => {},
+                (Func t, Complex n) => {},
+                (Func t, Complex n) => {},
+                (Func t, Complex n) => {},
+                (Func t, Complex n) => {}
                 };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void mul(Num n)
+        public void mul(Complex n)
         {
-            if (! n.isint(1)) {
-                if (n.sign == 0) {
+            if (! n.isint(1,0)) {
+                if (n.iszero()) {
                     type = 1; data = n;
                 } else {
                     Func.muln_func[type](this,n);
@@ -2442,22 +2705,22 @@ namespace shard0
         static public Action<Func,Func>[] common_func = {
                 (Func t, Func f) => {//0:0
                     if (t.data != f.data) {
-                        t.type = 1; t.data = IDS.n0;
+                        t.type = 1; t.data = new Complex(0);
                     }
                 },
                 (Func t, Func f) => {
-                        t.type = 1; t.data = IDS.n0;
+                        t.type = 1; t.data = new Complex(0);
                 },
                 (Func t, Func f) => {
-                    One _o = new One(t); 
-                    Num _nd = ((Many2)(f.data)).down.get_Num(); _nd.div();
-                    if ((_nd != null) && ((Many2)(f.data)).up.data.ContainsKey(_o) && (((Many2)(f.data)).up.data[_o].sign * _nd.sign > 0)) {
+                    One _o = new One(t);
+                    Complex _nd = ((Many2)(f.data)).down.get_Num(); _nd.div();
+                    if ((_nd != null) && ((Many2)(f.data)).up.data.ContainsKey(_o) && (((Many2)(f.data)).up.data[_o].sign() * _nd.sign() > 0)) {
                         _nd.mul(((Many2)(f.data)).up.data[_o]);
-                        if (_nd.great(IDS.n1)) {
+                        if (_nd.great(new Complex(1))) {
                             Many _u = new Many(); _u.data.Add(_o,_nd);
-                            t.type = 2; t.data = new Many2(_u,new Many(IDS.n1));
+                            t.type = 2; t.data = new Many2(_u,new Many(new Complex(1)));
                         }
-                    } else {t.type = 1; t.data = IDS.n0;}
+                    } else {t.type = 1; t.data = new Complex(0);}
                 },
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
@@ -2466,13 +2729,13 @@ namespace shard0
                 (Func t, Func f) => {},
 
                 (Func t, Func f) => {
-                        t.type = 1; t.data = IDS.n0;
+                        t.type = 1; t.data = new Complex(0);
                 }, //1:0
                 (Func t, Func f) => { //1 1
-                        t.data = Num.common((Num)(t.data),(Num)(f.data)); //no new - just select
+                        t.data = Complex.common((Complex)(t.data),(Complex)(f.data)); //no new - just select
                 },
                 (Func t, Func f) => { //1 2
-                        t.data = Num.common((Num)(t.data),((Many2)(f.data)).get_num_part());
+                        t.data = Complex.common((Complex)(t.data),((Many2)(f.data)).get_num_part());
                 },
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
@@ -2482,23 +2745,23 @@ namespace shard0
 
                 (Func t, Func f) => {//2:0
                     One _o = new One(f);
-                    Num _nd = ((Many2)(t.data)).down.get_Num(); _nd.div();
-                    if ((_nd != null) && ((Many2)(t.data)).up.data.ContainsKey(_o) && (((Many2)(t.data)).up.data[_o].sign * _nd.sign > 0)) {
+                    Complex _nd = ((Many2)(t.data)).down.get_Num(); _nd.div();
+                    if ((_nd != null) && ((Many2)(t.data)).up.data.ContainsKey(_o) && (((Many2)(t.data)).up.data[_o].sign() * _nd.sign() > 0)) {
                         _nd.mul(((Many2)(t.data)).up.data[_o]);
-                        if (_nd.great(IDS.n1)) {
+                        if (_nd.great(new Complex(1))) {
                             ((Many2)(t.data)).up = new Many(_o,_nd);
-                            ((Many2)(t.data)).down = new Many(IDS.n1);
+                            ((Many2)(t.data)).down = new Many(new Complex(1));
                         } else {
                             t.type = 0; t.data = f.data;
                         }
-                    } else {t.type = 1; t.data = IDS.n0;}
+                    } else {t.type = 1; t.data = new Complex(0);}
                 },
                 (Func t, Func f) => { //2:1
-                        t.type = 1; t.data = Num.common(((Many2)(t.data)).get_num_part(),(Num)(f.data)); 
+                        t.type = 1; t.data = Complex.common(((Many2)(t.data)).get_num_part(),(Complex)(f.data)); 
                 },
                 (Func t, Func f) => { //2:2
                         ((Many2)(t.data)).common((Many2)(f.data));
-                        Num r = ((Many2)(t.data)).get_Num();
+                        Complex r = ((Many2)(t.data)).get_Num();
                         if (r != null) {t.data = r; t.type = 1;}
                 },
                 (Func t, Func f) => {},
@@ -2560,125 +2823,125 @@ namespace shard0
 
 
 
-        static public Action<Func,Func,int>[] add_func = {
-                (Func t, Func f, int s) => {//0:0
+        static public Action<Func,Func>[] add_func = {
+                (Func t, Func f) => {//0:0
                     Many _u = new Many(t);
                     One _o = new One(new Func(f));
-                    _u.add(_o,s);
+                    _u.add(_o);
                     t.type = 2; t.data = new Many2(_u);
                 },
-                (Func t, Func f, int s) => {
-                    if (((Num)(f.data)).sign != 0) {
+                (Func t, Func f) => {
+                    if (! ((Complex)(f.data)).iszero()) {
                         Many _u = new Many(t);
-                        _u.add(new One(),(Num)(f.data),s);
+                        _u.add(new One(),(Complex)(f.data));
                         t.type = 2; t.data = new Many2(_u);
                     }
                 },
-                (Func t, Func f, int s) => {
+                (Func t, Func f) => {
                     Many2 _fm = new Many2((Many2)(f.data)), _tm = new Many2(new One(t));
-                    _tm.add(_fm,s);
+                    _tm.add(_fm);
                     t.type = 2; t.data = _tm;
                 },
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
 
-                (Func t, Func f, int s) => {//1:0
-                    if (((Num)(t.data)).sign == 0) {
+                (Func t, Func f) => {//1:0
+                    if (((Complex)(t.data)).iszero()) {
                         t.type = f.type; t.data = f.data;
                     } else {
                         Many _u = new Many(new One(f));
-                        _u.add(new One(),(Num)(t.data),s);
+                        _u.add(new One(),(Complex)(t.data));
                         t.type = 2; t.data = new Many2(_u);
                     }
                 },
-                (Func t, Func f, int s) => { //1:1
-                        t.data = Num.add((Num)(t.data),(Num)(f.data),s);
+                (Func t, Func f) => { //1:1
+                        ((Complex)(t.data)).add((Complex)(f.data));
                 },
-                (Func t, Func f, int s) => { //1:2
-                    if (((Num)(t.data)).sign == 0) {
+                (Func t, Func f) => { //1:2
+                    if (((Complex)(t.data)).iszero()) {
                         t.type = f.type; t.data = f.data;
                     } else {
-                        t.type = 2; t.data = new Many2((Num)(t.data));
-                        ((Many2)(t.data)).add((Many2)f.data,s);
+                        t.type = 2; t.data = new Many2((Complex)(t.data));
+                        ((Many2)(t.data)).add((Many2)f.data);
                     }
                 },
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
 
-                (Func t, Func f, int s) => {//2:0
+                (Func t, Func f) => {//2:0
                     One _o = new One(f);
-                    Many _u = new Many(); _u.data.Add(_o,IDS.n1);
-                    ((Many2)(t.data)).add(new Many2(_u,new Many(IDS.n1)),s);
+                    Many _u = new Many(); _u.data.Add(_o,new Complex(1));
+                    ((Many2)(t.data)).add(new Many2(_u,new Many(new Complex(1))));
                 },
-                (Func t, Func f, int s) => { //2:1
-                    if (((Num)(f.data)).sign != 0) {
-                        ((Many2)(t.data)).add((Num)f.data,s);
+                (Func t, Func f) => { //2:1
+                    if (! ((Complex)(f.data)).iszero()) {
+                        ((Many2)(t.data)).add((Complex)f.data);
                     }
                 },
-                (Func t, Func f, int s) => { //2:2
-                        ((Many2)(t.data)).add((Many2)(f.data),s);
+                (Func t, Func f) => { //2:2
+                        ((Many2)(t.data)).add((Many2)(f.data));
                 },
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
 
-                (Func t, Func f, int s) => {}, //3:0
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
+                (Func t, Func f) => {}, //3:0
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
 
-                (Func t, Func f, int s) => {}, //4:0
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
+                (Func t, Func f) => {}, //4:0
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
 
-                (Func t, Func f, int s) => {}, //5:0
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
+                (Func t, Func f) => {}, //5:0
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
 
-                (Func t, Func f, int s) => {}, //6:0
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
+                (Func t, Func f) => {}, //6:0
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
 
-                (Func t, Func f, int s) => {}, //7:0
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {},
-                (Func t, Func f, int s) => {}
+                (Func t, Func f) => {}, //7:0
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {}
               };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void add(Func f, int s)
+        public void add(Func f)
         {
-            Func.add_func[type*Func.types + f.type ](this,f,s);
+            Func.add_func[type*Func.types + f.type ](this,f);
         }
 
         static public Func<Func,Func,int>[] comp_func = {
@@ -2693,14 +2956,14 @@ namespace shard0
                 (Func t, Func f) => {return 1;},
 
                 (Func t, Func f) => {return -1;}, //1:0
-                (Func t, Func f) => {return ((Num)(t.data)).CompareTo(f.data);},
+                (Func t, Func f) => {return ((Complex)(t.data)).CompareTo(f.data);},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
-                (Func t, Func f) => {return ((Num)(t.data)).CompareTo(null);},
+                (Func t, Func f) => {return ((Complex)(t.data)).CompareTo(null);},
 
                 (Func t, Func f) => {return -1;}, //2:0
                 (Func t, Func f) => {return -1;},
@@ -2771,9 +3034,9 @@ namespace shard0
 
         static public Action<Func>[] simple_func = {
                 (Func t) => {},
-                (Func t) => {t.data = ((Num)(t.data)).simple();},
+                (Func t) => {((Complex)(t.data)).simple();},
                 (Func t) => {
-                    Num r = ((Many2)(t.data)).simple();
+                    Complex r = ((Many2)(t.data)).simple();
                     if (r != null) {t.data = r; t.type = 1;} else {
                         Func _t = ((Many2)(t.data)).get_Func();
                         if (_t != null) {
@@ -2786,21 +3049,21 @@ namespace shard0
                 },
                 (Func t) => {
                     ((Many2)(t.data)).simple();
-                    Num n = ((Many2)(t.data)).get_Num();
+                    Complex n = ((Many2)(t.data)).get_Num();
                     if (n != null) {
                         t.data = Func.f_fact(n,t); t.type = 1;
                     }
                 },
                 (Func t) => {
                     ((Many2)(t.data)).simple();
-                    Num n = ((Many2)(t.data)).get_Num();
+                    Complex n = ((Many2)(t.data)).get_Num();
                     if (n != null) {
                         t.type = 1; t.data = Func.f_int(n);
                     }
                 },
                 (Func t) => {
                     ((Many2)(t.data)).simple();
-                    Num n = ((Many2)(t.data)).get_Num();
+                    Complex n = ((Many2)(t.data)).get_Num();
                     if (n != null) {
                         t.type = 1; t.data = Func.f_sign(n);
                     }
@@ -2815,7 +3078,7 @@ namespace shard0
 
         static public Func<Func,int>[] sign_func = {
                 (Func t) => {return 1;},
-                (Func t) => {return ((Num)(t.data)).sign;},
+                (Func t) => {return ((Complex)(t.data)).sign();},
                 (Func t) => {return ((Many2)(t.data)).sign();},
                 (Func t) => {return 1;},
                 (Func t) => {return 1;},
@@ -2854,31 +3117,32 @@ namespace shard0
             return r;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Num f_ln(Num n, Func t)
+        public static Complex f_ln(Complex n, Func t)
         {
             IDS.now_func = t;
-            Num r = new Num(n); r.ln(); return r;
+            Complex r = new Complex(n); r.ln(); return r;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Num f_fact(Num n, Func t)
+        public static Complex f_fact(Complex n, Func t)
         {
             IDS.now_func = t;
-            if ((! n.isint()) || (n.sign < 0) || (n.up >= Program.root.fact.Count())) IDS.sys.error("fact: wrong");
-            return Program.root.fact[(int)n.up];
+            if ((n.i.sign != 0) || (n.r.sign < 1) || (! n.r.isint()) || (n.r.up >= Program.root.fact.Count())) IDS.sys.error("fact: not yet");
+            return new Complex(Program.root.fact[(int)n.r.up]);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Num f_int(Num n)
+        public static Complex f_int(Complex n)
         {
-            if (n.down != 1) return new Num(n.sign*n.up/n.down); else  return n;
+            if ((n.r.down == 1) && (n.i.down == 1)) return n;
+            return new Complex(new Num(n.r.sign*n.r.up/n.r.down),new Num(n.i.sign*n.i.up/n.i.down));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Num f_sign(Num n)
+        public static Complex f_sign(Complex n)
         {
-            return IDS.nums[n.sign + IDS.znums];
+            return new Complex(IDS.nums[n.r.sign + IDS.znums],IDS.nums[n.i.sign + IDS.znums]);
         }
-        static public Func<Func,Num>[] calc_func = {
+        static public Func<Func,Complex>[] calc_func = {
                 (Func t) => {return ((Vals)(t.data)).get_val(); },
-                (Func t) => {return (Num)(t.data);},
+                (Func t) => {return (Complex)(t.data);},
                 (Func t) => {return ((Many2)(t.data)).calc();},
                 (Func t) => {return Func.f_ln(((Many2)(t.data)).calc(),t);},
                 (Func t) => {return Func.f_fact(((Many2)(t.data)).calc(),t);},
@@ -2886,46 +3150,44 @@ namespace shard0
                 (Func t) => {return Func.f_sign(((Many2)(t.data)).calc());},
                 (Func t) => {
                     IDS.sys.error("row:not prep");
-                    return new Num(0);
+                    return new Complex(0);
                 }
               };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Num calc()
+        public Complex calc()
         {
             return Func.calc_func[type](this);
         }
 
-        static public Func<Func,Num,Num>[] calce_func = {
-                (Func t, Num e) => {return ((Vals)(t.data)).get_val(e); },
-                (Func t, Num e) => {return Num.exp((Num)(t.data),e);},
-                (Func t, Num e) => {return Num.exp(((Many2)(t.data)).calc(),e);},
-                (Func t, Num e) => {
-                    return Num.exp(Func.f_ln(((Many2)(t.data)).calc(),t),e);
+        static public Func<Func,Complex,Complex>[] calce_func = {
+                (Func t, Complex e) => {return ((Vals)(t.data)).get_val(e); },
+                (Func t, Complex e) => {return Complex.exp((Complex)(t.data),e);},
+                (Func t, Complex e) => {return Complex.exp(((Many2)(t.data)).calc(),e);},
+                (Func t, Complex e) => {
+                    return Complex.exp(Func.f_ln(((Many2)(t.data)).calc(),t),e);
                 },
-                (Func t, Num e) => {
-                    return Num.exp(Func.f_fact(((Many2)(t.data)).calc(),t),e);
+                (Func t, Complex e) => {
+                    return Complex.exp(Func.f_fact(((Many2)(t.data)).calc(),t),e);
                 },
-                (Func t, Num e) => {
-                    Num r = ((Many2)(t.data)).calc();
-                    if (r.down != 1) {r = new Num(r.sign*r.up/r.down);}
-                    return Num.exp(r,e);
+                (Func t, Complex e) => {
+                    return Complex.exp(Func.f_int(((Many2)(t.data)).calc()),e);
                 },
-                (Func t, Num e) => {
-                    int s = ((Many2)(t.data)).calc().sign;
-                    return IDS.nums[((e.up & 1) == 0 ? s*s : s) + IDS.znums];
+                (Func t, Complex e) => {
+                    int s = ((Many2)(t.data)).calc().sign();
+                    return new Complex((e.r.up & 1) == 0 ? s*s : s);
                 },
-                (Func t, Num e) => {
+                (Func t, Complex e) => {
                     IDS.sys.error("row: not prep");
-                    return new Num(0);
+                    return new Complex(0);
                 }
               };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Num calc(Num e)
+        public Complex calc(Complex e)
         {
-            return (e == IDS.n1 ? Func.calc_func[type](this) : Func.calce_func[type](this,e));
+            return (e.iszero() ? new Complex(1) : (e.isequ(Complex._r1) ? Func.calc_func[type](this) : Func.calce_func[type](this,e)));
         }
         static public Action<Func,One>[] findvals_func = {
-              (Func t, One o) => {if (! o.exps.ContainsKey(t)) o.exps.Add(new Func(t),new Func(IDS.n1));},
+              (Func t, One o) => {if (! o.exps.ContainsKey(t)) o.exps.Add(new Func(t),new Func(new Complex(1)));},
               (Func t, One o) => {},
               (Func t, One o) => {((Many2)(t.data)).findvals(o);},
               (Func t, One o) => {((Many2)(t.data)).findvals(o);},
@@ -2957,34 +3219,58 @@ namespace shard0
             Func.diff_down_func[type](this,d);
         }
 
+
+        static public Action<Func,Vals>[] diff_up_func = {
+              (Func t, Vals a) => {if (t.data == a) {
+                      t.data = new Many2(new One(new Func(a),new Func(new Complex(2))),new Complex(new Num(1,2)));
+                  } else {
+                      t.data = new Many2(new Func(t)); ((Many2)(t.data)).mul(new One(new Func(a)),Complex._r1);
+                  }
+                  t.type = Func.t_many2;
+              },
+              (Func t, Vals a) => {t.data = new Many2(new Many(new One(new Func(a)),(Complex)(t.data))); t.type = Func.t_many2;},
+              (Func t, Vals a) => {t.data = ((Many2)(t.data)).diff_up(a);},
+              (Func t, Vals a) => {},
+
+              (Func t, Vals a) => {},
+              (Func t, Vals a) => {},
+              (Func t, Vals a) => {},
+              (Func t, Vals a) => {}
+        };
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void diff_up(Vals d) 
+        {
+            Func.diff_up_func[type](this,d);
+        }
+
         static public Func<Func,Func,Vals, Func>[] diffe_down_func = {
                 (Func t, Func e, Vals a) => { //0:0
                     One o;
                     if ((t.type == Func.t_val) && (t.data == a)) {
                         if ((e.type == Func.t_val) && (e.data == a)) {
                             o = new One(new Func(t),new Func(e));
-                            Many m = new Many(IDS.n1);
-                            m.add(new One(new Func(3,new Many2(new Func(t)))),IDS.n1,1);
+                            Many m = new Many(new Complex(1));
+                            m.add(new One(new Func(3,new Many2(new Func(t)))),new Complex(1));
                             o.addto(new Func(new Many2(m)));
                         } else {
-                            Func tt = new Func(e); tt.add(new Func(IDS.n1),-1);
+                            Func tt = new Func(e); tt.add(new Func(new Complex(-1)));
                             o = new One (new Func(t),tt); o.addto(new Func(e)); 
                         }
                     } else  {
                         if ((e.type == Func.t_val) && (e.data == a)) {
                             o = new One(new Func(t),new Func(e)); o.addto(new Func(3,new Many2(new Func(t))));
                         } else {
-                            return new Func(IDS.n0);
+                            return new Func(new Complex(0));
                         }
                     }
                     return new Func(new Many2(o));
                 },
                 (Func t, Func e, Vals a) => {//0:1
                     if ((t.type == Func.t_val) && (t.data == a)) {
-                        One o = new One (new Func(t),new Func(Num.sub((Num)(e.data),IDS.n1)));
-                        return new Func(new Many2(o,(Num)(e.data)));
+                        One o = new One (new Func(t),new Func(Complex.sub((Complex)(e.data),new Complex(1))));
+                        return new Func(new Many2(o,(Complex)(e.data)));
                     }
-                    return new Func(IDS.n0);
+                    return new Func(new Complex(0));
                 },
                 (Func t, Func e, Vals a) => {//0:2
                     Many2 dm = ((Many2)(e.data)).diff_down(a);
@@ -2993,9 +3279,9 @@ namespace shard0
                         o.addto(new Func(dm));
                         o.addto(new Func(t));
                         Many2 m0 = new Many2((Many2)(e.data));
-                        m0.add(new Many2(o),1);
+                        m0.add(new Many2(o));
                         Many2 m1 = new Many2((Many2)(e.data));
-                        m1.add(IDS.n1,-1);
+                        m1.add(new Complex(-1));
                         One o0 = new One(new Func(t),new Func(m1));
                         o0.addto(new Func(m0));
                         return new Func(new Many2(o0));
@@ -3011,35 +3297,35 @@ namespace shard0
                         One o0 = new One(new Func(3,new Many2(new Func(t))));
                         o0.addto(new Func(dm));
                         o0.addto(new Func(t));
-                        o0.addto(new Func(new Many2((Many2)(e.data))),new Func(IDS.n_1));
+                        o0.addto(new Func(new Many2((Many2)(e.data))),new Func(new Complex(-1)));
                         Many m0 = new Many(o0);
-                        m0.add(new One(new Func(e)),1);
+                        m0.add(new One(new Func(e)));
                         One o = new One(new Func(new Many2(m0)));
                         Many2 m1 = new Many2(new Func(e));
-                        m1.add(IDS.n1,-1);
+                        m1.add(new Complex(-1));
                         o.addto(new Func(t),new Func(m1));
                         return new Func(new Many2(o));
                     } else {
                         One o = new One(new Func(3,new Many2(new Func(t))));
                         o.addto(new Func(dm)); 
                         o.addto(new Func(t),new Func(e));
-                        o.addto(new Func(new Many2((Many2)(e.data))),new Func(IDS.n_1));
+                        o.addto(new Func(new Many2((Many2)(e.data))),new Func(new Complex(-1)));
                         return new Func(new Many2(o));
                     }
                 },
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
 
 
                 (Func t, Func e, Vals a) => {//1:0
                     if ((e.type == Func.t_val) && (e.data == a)) {
                         One o = new One(new Func(t),new Func(e)); o.addto(new Func(3,new Many2(new Func(t))));
                     }
-                    return new Func(IDS.n0);
+                    return new Func(new Complex(0));
                 },
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},//1:1
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},//1:1
                 (Func t, Func e, Vals a) => {//1:2
                     Many2 dm = ((Many2)(e.data)).diff_down(a);
                     One o = new One(new Func(3,new Many2(new Func(t))));
@@ -3052,24 +3338,24 @@ namespace shard0
                     One o = new One(new Func(3,new Many2(new Func(t))));
                     o.addto(new Func(dm)); 
                     o.addto(new Func(t),new Func(e));
-                    o.addto(new Func(new Many2((Many2)(e.data))),new Func(IDS.n_1));
+                    o.addto(new Func(new Many2((Many2)(e.data))),new Func(new Complex(-1)));
                     return new Func(new Many2(o));
                 },
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
 
                 (Func t, Func e, Vals a) => {//2:0
-                    Func _e = new Func(e); _e.add(new Func(IDS.n1),-1);
+                    Func _e = new Func(e); _e.add(new Func(new Complex(-1)));
                     One o = new One(new Func(t),_e);
                     Many2 dm = ((Many2)(t.data)).diff_down(a);
                     if ((e.type == Func.t_val) && (e.data == a)) {
                         One om = new One(new Func(t)); 
                         om.addto(new Func(3,new Many2((Many2)(t.data))));
-                        dm.mul(new One(e),IDS.n1);
+                        dm.mul(new One(e),new Complex(1));
                         Many m0 = new Many(om);
-                        m0.add(new One(new Func(dm)),1);
+                        m0.add(new One(new Func(dm)));
                         o.addto(new Func(new Many2(m0)));
                     } else {
                         o.addto(new Func(dm));
@@ -3078,7 +3364,7 @@ namespace shard0
                     return new Func(new Many2(o));
                 },
                 (Func t, Func e, Vals a) => {//2:1
-                    One o = new One(new Func(t),new Func(Num.sub((Num)(e.data),IDS.n1)));
+                    One o = new One(new Func(t),new Func(Complex.sub((Complex)(e.data),new Complex(1))));
                     Many2 dm = ((Many2)(t.data)).diff_down(a);
                     o.addto(new Func(dm));
                     return new Func(new Many2(o));
@@ -3090,9 +3376,9 @@ namespace shard0
                     One o0 = new One(new Func(dt)); o0.addto(new Func(e));
                     One o1 = new One(new Func(de)); o1.addto(new Func(t));
                     o1.addto(new Func(3,new Many2((Many2)(t.data))));
-                    Many m = new Many(o0); m.add(o1,1);
+                    Many m = new Many(o0); m.add(o1);
 
-                    Many2 _e = new Many2((Many2)(e.data)); _e.add(IDS.n1,-1);
+                    Many2 _e = new Many2((Many2)(e.data)); _e.add(new Complex(-1));
                     One o = new One(new Func(t),new Func(_e));
 
                     o.addto(new Func(new Many2(m)));
@@ -3103,36 +3389,36 @@ namespace shard0
                     Many2 dt = ((Many2)(t.data)).diff_down(a);
                     Many2 de = ((Many2)(e.data)).diff_down(a);
                     One o0 = new One(new Func(dt)); o0.addto(new Func(e));
-                    o0.addto(new Func(3,new Many2((Many2)(t.data))),new Func(IDS.n_1));
+                    o0.addto(new Func(3,new Many2((Many2)(t.data))),new Func(new Complex(-1)));
                     One o1 = new One(new Func(de)); o1.addto(new Func(t));
-                    o1.addto(new Func(3,new Many2((Many2)(e.data))),new Func(IDS.n_1));
-                    Many m = new Many(o0); m.add(o1,1);
+                    o1.addto(new Func(3,new Many2((Many2)(e.data))),new Func(new Complex(-1)));
+                    Many m = new Many(o0); m.add(o1);
                     One o = new One(new Func(t),new Func(e));
                     o.addto(new Func(new Many2(m)));
                     return new Func(new Many2(o));
                 },
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
 
                 (Func t, Func e, Vals a) => {//3:0
                     Many2 dm = ((Many2)(t.data)).diff_down(a);
                     if ((e.type == Func.t_val) && (e.data == a)) {
-                        One o0 = new One(new Func(t),new Func(IDS.n_1));
-                        o0.addto(new Func(new Many2((Many2)(t.data))),new Func(IDS.n_1));
-                        dm.mul(new One(e),IDS.n1);
+                        One o0 = new One(new Func(t),new Func(new Complex(-1)));
+                        o0.addto(new Func(new Many2((Many2)(t.data))),new Func(new Complex(-1)));
+                        dm.mul(new One(e),Complex._r1);
                         o0.addto(new Func(dm));
                         Many _m = new Many(new Func(3,new Many2(new Func(t))));
-                        _m.add(o0,1);
+                        _m.add(o0);
                         One o = new One(new Func(t), new Func(e));
                         o.addto(new Func(new Many2(_m)));
                         return new Func(new Many2(o));
                     } else {
                         Many2 m = new Many2((Many2)(t.data));
                         One o = new One(new Func(dm));
-                        o.addto(new Func(m),new Func(IDS.n_1));
-                        Many _m = new Many(new Func(e)); _m.add(new One(),IDS.n1,-1);
+                        o.addto(new Func(m),new Func(new Complex(-1)));
+                        Many _m = new Many(new Func(e)); _m.add(new One(),new Complex(-1));
                         o.addto(new Func(t),new Func(new Many2(_m)));
                         o.addto(new Func(e));
                         return new Func(new Many2(o));
@@ -3142,20 +3428,20 @@ namespace shard0
                     Many2 m = new Many2((Many2)(t.data));
                     Many2 dm = ((Many2)(t.data)).diff_down(a);
                     One o = new One(new Func(dm));
-                    o.addto(new Func(m),new Func(IDS.n_1));
-                    o.addto(new Func(t),new Func(Num.sub((Num)(e.data),IDS.n1)));
-                    return new Func(new Many2(o,(Num)(e.data)));
+                    o.addto(new Func(m),new Func(new Complex(-1)));
+                    o.addto(new Func(t),new Func(Complex.sub((Complex)(e.data),new Complex(1))));
+                    return new Func(new Many2(o,(Complex)(e.data)));
                 },
                 (Func t, Func e, Vals a) => {//3:2
                     Many2 dt = ((Many2)(t.data)).diff_down(a);
                     Many2 de = ((Many2)(e.data)).diff_down(a);
 
                     One o0 = new One(new Func(dt)); o0.addto(new Func(new Many2((Many2)(e.data))));
-                    o0.addto(new Func(new Many2((Many2)(t.data))),new Func(IDS.n_1));
-                    o0.addto(new Func(t),new Func(IDS.n_1));
+                    o0.addto(new Func(new Many2((Many2)(t.data))),new Func(new Complex(-1)));
+                    o0.addto(new Func(t),new Func(new Complex(-1)));
                     One o1 = new One(new Func(3,new Many2(new Func(t))));
                     o1.addto(new Func(de));
-                    Many _m = new Many(o0); _m.add(o1,1);
+                    Many _m = new Many(o0); _m.add(o1);
 
                     One o = new One(new Func(t), new Func(e));
                     o.addto(new Func(new Many2(_m)));
@@ -3167,12 +3453,12 @@ namespace shard0
                     Many2 de = ((Many2)(e.data)).diff_down(a);
 
                     One o0 = new One(new Func(dt)); o0.addto(new Func(e));
-                    o0.addto(new Func(new Many2((Many2)(t.data))),new Func(IDS.n_1));
-                    o0.addto(new Func(t),new Func(IDS.n_1));
+                    o0.addto(new Func(new Many2((Many2)(t.data))),new Func(new Complex(-1)));
+                    o0.addto(new Func(t),new Func(new Complex(-1)));
                     One o1 = new One(new Func(3,new Many2(new Func(t))));
                     o1.addto(new Func(de));
-                    o1.addto(new Func(new Many2((Many2)(e.data))),new Func(IDS.n_1));
-                    Many _m = new Many(o0); _m.add(o1,1);
+                    o1.addto(new Func(new Many2((Many2)(e.data))),new Func(new Complex(-1)));
+                    Many _m = new Many(o0); _m.add(o1);
 
                     One o = new One(new Func(t), new Func(e));
                     o.addto(new Func(new Many2(_m)));
@@ -3180,46 +3466,46 @@ namespace shard0
                     return new Func(new Many2(o));
                     
                 },
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
 
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);}, //4:0
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));}, //4:0
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
 
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);}, //5:0
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));}, //5:0
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
 
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);}, //6:0
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));}, //6:0
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
 
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);}, //7:0
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);},
-                (Func t, Func e, Vals a) => {return new Func(IDS.n0);}
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));}, //7:0
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));}
                };
 
 
@@ -3232,7 +3518,7 @@ namespace shard0
                 if (((Many2)(data)).hasval(d)) IDS.sys.error("cant diff on such");
                 if (exp.type > Func.t_ln) {
                     if (((Many2)(exp.data)).hasval(d)) IDS.sys.error("cant diff on such");
-                    return new Func(IDS.n0);
+                    return new Func(new Complex(0));
                 } else {
                     r = Func.diffe_down_func[0 + exp.type](this,exp,d);
                 }
@@ -3273,7 +3559,7 @@ namespace shard0
         public ushort exp(Num e)
         {
             ushort i;
-            for (i = 0; i < lexp; i++) if (e.equ(exps[i])) return i;
+            for (i = 0; i < lexp; i++) if (e.CompareTo(exps[i]) == 0) return i;
             if (lexp > mexp-2) IDS.sys.error("too Many exp");
             exps[lexp++] = new Num(e);
             return i;
@@ -3401,7 +3687,7 @@ namespace shard0
     }
     class Many_as_one {
         MAO_dict dict;
-        public SortedDictionary<MAO_key,Num>[] data;
+        public SortedDictionary<MAO_key,Complex>[] data;
 
         public Many_as_one(MAO_dict d)
         {
@@ -3409,20 +3695,20 @@ namespace shard0
             _data_i();
         }
         void _data_i(){
-            data = new SortedDictionary<MAO_key,Num>[2];
-            data[0] = new SortedDictionary<MAO_key, Num>();
-            data[1] = new SortedDictionary<MAO_key, Num>();
+            data = new SortedDictionary<MAO_key,Complex>[2];
+            data[0] = new SortedDictionary<MAO_key, Complex>();
+            data[1] = new SortedDictionary<MAO_key, Complex>();
         }
-        public KeyValuePair<MAO_key,Num> fr_one(KeyValuePair<One,Num> o)
+        public KeyValuePair<MAO_key,Complex> fr_one(KeyValuePair<One,Complex> o)
         {
             int i0,v0;
-            KeyValuePair<MAO_key, Num> ret = new KeyValuePair<MAO_key,Num>(new MAO_key(dict), new Num(o.Value));
+            KeyValuePair<MAO_key, Complex> ret = new KeyValuePair<MAO_key,Complex>(new MAO_key(dict), new Complex(o.Value));
             for (i0 = 0; i0 < dict.nvals; i0++) ret.Key.key[i0] = 0;
             foreach (KeyValuePair<Func,Func> f in o.Key.exps)
             {
                 if (f.Value.type_pow() > 1) IDS.sys.error("cant fast on complex exp");
                 v0 = dict.val(f.Key);
-                ret.Key.key[v0] = dict.exp((Num)(f.Value.data));
+                ret.Key.key[v0] = dict.exp(((Complex)(f.Value.data)).r);
             }
             return ret;
         }
@@ -3431,35 +3717,35 @@ namespace shard0
             int i;
             One ret = new One();
             for (i = 0; i < dict.nvals; i++)
-                if (fr.key[i] != 0) ret.exps.Add(new Func(dict.vals[i]),new Func(dict.exps[fr.key[i]]));
+                if (fr.key[i] != 0) ret.exps.Add(new Func(dict.vals[i]),new Func(new Complex(dict.exps[fr.key[i]])));
             return ret;
         }
 
-        public void add(int ud, MAO_key m, Num n)
+        public void add(int ud, MAO_key m, Complex n)
         {
-            if (data[ud].ContainsKey(m)) data[ud][m].add(n); else data[ud].Add(new MAO_key(m), new Num(n));
+            if (data[ud].ContainsKey(m)) data[ud][m].add(n); else data[ud].Add(new MAO_key(m), new Complex(n));
         }
-        public void add(int ud, KeyValuePair<MAO_key, Num> a)
+        public void add(int ud, KeyValuePair<MAO_key, Complex> a)
         {
-            if (data[ud].ContainsKey(a.Key)) data[ud][a.Key].add(a.Value); else data[ud].Add(new MAO_key(a.Key), new Num(a.Value));
+            if (data[ud].ContainsKey(a.Key)) data[ud][a.Key].add(a.Value); else data[ud].Add(new MAO_key(a.Key), new Complex(a.Value));
         }
-        public void add(int ud, SortedDictionary<MAO_key, Num> fr)
+        public void add(int ud, SortedDictionary<MAO_key, Complex> fr)
         {
-            KeyValuePair<MAO_key, Num> tmp;
-            foreach (KeyValuePair<MAO_key, Num> d in fr) { tmp = d; add(ud, tmp); }
+            KeyValuePair<MAO_key, Complex> tmp;
+            foreach (KeyValuePair<MAO_key, Complex> d in fr) { tmp = d; add(ud, tmp); }
         }
-        public void mul(int ud, MAO_key m, Num n)
+        public void mul(int ud, MAO_key m, Complex n)
         {
-            foreach (KeyValuePair<MAO_key, Num> d in data[ud])
+            foreach (KeyValuePair<MAO_key, Complex> d in data[ud])
             {
                 d.Key.mul(m);
                 d.Value.mul(n);
             }
         }
-        public void muladd(int ud, SortedDictionary<MAO_key, Num> fr, MAO_key m, Num n)
+        public void muladd(int ud, SortedDictionary<MAO_key, Complex> fr, MAO_key m, Complex n)
         {
-            KeyValuePair<MAO_key,Num> tmp = new KeyValuePair<MAO_key,Num>(new MAO_key(dict), new Num(0));
-            foreach (KeyValuePair<MAO_key,Num> d in fr) {
+            KeyValuePair<MAO_key,Complex> tmp = new KeyValuePair<MAO_key,Complex>(new MAO_key(dict), new Complex(0));
+            foreach (KeyValuePair<MAO_key,Complex> d in fr) {
                 tmp.Key.mul(m,d.Key);
                 tmp.Value.set(n);
                 tmp.Value.mul(d.Value);
@@ -3467,38 +3753,38 @@ namespace shard0
             }
         }
 
-        public void mul(int ud, SortedDictionary<MAO_key,Num> m0)
+        public void mul(int ud, SortedDictionary<MAO_key,Complex> m0)
         {
-            SortedDictionary<MAO_key, Num> tmp1 = data[ud];
-            data[ud] = new SortedDictionary<MAO_key, Num>();
-            foreach (KeyValuePair<MAO_key, Num> d in m0) muladd(ud, tmp1, d.Key, d.Value);
+            SortedDictionary<MAO_key, Complex> tmp1 = data[ud];
+            data[ud] = new SortedDictionary<MAO_key, Complex>();
+            foreach (KeyValuePair<MAO_key, Complex> d in m0) muladd(ud, tmp1, d.Key, d.Value);
         }
-        public void mul(int ud, SortedDictionary<MAO_key, Num> m0, SortedDictionary<MAO_key, Num> m1)
+        public void mul(int ud, SortedDictionary<MAO_key, Complex> m0, SortedDictionary<MAO_key, Complex> m1)
         {
             data[ud].Clear();
-            foreach (KeyValuePair<MAO_key, Num> d in m0) muladd(ud, m1, d.Key, d.Value);
+            foreach (KeyValuePair<MAO_key, Complex> d in m0) muladd(ud, m1, d.Key, d.Value);
         }
         void set(Many_as_one fr)
         {
             for (int i = 0; i < 2; i++)
             {
                 data[i].Clear();
-                foreach (KeyValuePair<MAO_key, Num> d in fr.data[i]) data[i].Add(new MAO_key(d.Key), new Num(d.Value));
+                foreach (KeyValuePair<MAO_key, Complex> d in fr.data[i]) data[i].Add(new MAO_key(d.Key), new Complex(d.Value));
             }
         }
         public Many_as_one(Func f, MAO_dict d)
         {
             dict = d;
             _data_i();
-            foreach (KeyValuePair<One,Num> o in ((Many2)f.data).up.data) add(0, fr_one(o));
-            foreach (KeyValuePair<One,Num> o in ((Many2)f.data).down.data) add(1, fr_one(o));
+            foreach (KeyValuePair<One,Complex> o in ((Many2)f.data).up.data) add(0, fr_one(o));
+            foreach (KeyValuePair<One,Complex> o in ((Many2)f.data).down.data) add(1, fr_one(o));
         }
         public Func to_func()
         {
             int i=0, cn = data[0].Count + data[1].Count;
             Many _u = new Many(); Many _d = new Many();
-            foreach (KeyValuePair<MAO_key, Num> d in data[0]) {_u.data.Add(to_one(d.Key),new Num(d.Value)); IDS.sys.progr(i++,cn);}
-            foreach (KeyValuePair<MAO_key, Num> d in data[1]) {_d.data.Add(to_one(d.Key), new Num(d.Value)); IDS.sys.progr(i++,cn);}
+            foreach (KeyValuePair<MAO_key, Complex> d in data[0]) {_u.data.Add(to_one(d.Key),new Complex(d.Value)); IDS.sys.progr(i++,cn);}
+            foreach (KeyValuePair<MAO_key, Complex> d in data[1]) {_d.data.Add(to_one(d.Key), new Complex(d.Value)); IDS.sys.progr(i++,cn);}
             return new Func(new Many2(_u,_d));
         }
 
@@ -3523,8 +3809,8 @@ namespace shard0
                 }
             }
             _data_i();
-            data[0].Add(new MAO_key(dict), new Num(1));
-            data[1].Add(new MAO_key(dict), new Num(1));
+            data[0].Add(new MAO_key(dict), new Complex(1));
+            data[1].Add(new MAO_key(dict), new Complex(1));
 
             tmp.set(fr);
             for (int i = _eu; i > 0; i >>= 1) { 
@@ -3548,12 +3834,12 @@ namespace shard0
             Num max_u = new Num(0), max_d = new Num(0), now_u = new Num(0), now_d = new Num(0);
             Many_as_one[] me = new Many_as_one[254], ae = new Many_as_one[254];
             MAO_key z = new MAO_key(dict);
-            KeyValuePair<MAO_key, Num> tu = new KeyValuePair<MAO_key,Num>(new MAO_key(dict), new Num(0));
+            KeyValuePair<MAO_key, Complex> tu = new KeyValuePair<MAO_key,Complex>(new MAO_key(dict), new Complex(0));
             me[0] = new Many_as_one(e,0);
             me[1] = new Many_as_one(e,1);
             if ((e.data[0].Count < 1) || (e.data[1].Count < 1)) IDS.sys.error("wrong");
             int pnow = 0;
-            foreach (KeyValuePair<MAO_key, Num> u in data[n]) 
+            foreach (KeyValuePair<MAO_key, Complex> u in data[n]) 
             {
                 tex=u.Key.key[ex];
                 tu.Key.set(u.Key);
@@ -3616,8 +3902,8 @@ namespace shard0
         {
             bool r0 =  expand(0,e,id);
             bool r1 =  expand(1,e,id);
-            foreach (KeyValuePair<MAO_key, Num> d in data[0]) d.Value.simple_this();
-            foreach (KeyValuePair<MAO_key, Num> d in data[1]) d.Value.simple_this();
+            foreach (KeyValuePair<MAO_key, Complex> d in data[0]) d.Value.simple();
+            foreach (KeyValuePair<MAO_key, Complex> d in data[1]) d.Value.simple();
             return r0 | r1;
         }
     }
@@ -3628,7 +3914,7 @@ namespace shard0
         StreamReader fin, f611;
         StreamWriter[] fout;
         int nline,ncline, lines, clines;
-        string buf,nout,xout;
+        public string buf,nout,xout;
         public Boolean has, quit;
         public Fileio(string nin, string _nout)
         {
@@ -3668,6 +3954,7 @@ namespace shard0
         }
 
         public void progr (int now, int all) {
+/*
             if (Program.m0.IsDisposed) Environment.Exit(-1);
             if (all < 6) return;
             if (now > all) now = all;
@@ -3675,7 +3962,9 @@ namespace shard0
             if ((pr_now == Program.m0.pr_now) && (l_now == Program.m0.l_now)) return;
             Program.m0.pr_now = pr_now; Program.m0.l_now = l_now; 
             Program.m0.Set(0);
+ */
         }
+ 
         public void addline(string add){
             buf = add + buf;
         }
@@ -3704,7 +3993,7 @@ namespace shard0
         public void error(string e)
         {
             fout[0].WriteLine("");
-            fout[0].WriteLine("Line {0:G}: " + ((IDS.now_func != null) ? IDS.par.print(IDS.now_func,false) + " " : "") + e, nline+1);
+            fout[0].WriteLine("Line {0:G}: " + ((IDS.now_func != null) ? IDS.par.print(IDS.now_func,true) + " " : "") + e, nline+1);
             fout[0].Flush();
             Environment.Exit(-1);
         }
@@ -3812,7 +4101,7 @@ namespace shard0
         }
         string _parm() {
             string s1;
-                    if (isequnow('{')) s1 = calc().get_sup().ToString(); else {
+                    if (isequnow('{')) s1 = calc().r.get_sup().ToString(); else {
                         s1 = get(",<>");
                         s1 = s1.Replace("&0", "#");
                         s1 = s1.Replace("&1", "&0");
@@ -3995,31 +4284,31 @@ namespace shard0
             } else r = new Func(Program.root.find_val(_n));
             return r;
         }
-        public KeyValuePair<One,Num> opars()
+        public KeyValuePair<One,Complex> opars()
         {
             bool repeat;
             Func eval = null;
-            Func ex = new Func(IDS.n1);
-            One ro = new One(); Num rn = new Num(now == '-' ? -1: +1);
+            Func ex = new Func(new Complex(1));
+            One ro = new One(); Complex rn = new Complex(now == '-' ? -1: +1);
             if ((now == '-') || (now == '+')) next();
             bool l = true;
             Action eset = () => {
                 if (eval != null) {
                 if ((eval.type == 1)  && (ex.type_pow() == 0)) {
-                    Num nval = new Num((Num)(eval.data));
-                    nval.exp((Num)(ex.data)); rn.mul(nval); 
+                    Complex nval = new Complex((Complex)(eval.data));
+                    nval.exp((Complex)(ex.data)); rn.mul(nval); 
                 } else {
-                    if (ro.exps.ContainsKey(eval)) ro.exps[eval].add(ex,1); else ro.exps.Add(eval,ex);
+                    if (ro.exps.ContainsKey(eval)) ro.exps[eval].add(ex); else ro.exps.Add(eval,ex);
                 }
-                eval = null; ex = new Func(IDS.n1);
+                eval = null; ex = new Func(new Complex(1));
                 }
             };
             char[] pc = {isabc,isnum,'{','('};
             Action[] pf = {
                       () => { 
-                          ex.mul(new Func(new One(infunc()),IDS.n1));
+                          ex.mul(new Func(new One(infunc()),new Complex(1)));
                       },
-                      () => ex.mul(new Num(get(isnum))),
+                      () => ex.mul(new Complex(get(isnum))),
                       () => ex.mul(calc()),
                       () => ex.mul(fpars("",true)),
                       () => sys.error("noNum in calc")
@@ -4041,7 +4330,7 @@ namespace shard0
             char[] nc = {isabc,isnum,'{','('};
             Action[] nf = {
                 () => {eval = infunc();},
-                () => {eval = new Func(new Num(get(isnum)));},
+                () => {eval = new Func(new Complex(get(isnum)));},
                 () => {eval = new Func(calc());},
                 () => {eval = fpars("",true);},
                 () => sys.error("noNum in calc")
@@ -4061,22 +4350,23 @@ namespace shard0
                 } while (repeat);
             }
             eset();
-            rn.mul(ro.simple()); return new KeyValuePair<One,Num>(ro,rn.simple());
+            rn.mul(ro.simple()); 
+            rn.simple(); return new KeyValuePair<One,Complex>(ro,rn);
         }
         public Many mpars()
         {
             Many m = new Many();
-            KeyValuePair<One,Num> on;
+            KeyValuePair<One,Complex> on;
             int d = deep.Count;
             while ((! isequnow(isclose)) && (!isequnow(isend))) {
-                on = opars(); m.add(on.Key,on.Value,1);
+                on = opars(); m.add(on.Key,on.Value);
             }
             if (d < deep.Count) next();
             return m;
         }
         public Many2 m2pars()
         {
-            return new Many2(mpars(),new Many(IDS.n1));
+            return new Many2(mpars(),new Many(new Complex(1)));
         }
         public Func fpars(string _fn, bool _pair)
         {
@@ -4101,62 +4391,109 @@ namespace shard0
             if (d < deep.Count) next();
             r.simple(); return r;
         }
-        public Num calc()
+        public Complex calc()
         {
             char[] lo = {'+', ' ', ' ', ' '};
-            Num[] ln = {new Num(0),new Num(0),new Num(0),new Num(0)};
+            Complex[] ln = {new Complex(0),new Complex(0),new Complex(0),new Complex(0)};
             int lp = 0;
             if (isequnow(isnum)) {
-                Num r = new Num(get(isnum));
+                Complex r = new Complex(get(isnum));
                 if (isequnow(',')) next();
                 return r;
             }
             if (isequnow(ispair)) next(); 
-            if ((now == '+') || (now == '-')) {lo[0] = now; next();}
-            bool l = true;
-            Action[] fn = {
+            bool isi = false, l = true, li;
+            Action[] fnr = {
                       () => ln[lp-1].add(ln[lp]),() => ln[lp-1].sub(ln[lp]),
                       () => ln[lp-1].mul(ln[lp]),() => ln[lp-1].div(ln[lp]),
                       () => ln[lp-1].exp(ln[lp]),
                       () => sys.error("noNum in calc")
                      };
+            Action[] fni = {
+                      () => ln[lp-1].i = Num.add(ln[lp-1].i,ln[lp].i),() => ln[lp-1].i = Num.sub(ln[lp-1].i,ln[lp].i),
+                      () => ln[lp-1].i = Num.mul(ln[lp-1].i,ln[lp].i),() => ln[lp-1].i = Num.div(ln[lp-1].i,ln[lp].i),
+                      () => ln[lp-1].i = Num.exp(ln[lp-1].i,ln[lp].i),
+                      () => sys.error("noNum in calc")
+                     };
             char[] nc = {isopen,isnum};
             Action[] nf = {
-                              () => ln[++lp].set(calc()),
-                              () => ln[++lp].set(get(isnum)),
+                              () => ln[++lp] = calc(),
+                              () => ln[++lp] = (isi ? new Complex(0,get(isnum)) : new Complex(get(isnum))),
                               () => sys.error("in calc")
                           };
-            char[] oc = {isoper,isclose,isend};
+            char[] oc = {':',isoper,isclose,isend};
             Action[] of = {
-                              () => next(),
+                              () => {li = false; next();},
+                              () => {lo[lp] = now; next();},
                               () => {l = false; next();},
                               () => {l = false;},
                               () => sys.error("in calc")
                           };
             while (l) {
-                branchnow(nc,nf);
-                lo[lp] = now;
-                branchnow(oc,of);
-                while((lp > 0) && (m_c_prior[lo[lp-1]] >= m_c_prior[lo[lp]])) {
-                    branch(lo[lp-1],"+-*/^",fn); lo[lp-1] = lo[lp]; lp--;
+                if (ln[0].i.sign != 0) sys.error("wrong complex in calc");
+                lo[0] = '+';
+                if ((now == '+') || (now == '-')) {lo[0] = now; next();}
+                li = true;
+                while (li && l) {
+                    branchnow(nc,nf);
+                    branchnow(oc,of);
+                    while((lp > 0) && (m_c_prior[lo[lp-1]] >= m_c_prior[lo[lp]])) {
+                        branch(lo[lp-1],"+-*/^",(isi ? fni : fnr)); lo[lp-1] = lo[lp]; lp--;
+                    }
                 }
+                isi = ! isi;
             }
-            return ln[0].simple();
+            ln[0].simple(); return ln[0];
         }
         public void Dispose()
         {
             sys.Dispose();
         }
 
-        public string print(Num v, bool plus, bool minus, int pair) //0 - none, 1 - sign, 2 - div
+        public string print_mul(Complex p, ref bool first, bool noone)
         {
-            string ret = ""; bool s = false, d = false;
-            if ((v.sign < 0) && minus) {s = true; ret = "-";}
-            if ((v.sign > 0) && plus) {s = true; ret = "+";}
-            ret += v.up.ToString().Trim();
-            if (! v.isint()) {d = true; ret += "/" + v.down.ToString().Trim();}
-            if (((pair > 0) && s) || ((pair > 1) && d)) ret = "(" + ret + ")";
+            string ret = "";
+            if (p.i.sign != 0) {
+                ret = (first ? "" : "+") + "{"+print(p.r,true)+":"+print(p.i,true)+"}";
+                first = false;
+            } else {
+                ret = (p.r.sign < 0 ? "-" : (first ? "" : "+"));
+                if (noone || ((p.r.down > 1) || (p.r.up > 1))) {ret += print(p.r,false); first = false;} else first = true;
+            }
             return ret;
+        }
+        public string print(Complex p, bool nopow, bool nosign)
+        {
+            string ret = "";
+            if (p.i.sign != 0) {
+                ret = "{"+print(p.r,true)+":"+print(p.i,true)+"}";
+            } else {
+                if (((p.r.sign > -1) || nosign) && (p.r.isint() || nopow))  ret += print(p.r,! nosign);
+                else ret = "{"+print(p.r,true)+"}";
+            }
+            return ret;
+        }
+
+        public string print(Num v, bool sign)
+        {
+            string ret = "";
+            if (sign) {
+                if (v.sign < 0) ret = "-";
+                if (v.sign > 0) ret = "+";
+            }
+            ret += v.up.ToString().Trim();
+            if (! v.isint()) {ret += "/" + v.down.ToString().Trim();}
+            return ret;
+        }
+        public string print(Complex v, int b, int a)
+        {
+            string s = print(v.r,b,a);
+            if (v.i.sign != 0) s += ":" + print(v.i,b,a);
+            return s;
+        }        
+        public string print(Complex v, int b)
+        {
+            return print(v,b,IDS.prec10);
         }
         public string print(Num v, int b, int a)
         {
@@ -4171,72 +4508,65 @@ namespace shard0
             }
             return s;
         }
-        public string print(Num v, int b)
+        public string print(One o, Complex n, bool first)
         {
-            return print(v,b,IDS.prec10);
-        }
-        public string print(One o, Num n)
-        {
-            string ret = "", s;
-            bool first = true, f1 = false, neg = false;
-            int ptyp;
+            string ret = print_mul(n,ref first,o.exps.Count == 0);
+            bool div, one;
+            Complex tmp;
             foreach(KeyValuePair<Func,Func> m in o.exps) {
-                ptyp = m.Value.type_pow();
-                if ((ptyp > 1) || (((Num)(m.Value.data)).sign != 0)) 
+                if ((m.Value.type != 1) || (!((Complex)(m.Value.data)).iszero())) 
                 {
-                    if ((ptyp < 2) && (((Num)(m.Value.data)).sign < 0)) neg = true; else neg = false;
-                    if (first) {
-                        s = print(n,true,true,0);
-                        if ((s == "+1") || (s == "-1")) {
-                            if  (! neg) {
-                                ret += s[0]; f1 = true;
-                            } else ret += s;
-                        } else ret += s;
+                    div = false; one = false;
+                    if (m.Value.type == 1) {
+                        tmp = (Complex)(m.Value.data);
+                        div = ((tmp.i.sign == 0) && (tmp.r.sign < 0));
+                        one = (tmp.isint(1) || tmp.isint(-1));
                     }
-                    ret += (neg ? "/" : (f1 ? "" : "*")) + print(m.Key,false);
-                    if ((ptyp > 0) || (((Num)(m.Value.data)).up > 1)) ret += "^" + print(m.Value,true);
+                    if (first) ret += (div ? "1/" : ""); else ret += (div ? "/" : "*");
+                    if (one) ret += print(m.Key,true);
+                    else ret += print(m.Key,false) + "^" + print_pow(m.Value);
+                    first = false; 
                 }
-                first = false; f1 = false;
             }
-            if (first) ret += print(n,true,true,0);
             return ret;
         }
         public string print(Many m)
         {
-            string ret = "";
-            foreach(KeyValuePair<One,Num> o in m.data) {
-                ret += print(o.Key, o.Value);
+            string ret = ""; bool first = true;
+            foreach(KeyValuePair<One,Complex> o in m.data) {
+                ret += print(o.Key, o.Value, first);
+                first = false;
             }
             return ret;
         }
         public string print(Many2 m)
         {
             string ret = "";
-            if (Num.isint(m.down.get_Num(),1)) {
+            if (Complex.isint(m.down.get_Num(),1)) {
                 ret += print(m.up);
             } else {
                 ret += "(" + print(m.up) + ") / (" + print(m.down) + ")";
             }
             return "(" + ret + ")";
         }
-        public string print(Func f, bool inpow)
+        public string print(Func f, bool nopow)
         {
-            string ret = "";
-            if (f == null) return ret;
+            if (f == null) return "";
+            string ret = Program.root.funcs_name[f.type];
             Action[] p = {
                   () => {
-                      ret = ((Vals)(f.data)).get_name();
+                      ret += ((Vals)(f.data)).get_name();
                   },
                   () => {
-                      ret = print((Num)(f.data),false,! inpow,2);
+                      ret += print((Complex)(f.data), nopow, false);
                   },
-                  () => {ret = print((Many2)(f.data));},
-                  () => {ret = print((Many2)(f.data));},
-                  () => {ret = print((Many2)(f.data));},
-                  () => {ret = print((Many2)(f.data));},
-                  () => {ret = print((Many2)(f.data));},
+                  () => {ret += print((Many2)(f.data));},
+                  () => {ret += print((Many2)(f.data));},
+                  () => {ret += print((Many2)(f.data));},
+                  () => {ret += print((Many2)(f.data));},
+                  () => {ret += print((Many2)(f.data));},
                   () => {
-                      ret = "(" + ((Row)(f.data)).point.ToString();
+                      ret += "(" + ((Row)(f.data)).point.ToString();
                       foreach(KeyValuePair<int,Many2> m in ((Row)(f.data)).data) {
                           ret += "," + print(m.Value);
                       }
@@ -4244,7 +4574,32 @@ namespace shard0
                   }
                  };
             p[f.type]();
-            return Program.root.funcs_name[f.type] + ret;
+            return ret;
+        }
+        public string print_pow(Func f)
+        {
+            if (f == null) return "";
+            Func<string>[] p = {
+                  () => {
+                      return ((Vals)(f.data)).get_name();
+                  },
+                  () => {
+                      return print((Complex)(f.data),false,true);
+                  },
+                  () => {return Program.root.funcs_name[2] + print((Many2)(f.data));},
+                  () => {return Program.root.funcs_name[3] + print((Many2)(f.data));},
+                  () => {return Program.root.funcs_name[4] + print((Many2)(f.data));},
+                  () => {return Program.root.funcs_name[5] + print((Many2)(f.data));},
+                  () => {return Program.root.funcs_name[6] + print((Many2)(f.data));},
+                  () => {
+                      string _r = Program.root.funcs_name[7] + "(" + ((Row)(f.data)).point.ToString();
+                      foreach(KeyValuePair<int,Many2> m in ((Row)(f.data)).data) {
+                          _r += "," + print(m.Value);
+                      }
+                      return _r + ")";
+                  }
+                 };
+            return p[f.type]();
         }
         public string print(Vars v)
         {
@@ -4256,22 +4611,22 @@ namespace shard0
     class Fdim 
     {
         public Vars var;
-        public Num now,from,step,to;
-        public Fdim(Vars v, Num n)
+        public Complex now,from,step,to;
+        public Fdim(Vars v, Complex n)
         {
-            var = v;from = n; now = new Num(n); step = IDS.n0; to = IDS.n0;
+            var = v;from = n; now = new Complex(n); step = new Complex(0); to = new Complex(0);
         }
-        public Fdim(Vars v, Num f, Num s, Num t)
+        public Fdim(Vars v, Complex f, Complex s, Complex t)
         {
-            var = v; from = f; now = new Num(f); step = s; to = t;
-            Num _t = Num.sub(to,from);
-            if ((_t.sign == 0) || (_t.sign != step.sign)) IDS.sys.error("fcalc: wrong direction");
+            var = v; from = f; now = new Complex(f); step = new Complex(s); to = new Complex(t);
+            Complex _t = Complex.sub(to,from);
+            if ((_t.sign() == 0) || (_t.sign() != step.sign())) IDS.sys.error("fcalc: wrong direction");
         }
         public bool next()
         {
             bool r = false;
-            if (step.sign != 0) {
-                now = Num.add(now,step);
+            if (step.sign() != 0) {
+                now = Complex.add(now,step);
                 if (to.great(now)) now.set(from); else r = true;
             }
             return r;
@@ -4279,25 +4634,25 @@ namespace shard0
     }
     class Ftoint
     {
-        Num nfr, ndiv;
+        Complex nfr, ndiv;
         int ifr, isiz;
-        public Ftoint(Num _nfr, Num _n, int _ifr, int _i, bool siz)
+        public Ftoint(Complex _nfr, Complex _n, int _ifr, int _i, bool siz)
         {
-            nfr = new Num(_nfr); ifr = _ifr;
+            nfr = new Complex(_nfr); ifr = _ifr;
             if (siz) {
-                ndiv = new Num(_n); isiz = _i;
+                ndiv = new Complex(_n); isiz = _i;
             } else {
-                ndiv = Num.sub(_n,_nfr); isiz = _i - _ifr;
+                ndiv = Complex.sub(_n,_nfr); isiz = _i - _ifr;
             }
             ndiv.div();
         }
-        public int get(Num n)
+        public int get(Complex n)
         {
-            Num t = Num.sub(n,nfr);
-            if (ndiv.sign != t.sign) return ifr;
+            Complex t = Complex.sub(n,nfr);
+            if (ndiv.sign() != t.sign()) return ifr;
             t.mul(ndiv);
-            if (IDS.n1.great(t)) return ifr + isiz;
-            t.mul(isiz);
+            if (! t.great(new Complex(1))) return ifr + isiz;
+            t.mul(new Complex(isiz));
             return ifr + (int)(t.toint());
         }
     }
@@ -4322,7 +4677,7 @@ namespace shard0
         {
             switch(type) {
                 case 0: //print x"str" to #parm
-                    IDS.sys.wstr(parm,sb + (x == null ? "" : (ir < 0 ? IDS.par.print(x.get_val(),true,true,0) : (ir == 0 ? x.get_val().toint().ToString().Trim() : IDS.par.print(x.get_val(),ir,ig)))) + sa);
+                    IDS.sys.wstr(parm,sb + (x == null ? "" : (ir < 0 ? IDS.par.print(x.get_val(),0) : (ir == 0 ? x.get_val().toint().ToString().Trim() : IDS.par.print(x.get_val(),ir,ig)))) + sa);
                     break;
                 case 1:
                     int _x = tx.get(x.get_val());
@@ -4341,7 +4696,6 @@ namespace shard0
     }
     static class Program
     {
-        public static Shard0 m0;
         public static System.Drawing.Bitmap bm1;
         public static Parse par;
         public static IDS root;
@@ -4350,29 +4704,29 @@ namespace shard0
         [STAThread]
         static int Main(string[] args)
         {
-            int sx=0, sy=0, step = 4, exp = 11;
+            IDS.sx = 0; IDS.sy = 0; int step = 4, exp = 11;
             if (args.Length < 1) return 0;
             string ss = (args.Length < 2 ? "" : args[1]);
             Fileio _f = new Fileio(args[0], ss);
 
             par = new Parse(_f);
-            par.lnext(); sx = par.get_int(); par.next(); sy = par.get_int(); par.next(); step = par.get_int(); par.next(); exp = par.get_int();
-            if ((sx < 100) || (sx > 2000) || (sy < 100) || (sy > 2000) || (step < 4) || (step > 11) || (exp < 11) || (exp > 6666)) _f.error("wrong head");
+            par.lnext(); IDS.sx = par.get_int(); par.next(); IDS.sy = par.get_int(); par.next(); step = par.get_int(); par.next(); exp = par.get_int();
+            if ((IDS.sx < 100) || (IDS.sx > 2000) || (IDS.sy < 100) || (IDS.sy > 2000) || (step < 4) || (step > 11) || (exp < 11) || (exp > 6666)) _f.error("wrong head");
             Application.SetCompatibleTextRenderingDefault(false);
             Application.EnableVisualStyles();
-            m0 = new Shard0(sx, sy);
-            bm1 = new System.Drawing.Bitmap(sx, sy);
-            for (int i0 = 0; i0 < sx; i0++) for (int i1 = 0; i1 < sy; i1++) bm1.SetPixel(i0, i1, Color.FromArgb(0, 0, 0));
+//            m0 = new Shard0(sx, sy);
+            bm1 = new System.Drawing.Bitmap(IDS.sx, IDS.sy);
+            for (int i0 = 0; i0 < IDS.sx; i0++) for (int i1 = 0; i1 < IDS.sy; i1++) bm1.SetPixel(i0, i1, Color.FromArgb(0, 0, 0));
             root = new IDS(step, exp, par.sys,par);
-            par.lnext(); root.v_pi = root.findadd_var(par.get(Parse.isname)); root.v_pi.var = new Func(IDS.n_pi);
-            par.next(); root.v_e = root.findadd_var(par.get(Parse.isname)); root.v_e.var = new Func(IDS.n_e);
-            par.next(); root.v_ln2 = root.findadd_var(par.get(Parse.isname)); root.v_ln2.var = new Func(IDS.n_ln2);
+            par.lnext(); root.v_pi = root.findadd_var(par.get(Parse.isname)); root.v_pi.var = new Func(new Complex(IDS.n_pi));
+            par.next(); root.v_e = root.findadd_var(par.get(Parse.isname)); root.v_e.var = new Func(new Complex(IDS.n_e));
+            par.next(); root.v_ln2 = root.findadd_var(par.get(Parse.isname)); root.v_ln2.var = new Func(new Complex(IDS.n_ln2));
             par.next(); root.v_x = root.findadd_var(par.get(Parse.isname)); par.next(); root.v_n = root.findadd_var(par.get(Parse.isname));
             IDS.v_res = 5;
 
             Thread calc = new Thread(doit);
             calc.Start();
-            Application.Run(m0);
+//            Application.Run(m0);
 
             return 0;
         }
@@ -4386,7 +4740,7 @@ namespace shard0
         static Ftoint d_toint(List<Fdim> fdim, Vals v, int fr, int sz) {
             if (par.isequnow('{')) return new Ftoint(par.calc(),par.calc(),fr,fr+sz,false);
             else {
-                foreach (Fdim fd in fdim) if ((fd.var == v.var) && (fd.step.sign != 0)) return new Ftoint(fd.from, fd.to,fr,fr+sz,false);
+                foreach (Fdim fd in fdim) if ((fd.var == v.var) && (fd.step.sign() != 0)) return new Ftoint(fd.from, fd.to,fr,fr+sz,false);
                 IDS.sys.error("draw: no interval");
             }
             return null;
@@ -4425,7 +4779,6 @@ namespace shard0
             Vals val0,val1;
             List<Func> id;
             string val,name;
-            bool wasdraw = false;
             DateTime ddnow = DateTime.Now;
  
  
@@ -4479,14 +4832,14 @@ namespace shard0
                                 foreach (Func i in id) {
                                     if (_fast) mao.expand(0,mao.val(i)); else var0.var.expand(i);
                                 }
-                                if (_exp0) var0.var.expand();
                                 if (_fast) var0.var = mao.mao[0].to_func();
                                 else var0.var.simple();
+                                if (_exp0) var0.var.expand();
                                 if (_div && ((var0.var.type == 2) && (((Many2)(var0.var.data)).down.type_exp() < 2)))
                                 {
                                     ((Many2)(var0.var.data)).down.div();
                                     ((Many2)(var0.var.data)).up.mul(((Many2)(var0.var.data)).down.data.ElementAt(0).Key,((Many2)(var0.var.data)).down.data.ElementAt(0).Value);
-                                    ((Many2)(var0.var.data)).down = new Many(IDS.n1);
+                                    ((Many2)(var0.var.data)).down = new Many(new Complex(1));
                                 }
                                 par.sys.wline(0,par.print(var0));
                             break;
@@ -4497,7 +4850,15 @@ namespace shard0
                                 val0 = root.find_val(par.get(Parse.isname));
                                 var0.var.diff_down(val0);
                                 par.sys.wline(0,par.print(var0));
-                                break;
+                            break;
+                            case '>':
+                                var0 = root.find_var(name);
+                                if (var0.var == null) par.sys.error("empty name");
+                                par.next();
+                                val0 = root.find_val(par.get(Parse.isname));
+                                var0.var.diff_up(val0);
+                                par.sys.wline(0,par.print(var0));
+                            break;
                         }
                     } else {
                         switch (par.now) 
@@ -4549,16 +4910,16 @@ namespace shard0
                                             break;
                                         case '[':
                                             int _fx,_sx,_fy,_sy;
-                                            par.next(); wasdraw = true;
+                                            par.next(); 
                                             if (par.isequnow('[')) {
                                                 par.next(); _fx = par.get_int();
                                                 par.next(); _sx = par.get_int();
                                                 par.next(); _fy = par.get_int();
                                                 par.next(); _sy = par.get_int();
                                                 par.next();
-                                                if ((_sx < 4) || (_sy < 4) || (_fx + _sx >= m0.sx)  || (_fy + _sy >= m0.sy)) IDS.sys.error("draw: wrong");
+                                                if ((_sx < 4) || (_sy < 4) || (_fx + _sx >= IDS.sx)  || (_fy + _sy >= IDS.sy)) IDS.sys.error("draw: wrong");
                                             } else {
-                                                _fx = 0; _sx = m0.sx-1; _fy = 0; _sy = m0.sy-1;
+                                                _fx = 0; _sx = IDS.sx-1; _fy = 0; _sy = IDS.sy-1;
                                             }
                                             val0 = root.find_val(par.get(Parse.isname));
                                             Ftoint ftx = d_toint(fdim,val0,_fx,_sx);
@@ -4586,7 +4947,7 @@ namespace shard0
                                     }
                                     if (par.isequnow(',')) par.next();
                                 }
-                                bool w; m0.rp = false;
+                                bool w;
                                 do {
                                     root.uncalc(); foreach (Fdim fd in fdim) fd.var.set_now(fd.now);
                                     foreach(Fdo fd in fdo) fd.doit();
@@ -4595,7 +4956,7 @@ namespace shard0
                                         if (w = fd.next()) break;
                                     }
                                 } while (w);
-                                m0.Set(1); m0.Set(2); m0.rp = true;
+//                                m0.Set(1); m0.Set(2); m0.rp = true;
                                 break;
                         }
                     }
@@ -4603,8 +4964,8 @@ namespace shard0
             }
             TimeSpan ime =  DateTime.Now - ddnow;
             par.sys.wline(0,"finished, vars = " + (root.var.Count()).ToString() + "; time has " + ime.ToString());
+            bm1.Save(par.sys.nout + ".png");
             par.sys.close();
-            if (! wasdraw) Environment.Exit(-1);
         }
     }
 }
