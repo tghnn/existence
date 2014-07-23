@@ -1,6 +1,5 @@
 ﻿//for Them, who my death and my life
 using System;
-using System.Threading;
 using System.Drawing;
 using System.Collections;
 using System.Collections.Generic;
@@ -10,119 +9,10 @@ using System.Text;
 using System.IO;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.Serialization.Formatters.Binary;
 
 namespace shard0
 {
-/*
-    public partial class Shard0 : Form
-    {
-        private System.ComponentModel.IContainer components = null;
-        public System.Drawing.Bitmap bm,bp;
-        public int sx, sy;
-        public int pr_now = 0, pr_was = 0, l_now = 0, l_was = 0;
-        delegate void SetCallback(int i);
-        System.Drawing.Graphics Gr;
-        public bool rp;
-        public Shard0(int x, int y)
-        {
-            rp = true;
-            sx = x; sy = y;
-            bm = new System.Drawing.Bitmap(sx, sy);
-            for (int i0 = 0; i0 < sx; i0++) for (int i1 = 0; i1 < sy; i1++) bm.SetPixel(i0, i1, Color.FromArgb(0, 0, 0));
-            bp = new System.Drawing.Bitmap(sx, 2);
-            for (int i0 = 0; i0 < sx; i0++) for (int i1 = 0; i1 < 2; i1++) bp.SetPixel(i0, i1, Color.FromArgb(0, 0, 255));
-            this.Width = sx; this.Height = sy + 2;
-            FormBorderStyle = FormBorderStyle.None;
-            MaximizeBox = false; MinimizeBox = false;
-            StartPosition = FormStartPosition.CenterScreen;
-            Gr = this.CreateGraphics();
-            Paint += new System.Windows.Forms.PaintEventHandler(this.shard0_Paint);
-            InitializeComponent();
-        }
-        public void Set(int i)
-        {
-            if (IsDisposed) Environment.Exit(-1);
-            if (this.InvokeRequired)
-            {
-                SetCallback d = new SetCallback(Set);
-                this.Invoke(d, new object[] { i });
-            }
-            else
-            {
-            bool flg = false;
-            switch (i) {
-                case 0:
-                if (pr_now < pr_was) {
-                    for (int i0 = 0; i0 < sx; i0++) bp.SetPixel(i0, 0, Color.FromArgb(0, 0, 255));
-                    pr_was = 0; flg = true;
-                }
-                if (pr_now != pr_was) {
-                    for (int i0 = pr_was; i0 < pr_now; i0++) bp.SetPixel(i0, 0, Color.FromArgb(255, 0, 0));
-                    flg = true;
-                }
-                if (l_now != l_was) {
-                    for (int i0 = 0; i0 < sx; i0++) bp.SetPixel(i0, 1, (i0 < l_now ? Color.FromArgb(255, 0, 0) : Color.FromArgb(0, 0, 255)));
-                    flg = true;
-                }
-                pr_was = pr_now; l_was = l_now;
-                if (flg) Gr.DrawImageUnscaled(bp, 0, 0);
-                    break;
-                case 1:
-                Gr.DrawImageUnscaled(Program.bm1, 0, 2);
-                    break;
-                case 2:
-                bm = Program.bm1.Clone(new Rectangle(0, 0, sx, sy),bm.PixelFormat);
-                    break;
-            }
-            }
-        }
-        private void From1_Shown(object sender, EventArgs e)
-        {
-            if (rp) {
-                Gr.DrawImageUnscaled(bp, 0, 0);
-                Gr.DrawImageUnscaled(bm, 0, 2);
-            }
-        }
-        private void shard0_Paint(object sender, PaintEventArgs e)
-        {
-            if (rp)
-            {
-                if ((this.Width != sx) || (this.Height != sy))
-                {
-                    this.Width = sx; this.Height = sy+2;
-                }
-                Gr.DrawImageUnscaled(bp, 0, 0);
-                Gr.DrawImageUnscaled(bm, 0, 2);
-            }
-        }
-        private void InitializeComponent()
-        {
-            this.SuspendLayout();
-            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.AutoValidate = System.Windows.Forms.AutoValidate.Disable;
-            this.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowOnly;
-            this.CausesValidation = false;
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
-            this.MaximizeBox = false; this.MinimizeBox = false;
-            this.Name = "shard0";
-            this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Hide;
-            this.Text = "shard0";
-            this.Width = sx; this.Height = sy+2;
-            this.ResumeLayout(false);
-        }
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing && (components != null))
-            {
-                bp.Dispose();
-                bm.Dispose();
-                components.Dispose();
-            }
-            base.Dispose(disposing);
-        }
-    }
-*/
     class Exps_n
     {
         public SortedDictionary<Complex,Complex> data;
@@ -249,7 +139,7 @@ namespace shard0
         public Vars v_e,v_pi,v_ln2,v_x,v_n;
         public Func fzero;
         public One ozero;
-        public string[] funcs_name = {"","","","ln","fact","int","sign","row"};
+        public string[] funcs_name = {"","","","ln","fact","int","sign","row",""};
         public SortedDictionary<string,int> fnames;
         public Num[] fact;
         static int _l2(int i) {
@@ -319,7 +209,7 @@ namespace shard0
 
             ozero = new One();
             fzero = new Func(new Complex(0));
-            i = 2; while (i < funcs_name.Count()) { fnames.Add(funcs_name[i],i); i++; }
+            i = 2; while (i < 8) { fnames.Add(funcs_name[i],i); i++; }
             fact = new Num[1000];
             b = new BigInteger(1); c = new BigInteger(1); fact[0] = new Num(b);
             while (b < fact.Count()) {
@@ -1190,12 +1080,12 @@ namespace shard0
         public One(Func f)
         {
             exps = new SortedDictionary<Func,Func>();
-            exps.Add(new Func(f),new Func(new Complex(1)));
+            exps.Add(f,new Func(new Complex(1)));
         }
         public One(Func fe, Func fp)
         {
             exps = new SortedDictionary<Func,Func>();
-            exps.Add(new Func(fe),new Func(fp));
+            exps.Add(fe,fp);
         }
         public One(One o)
         {
@@ -1469,7 +1359,7 @@ namespace shard0
         public static SortedDictionary<One,Complex> copy(SortedDictionary<One,Complex> c)
         {
             SortedDictionary<One,Complex> r = new SortedDictionary<One,Complex>();
-            foreach (KeyValuePair<One,Complex> o in c) r.Add(new One(o.Key),o.Value);
+            foreach (KeyValuePair<One,Complex> o in c) r.Add(new One(o.Key),new Complex(o.Value));
             return r;
         }
         public override void set(Many s)
@@ -1898,7 +1788,7 @@ namespace shard0
         public Many2(Complex n)
         {
             up = new Many(); down = new Many();
-            up.data.Add(new One(), new Complex(n));
+            up.data.Add(new One(), n);
             down.data.Add(new One(), new Complex(1));
         }
         public Many2(One o, Complex n)
@@ -2334,12 +2224,247 @@ namespace shard0
             foreach(KeyValuePair<int,Many2> m in data) m.Value.findvals(o);          
         }
     }
+    class Matrix: IComparable {
+        public Func[,] data;
+        public int x,y;
+        public Matrix(int _x, int _y) {
+            x=_x; y=_y;
+            if ((x == 0) || (y == 0)) IDS.sys.error("matr: 0 size");
+            data = new Func[x,y];
+        }
+        public Matrix(Matrix m) {
+            x = m.x; y = m.y;
+            data = new Func[x,y];
+            int ix,iy;
+            ix = 0; while (ix < x) {
+                iy = 0; while (iy < y) {
+                    data[ix,iy] = new Func(m.data[ix,iy]);
+                    iy++;
+                }
+                ix++;
+            }
+        }
+        public Matrix(Matrix m, int _x) {
+            x = m.x-1; y = m.y-1;
+            data = new Func[x,y];
+            int ix,iy;
+            ix = 0; while (ix < x) {
+                iy = 0; while (iy < y) {
+                    data[ix,iy] = new Func(m.data[(ix < _x ? ix : ix+1),iy+1]);
+                    iy++;
+                }
+                ix++;
+            }
+        }
+        public Matrix(List<List<Func>> tm)
+        {
+            x = tm.Count; y = tm[0].Count;
+            if ((x == 0) || (y == 0)) IDS.sys.error("matr: 0 size");
+            data = new Func[x,y];
+            int ix,iy;
+            ix = 0; while (ix < x) {
+                iy = 0; while (iy < y) {
+                    data[ix,iy] = tm[ix][iy];
+                    iy++;
+                }
+                ix++;
+            }
+        }
+        public void add(Func m) {
+            int ix,iy;
+            ix = 0; while (ix < x) {
+                iy = 0; while (iy < y) {
+                    data[ix,iy].add(m);
+                    iy++;
+                }
+                ix++;
+            }
+        }
+        public void mul(Func m) {
+            int ix,iy;
+            ix = 0; while (ix < x) {
+                iy = 0; while (iy < y) {
+                    data[ix,iy].mul(m);
+                    iy++;
+                }
+                ix++;
+            }
+        }
+        public void mul(Complex m) {
+            int ix,iy;
+            ix = 0; while (ix < x) {
+                iy = 0; while (iy < y) {
+                    data[ix,iy].mul(m);
+                    iy++;
+                }
+                ix++;
+            }
+        }
+        public void common(Func m) {
+            int ix,iy;
+            ix = 0; while (ix < x) {
+                iy = 0; while (iy < y) {
+                    data[ix,iy].common(m);
+                    iy++;
+                }
+                ix++;
+            }
+        }
+        public void add(Matrix m) {
+            if ((x != m.x) || (y != m.y)) IDS.sys.error("matr: wrong add");
+            int ix,iy; 
+            ix = 0; while (ix < x) {
+                iy = 0; while (iy < m.y) {
+                    data[ix,iy].add(m.data[ix,iy]);
+                    iy++;
+                }
+                ix++;
+            }
+        }
+        public void mul(Matrix m) {
+            if (y != m.x) IDS.sys.error("matr: wrong mul");
+            int ix,iy,n; 
+            Func[,] res = new Func[x,m.y];
+            Func tmp;
+            ix = 0; while (ix < x) {
+                iy = 0; while (iy < m.y) {
+                    res[ix,iy] = new Func(data[ix,0]);
+                    res[ix,iy].mul(m.data[0,iy]);
+                    n = 1; while (n < y) {
+                        tmp = new Func(data[ix,n]);
+                        tmp.mul(m.data[n,iy]);
+                        res[ix,iy].add(tmp);
+                        n++;
+                    }
+                    iy++;
+                }
+                ix++;
+            }
+        }
+        public void neg() {
+            int ix,iy;
+            ix = 0; while (ix < x) {
+                iy = 0; while (iy < y) {
+                    data[ix,iy].neg();
+                    iy++;
+                }
+                ix++;
+            }
+        }
+        public bool expand(Func val, Exps_f exu, Exps_f exd)
+        {
+            bool ret = false;
+            int ix,iy;
+            ix = 0; while (ix < x) {
+                iy = 0; while (iy < y) {
+                    ret = data[ix,iy].expand(val,exu,exd) || ret;
+                    iy++;
+                }
+                ix++;
+            }
+            return ret;
+        }
+        public void expand() {
+            int ix,iy;
+            ix = 0; while (ix < x) {
+                iy = 0; while (iy < y) {
+                    data[ix,iy].expand();
+                    iy++;
+                }
+                ix++;
+            }
+        }
+        public void deeper(int d) {
+            int ix,iy;
+            ix = 0; while (ix < x) {
+                iy = 0; while (iy < y) {
+                    data[ix,iy].deeper(d);
+                    iy++;
+                }
+                ix++;
+            }
+        }
+        public void findvals(One o) {
+            int ix,iy;
+            ix = 0; while (ix < x) {
+                iy = 0; while (iy < y) {
+                    data[ix,iy].findvals(o);
+                    iy++;
+                }
+                ix++;
+            }
+        }
+        static public Func<Matrix, Many>[] _det = {
+              (Matrix t) => {return new Many();},
+              (Matrix t) => {return new Many(new One(new Func(t.data[0,0])));},
+              (Matrix t) => {
+                  One _o = new One(new Func(t.data[1,0]));
+                  _o.addto(new Func(t.data[0,1]));
+                  Many ret = new Many(_o,new Complex(-1));
+                  _o = new One(new Func(t.data[0,0]));
+                  _o.addto(new Func(t.data[1,1]));
+                  ret.add(_o);
+                  return ret;
+              },
+              (Matrix t) => {
+                  Many ret = new Many(), tmp;
+                  int i = 0; while (i < t.x) {
+                      tmp = new Matrix(t,i).det();
+                      tmp.mul(new One(new Func(t.data[i,0])),new Complex((i & 1) == 0 ? 1 : -1));
+                      ret.add(tmp);
+                      i++;
+                  }
+                  return ret;
+              }
+        };
 
+        public Many det() {
+            if (x != y) IDS.sys.error("matr: wrong det");
+            return Matrix._det[x < 4 ? x : 3](this);
+        }
+        public void replace(Vals v, Func f) {
+            int ix,iy;
+            ix = 0; while (ix < x) {
+                iy = 0; while (iy < y) {
+                    data[ix,iy].replace(v,f);
+                    iy++;
+                }
+                ix++;
+            }
+        }
+        public void simple() {
+            int ix,iy;
+            ix = 0; while (ix < x) {
+                iy = 0; while (iy < y) {
+                    data[ix,iy].simple();
+                    iy++;
+                }
+                ix++;
+            }
+        }
+        public int CompareTo(object obj) {
+            if (obj == null) return data[0,0].CompareTo(null);
+            Matrix m = obj as Matrix;
+            int mx = (x > m.x ? x : m.x);
+            int my = (y > m.y ? y : m.y);
+            int ret, ix, iy;
+            ix = 0; while (ix < mx) {
+                iy = 0; while (iy < my) {
+                    if ((ix < x) && (iy < y)) ret= data[x,y].CompareTo(((ix < m.x) && (iy < m.y)) ? m.data[x,y] : null);
+                    else ret = -m.data[x,y].CompareTo(((ix < x) && (iy < y)) ? data[x,y] : null);
+                    if (ret != 0) return ret;
+                    iy++;
+                }
+                ix++;
+            }
+            return 0;
+        }
+    }
     class Func: Power<Func>, IPower, IComparable
     {
-        public const int types = 8, t_val = 0, t_num = 1, t_many2 = 2, t_ln = 3, t_fact = 4, t_int = 5, t_sign = 6, t_row = 7;
+        public const int types = 9, t_val = 0, t_num = 1, t_many2 = 2, t_ln = 3, t_fact = 4, t_int = 5, t_sign = 6, t_row = 7, t_matr = 8;
         public Object data;
-        public int type; //0: &val, 1: &Num {imutable}, 2: &many2, 3: ln(Many2), 4: fact(Many2), 5: int(Many2), 6: sign(Many2), 7: row(Row)
+        public int type; //0: &val, 1: &Complex, 2: &many2, 3: ln(Many2), 4: fact(Many2), 5: int(Many2), 6: sign(Many2), 7: row(Row), 8: matrix(func[][])
         public Func()
         {
             type = -1; data = null;
@@ -2365,6 +2490,11 @@ namespace shard0
             type = Func.t_row; data = r;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Func(Matrix m)
+        {
+            type = Func.t_matr; data = m;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Func(Many2 m)
         {
             type = Func.t_many2; data = m;
@@ -2388,7 +2518,8 @@ namespace shard0
               (Func t, Func f) => {t.data = new Many2((Many2)(f.data));},
               (Func t, Func f) => {t.data = new Many2((Many2)(f.data));},
               (Func t, Func f) => {t.data = new Many2((Many2)(f.data));},
-              (Func t, Func f) => {t.data = new Row((Row)(f.data));}
+              (Func t, Func f) => {t.data = new Row((Row)(f.data));},
+              (Func t, Func f) => {t.data = new Matrix((Matrix)(f.data));}
                          };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override void set(Func f)
@@ -2418,6 +2549,7 @@ namespace shard0
                 (Func t) => {return new Complex(0);},
                 (Func t) => {return new Complex(0);},
                 (Func t) => {return new Complex(0);},
+                (Func t) => {return new Complex(0);},
                 (Func t) => {return new Complex(0);}
         };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -2430,6 +2562,7 @@ namespace shard0
         static public Func<Func,int>[] type_pow_func = {
                 (Func t) => {return 2;},
                 (Func t) => {return (((Complex)(t.data)).i.sign == 0 ? (((Complex)(t.data)).isint() ? 0 : 1) : 2);},
+                (Func t) => {return 2;},
                 (Func t) => {return 2;},
                 (Func t) => {return 2;},
                 (Func t) => {return 2;},
@@ -2457,7 +2590,8 @@ namespace shard0
                 (Func t, Vals v, Func f) => {((Many2)(t.data)).replace(v,f);},
                 (Func t, Vals v, Func f) => {((Many2)(t.data)).replace(v,f);},
                 (Func t, Vals v, Func f) => {((Many2)(t.data)).replace(v,f);},
-                (Func t, Vals v, Func f) => {}
+                (Func t, Vals v, Func f) => {},
+                (Func t, Vals v, Func f) => {((Matrix)(t.data)).replace(v,f);},
          };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void replace(Vals v, Func f)
@@ -2473,7 +2607,8 @@ namespace shard0
                 (Func t, Func v, Exps_f u, Exps_f d) => {return ((Many2)(t.data)).expand(v,u,d);},
                 (Func t, Func v, Exps_f u, Exps_f d) => {return ((Many2)(t.data)).expand(v,u,d);},
                 (Func t, Func v, Exps_f u, Exps_f d) => {return ((Many2)(t.data)).expand(v,u,d);},
-                (Func t, Func v, Exps_f u, Exps_f d) => {return ((Row)(t.data)).expand(v,u,d);}
+                (Func t, Func v, Exps_f u, Exps_f d) => {return ((Row)(t.data)).expand(v,u,d);},
+                (Func t, Func v, Exps_f u, Exps_f d) => {return ((Matrix)(t.data)).expand(v,u,d);}
             };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool expand(Func val, Exps_f exu, Exps_f exd)
@@ -2506,7 +2641,8 @@ namespace shard0
                 (Func t) => {((Many2)(t.data)).expand();},
                 (Func t) => {((Many2)(t.data)).expand();},
                 (Func t) => {((Many2)(t.data)).expand();},
-                (Func t) => {((Row)(t.data)).expand();}
+                (Func t) => {((Row)(t.data)).expand();},
+                (Func t) => {((Matrix)(t.data)).expand();}
                 };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void expand()
@@ -2515,7 +2651,7 @@ namespace shard0
         }
         static public Action<Func>[] neg_func = {
                 (Func t) => {
-                    t.data = new Many2(new Many(new One(t)));
+                    t.data = new Many2(new Many(new One(new Func(t))));
                     t.type = Func.t_many2; ((Many2)(t.data)).neg();
                 },
                 (Func t) => {((Complex)(t.data)).neg();},
@@ -2524,7 +2660,8 @@ namespace shard0
                 (Func t) => {},
                 (Func t) => {},
                 (Func t) => {},
-                (Func t) => {}
+                (Func t) => {},
+                (Func t) => {((Matrix)(t.data)).neg();}
                 };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void neg()
@@ -2533,11 +2670,12 @@ namespace shard0
         }
         static public Action<Func>[] div_func = {
                 (Func t) => {
-                    t.data = new Many2(new Many(new One(t)));
+                    t.data = new Many2(new Many(new One(new Func(t))));
                     t.type = 2; ((Many2)(t.data)).div();
                 },
                 (Func t) => {((Complex)(t.data)).div();},
                 (Func t) => {((Many2)(t.data)).div();},
+                (Func t) => {},
                 (Func t) => {},
                 (Func t) => {},
                 (Func t) => {},
@@ -2549,115 +2687,155 @@ namespace shard0
         {
             Func.div_func[type](this);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static void _mul(Func t, Func f) {
+            One _o = new One(new Func(t)); _o.addto(new Func(f),new Func(new Complex(1)));
+            t.type = Func.t_many2; t.data = new Many2(new Many(_o));
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static void _mul(Func t, Complex f) {
+            One _o = new One(new Func(t));
+            t.type = Func.t_many2; t.data = new Many2(new Many(_o,new Complex(f)));
+        }
         static public Action<Func,Func>[] mul_func = {
                 (Func t, Func f) => {//0:0
-                    One _o = new One(t); _o.addto(new Func(f),new Func(new Complex(0)));
-                    t.type = 2; t.data = new Many2(new Many(_o));
+                    Func._mul(t,f);
                 },
                 (Func t, Func f) => {
                     if (((Complex)(f.data)).iszero()) {
-                        t.type = 1; t.data = f.data;
-                    } else if (! ((Complex)(f.data)).isint(1,0)) {
-                        One _o = new One(t);
-                        t.type = 2; t.data = new Many2(new Many(_o,(Complex)(f.data)));
-                    }
+                        t.type = Func.t_num; t.data = new Complex(0);
+                    } else if (! ((Complex)(f.data)).isint(1,0)) Func._mul(t,(Complex)(f.data));
                 },
                 (Func t, Func f) => {
-                    One _o = new One(t);
-                    t.type = 2; t.data = new Many2((Many2)(f.data));
+                    One _o = new One(new Func(t));
+                    t.type = Func.t_many2; t.data = new Many2((Many2)(f.data));
                     ((Many2)(t.data)).mul(_o,Complex._r1);
                 },
+                (Func t, Func f) => {Func._mul(t,f);},
+                (Func t, Func f) => {Func._mul(t,f);},
+                (Func t, Func f) => {Func._mul(t,f);},
+                (Func t, Func f) => {Func._mul(t,f);},
                 (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
+                (Func t, Func f) => {
+                    Matrix tm = new Matrix((Matrix)(f.data));
+                    tm.mul(t);
+                    t.type = Func.t_matr; t.data = tm;
+                },
 
                 (Func t, Func f) => {//1 *= 0
                     if (! ((Complex)(t.data)).iszero()) {
                         if (((Complex)(t.data)).isint(1,0)) {
-                            t.type = f.type; t.data = f.data;
-                        } else {
-                            One _o = new One(f);
-                            t.type = 2; t.data = new Many2(new Many(_o,(Complex)(t.data)));
-                        }
+                            t.type = f.type; t.data = f.data; //point to var
+                        } else Func._mul(t,(Complex)(f.data));
                     }
                 },
                 (Func t, Func f) => {  //1 *= 1
-                    t.data = Complex.mul((Complex)(t.data),(Complex)(f.data));
+                    ((Complex)(t.data)).mul((Complex)(f.data));
                 },
                 (Func t, Func f) => { //1 *= 2
                     if (! ((Complex)(t.data)).iszero()) {
                         if (((Complex)(t.data)).isint(1,0)) {
-                            t.type = f.type; t.data = f.data;
+                            t.type = f.type; t.data = new Complex(0);
                         } else {
-                            t.type = 2; t.data = new Many2((Complex)(t.data));
+                            t.type = Func.t_many2; t.data = new Many2(new Complex((Complex)(t.data)));
                             ((Many2)(t.data)).mul((Many2)f.data);
                         }
                     }
                 },
+                (Func t, Func f) => {Func._mul(t,f);},
+                (Func t, Func f) => {Func._mul(t,f);},
+                (Func t, Func f) => {Func._mul(t,f);},
+                (Func t, Func f) => {Func._mul(t,f);},
                 (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
+                (Func t, Func f) => {
+                    Matrix tm = new Matrix((Matrix)(f.data));
+                    tm.mul((Complex)(t.data));
+                    t.type = Func.t_matr; t.data = tm;
+                },
 
                 (Func t, Func f) => {//2 *= 0
-                    ((Many2)(t.data)).mul(new One(f),Complex._r1);
+                    ((Many2)(t.data)).mul(new One(new Func(f)),Complex._r1);
                 },
                 (Func t, Func f) => {  //2 *= 1
                     if (! ((Complex)(f.data)).isint(1,0)) {
                         if (((Complex)(f.data)).iszero()) {
-                            t.type = f.type; t.data = f.data;
-                        } else {
-                            ((Many2)(t.data)).mul((Complex)f.data);
-                        }
+                            t.type = f.type; t.data = new Complex(0);
+                        } else ((Many2)(t.data)).mul((Complex)f.data);
                     }
                 },
                 (Func t, Func f) => { //2 *= 2
                     ((Many2)(t.data)).mul((Many2)f.data);
                 },
+                (Func t, Func f) => {((Many2)(t.data)).mul(new One(f),Complex._r1);},
+                (Func t, Func f) => {((Many2)(t.data)).mul(new One(f),Complex._r1);},
+                (Func t, Func f) => {((Many2)(t.data)).mul(new One(f),Complex._r1);},
+                (Func t, Func f) => {((Many2)(t.data)).mul(new One(f),Complex._r1);},
                 (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
+                (Func t, Func f) => {
+                    Matrix tm = new Matrix((Matrix)(f.data));
+                    tm.mul(t);
+                    t.type = Func.t_matr; t.data = tm;
+                },
 
-                (Func t, Func f) => {},//3 *= 0
+                (Func t, Func f) => {Func._mul(t,f);},//3 *= 0
+                (Func t, Func f) => {
+                    Func._mul(t,(Complex)(f.data));
+                },
+                (Func t, Func f) => {Func._mul(t,f);},
+                (Func t, Func f) => {Func._mul(t,f);},
+                (Func t, Func f) => {Func._mul(t,f);},
+                (Func t, Func f) => {Func._mul(t,f);},
                 (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
+                (Func t, Func f) => {
+                    Matrix tm = new Matrix((Matrix)(f.data));
+                    tm.mul(t);
+                    t.type = Func.t_matr; t.data = tm;
+                },
 
-                (Func t, Func f) => {},//4 *= 0
+                (Func t, Func f) => {Func._mul(t,f);},//4 *= 0
+                (Func t, Func f) => {
+                    Func._mul(t,(Complex)(f.data));
+                },
+                (Func t, Func f) => {Func._mul(t,f);},
+                (Func t, Func f) => {Func._mul(t,f);},
+                (Func t, Func f) => {Func._mul(t,f);},
+                (Func t, Func f) => {Func._mul(t,f);},
                 (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
+                (Func t, Func f) => {
+                    Matrix tm = new Matrix((Matrix)(f.data));
+                    tm.mul(t);
+                    t.type = Func.t_matr; t.data = tm;
+                },
 
-                (Func t, Func f) => {},//5 *= 0
+                (Func t, Func f) => {Func._mul(t,f);},//5 *= 0
+                (Func t, Func f) => {
+                    Func._mul(t,(Complex)(f.data));
+                },
+                (Func t, Func f) => {Func._mul(t,f);},
+                (Func t, Func f) => {Func._mul(t,f);},
+                (Func t, Func f) => {Func._mul(t,f);},
+                (Func t, Func f) => {Func._mul(t,f);},
                 (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
+                (Func t, Func f) => {
+                    Matrix tm = new Matrix((Matrix)(f.data));
+                    tm.mul(t);
+                    t.type = Func.t_matr; t.data = tm;
+                },
 
-                (Func t, Func f) => {},//6 *= 0
+                (Func t, Func f) => {Func._mul(t,f);},//6 *= 0
+                (Func t, Func f) => {
+                    Func._mul(t,(Complex)(f.data));
+                },
+                (Func t, Func f) => {Func._mul(t,f);},
+                (Func t, Func f) => {Func._mul(t,f);},
+                (Func t, Func f) => {Func._mul(t,f);},
+                (Func t, Func f) => {Func._mul(t,f);},
                 (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
+                (Func t, Func f) => {
+                    Matrix tm = new Matrix((Matrix)(f.data));
+                    tm.mul(t);
+                    t.type = Func.t_matr; t.data = tm;
+                },
 
                 (Func t, Func f) => {},//7 *= 0
                 (Func t, Func f) => {},
@@ -2666,7 +2844,20 @@ namespace shard0
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
-                (Func t, Func f) => {}
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+
+                (Func t, Func f) => {((Matrix)(t.data)).mul(f);},//8 *= 0
+                (Func t, Func f) => {((Matrix)(t.data)).mul((Complex)(f.data));},
+                (Func t, Func f) => {((Matrix)(t.data)).mul(f);},
+                (Func t, Func f) => {((Matrix)(t.data)).mul(f);},
+                (Func t, Func f) => {((Matrix)(t.data)).mul(f);},
+                (Func t, Func f) => {((Matrix)(t.data)).mul(f);},
+                (Func t, Func f) => {((Matrix)(t.data)).mul(f);},
+                (Func t, Func f) => {},
+                (Func t, Func f) => {((Matrix)(t.data)).mul(((Matrix)(f.data)));
+
+                }
                 };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override void mul(Func f)
@@ -2674,77 +2865,75 @@ namespace shard0
             Func.mul_func[type*Func.types + f.type ](this,f);
         }
         static public Action<Func,Complex>[] muln_func = {
-                (Func t, Complex n) => {
-                    One _o = new One(t);
-                    t.type = 2; t.data = new Many2(new Many(_o,n));
-                },
+                (Func t, Complex n) => {Func._mul(t,n);},
                 (Func t, Complex n) => { 
                     ((Complex)(t.data)).mul(n);
                 },
                 (Func t, Complex n) => { 
                     ((Many2)(t.data)).mul(n);
                 },
+                (Func t, Complex n) => {Func._mul(t,n);},
+                (Func t, Complex n) => {Func._mul(t,n);},
+                (Func t, Complex n) => {Func._mul(t,n);},
+                (Func t, Complex n) => {Func._mul(t,n);},
                 (Func t, Complex n) => {},
-                (Func t, Complex n) => {},
-                (Func t, Complex n) => {},
-                (Func t, Complex n) => {},
-                (Func t, Complex n) => {}
+                (Func t, Complex n) => { 
+                    ((Matrix)(t.data)).mul(n);
+                }
                 };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void mul(Complex n)
         {
             if (! n.isint(1,0)) {
                 if (n.iszero()) {
-                    type = 1; data = n;
+                    type = Func.t_num; data = new Complex(0);
                 } else {
                     Func.muln_func[type](this,n);
                 }
             }
         }
-
+        static void _zero(Func t) {
+            t.type = Func.t_num; t.data = new Complex(0);
+        }
         static public Action<Func,Func>[] common_func = {
                 (Func t, Func f) => {//0:0
-                    if (t.data != f.data) {
-                        t.type = 1; t.data = new Complex(0);
-                    }
+                    if (t.data != f.data) Func._zero(t);
                 },
+                (Func t, Func f) => Func._zero(t),
                 (Func t, Func f) => {
-                        t.type = 1; t.data = new Complex(0);
-                },
-                (Func t, Func f) => {
-                    One _o = new One(t);
+                    One _o = new One(new Func(t));
                     Complex _nd = ((Many2)(f.data)).down.get_Num(); _nd.div();
                     if ((_nd != null) && ((Many2)(f.data)).up.data.ContainsKey(_o) && (((Many2)(f.data)).up.data[_o].sign() * _nd.sign() > 0)) {
                         _nd.mul(((Many2)(f.data)).up.data[_o]);
-                        if (_nd.great(new Complex(1))) {
+                        if (_nd.great(Complex._r1)) {
                             Many _u = new Many(); _u.data.Add(_o,_nd);
-                            t.type = 2; t.data = new Many2(_u,new Many(new Complex(1)));
+                            t.type = Func.t_many2; t.data = new Many2(_u,new Many(new Complex(1)));
                         }
-                    } else {t.type = 1; t.data = new Complex(0);}
+                    } else Func._zero(t);
                 },
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
                 (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
+                (Func t, Func f) => Func._zero(t),
 
-                (Func t, Func f) => {
-                        t.type = 1; t.data = new Complex(0);
-                }, //1:0
+                (Func t, Func f) => Func._zero(t), //1:0
                 (Func t, Func f) => { //1 1
-                        t.data = Complex.common((Complex)(t.data),(Complex)(f.data)); //no new - just select
+                        t.data = Complex.common((Complex)(t.data),(Complex)(f.data));
                 },
                 (Func t, Func f) => { //1 2
                         t.data = Complex.common((Complex)(t.data),((Many2)(f.data)).get_num_part());
                 },
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
                 (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
+                (Func t, Func f) => Func._zero(t),
 
                 (Func t, Func f) => {//2:0
-                    One _o = new One(f);
+                    One _o = new One(new Func(f));
                     Complex _nd = ((Many2)(t.data)).down.get_Num(); _nd.div();
                     if ((_nd != null) && ((Many2)(t.data)).up.data.ContainsKey(_o) && (((Many2)(t.data)).up.data[_o].sign() * _nd.sign() > 0)) {
                         _nd.mul(((Many2)(t.data)).up.data[_o]);
@@ -2752,9 +2941,9 @@ namespace shard0
                             ((Many2)(t.data)).up = new Many(_o,_nd);
                             ((Many2)(t.data)).down = new Many(new Complex(1));
                         } else {
-                            t.type = 0; t.data = f.data;
+                            t.type = Func.t_val; t.data = f.data;
                         }
-                    } else {t.type = 1; t.data = new Complex(0);}
+                    } else Func._zero(t);
                 },
                 (Func t, Func f) => { //2:1
                         t.type = 1; t.data = Complex.common(((Many2)(t.data)).get_num_part(),(Complex)(f.data)); 
@@ -2762,49 +2951,54 @@ namespace shard0
                 (Func t, Func f) => { //2:2
                         ((Many2)(t.data)).common((Many2)(f.data));
                         Complex r = ((Many2)(t.data)).get_Num();
-                        if (r != null) {t.data = r; t.type = 1;}
+                        t.type = Func.t_num; t.data = (r == null ? new Complex(0) : r);
                 },
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
                 (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
+                (Func t, Func f) => Func._zero(t),
 
-                (Func t, Func f) => {}, //3:0
+                (Func t, Func f) => Func._zero(t), //3:0
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
                 (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
+                (Func t, Func f) => Func._zero(t),
 
-                (Func t, Func f) => {}, //4:0
+                (Func t, Func f) => Func._zero(t), //4:0
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
                 (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
+                (Func t, Func f) => Func._zero(t),
 
-                (Func t, Func f) => {}, //5:0
+                (Func t, Func f) => Func._zero(t), //5:0
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
                 (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
+                (Func t, Func f) => Func._zero(t),
 
-                (Func t, Func f) => {}, //6:0
+                (Func t, Func f) => Func._zero(t), //6:0
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t),
                 (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
+                (Func t, Func f) => Func._zero(t),
 
                 (Func t, Func f) => {}, //7:0
                 (Func t, Func f) => {},
@@ -2813,7 +3007,19 @@ namespace shard0
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
-                (Func t, Func f) => {}
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+
+                (Func t, Func f) => ((Matrix)(t.data)).common(f), //8:0
+                (Func t, Func f) => ((Matrix)(t.data)).common(f),
+                (Func t, Func f) => ((Matrix)(t.data)).common(f),
+
+                (Func t, Func f) => ((Matrix)(t.data)).common(f),
+                (Func t, Func f) => ((Matrix)(t.data)).common(f),
+                (Func t, Func f) => ((Matrix)(t.data)).common(f),
+                (Func t, Func f) => ((Matrix)(t.data)).common(f),
+                (Func t, Func f) => Func._zero(t),
+                (Func t, Func f) => Func._zero(t)
               };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void common(Func f)
@@ -2821,113 +3027,146 @@ namespace shard0
             Func.common_func[type*Func.types + f.type ](this,f);
         }
 
-
-
+        static void _add(Func t, Func f) {
+             Many _u = new Many(new Func(t));
+             One _o = new One(new Func(f));
+             _u.add(_o);
+             t.type = Func.t_many2; t.data = new Many2(_u);
+        }
+        static void _add(Many2 t, Func f) {
+             Many _u = new Many(); _u.data.Add(new One(new Func(f)),new Complex(1));
+             t.add(new Many2(_u,new Many(new Complex(1))));
+        }
         static public Action<Func,Func>[] add_func = {
-                (Func t, Func f) => {//0:0
-                    Many _u = new Many(t);
-                    One _o = new One(new Func(f));
-                    _u.add(_o);
-                    t.type = 2; t.data = new Many2(_u);
-                },
+                (Func t, Func f) => Func._add(t,f),//0:0
                 (Func t, Func f) => {
                     if (! ((Complex)(f.data)).iszero()) {
-                        Many _u = new Many(t);
+                        Many _u = new Many(new Func(t));
                         _u.add(new One(),(Complex)(f.data));
-                        t.type = 2; t.data = new Many2(_u);
+                        t.type = Func.t_many2; t.data = new Many2(_u);
                     }
                 },
                 (Func t, Func f) => {
-                    Many2 _fm = new Many2((Many2)(f.data)), _tm = new Many2(new One(t));
-                    _tm.add(_fm);
-                    t.type = 2; t.data = _tm;
+                    Many2 _tm = new Many2(new One(new Func(t)));
+                    _tm.add((Many2)(f.data));
+                    t.type = Func.t_many2; t.data = _tm;
                 },
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
                 (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
+                (Func t, Func f) => {
+                    Matrix tm = new Matrix((Matrix)(f.data));
+                    tm.add(t);
+                    t.type = Func.t_matr; t.data = tm;
+                },
 
                 (Func t, Func f) => {//1:0
                     if (((Complex)(t.data)).iszero()) {
-                        t.type = f.type; t.data = f.data;
+                        t.type = Func.t_val; t.data = f.data; //pnt to var
                     } else {
-                        Many _u = new Many(new One(f));
+                        Many _u = new Many(new One(new Func(f)));
                         _u.add(new One(),(Complex)(t.data));
-                        t.type = 2; t.data = new Many2(_u);
+                        t.type = Func.t_many2; t.data = new Many2(_u);
                     }
                 },
                 (Func t, Func f) => { //1:1
-                        ((Complex)(t.data)).add((Complex)(f.data));
+                    ((Complex)(t.data)).add((Complex)(f.data));
                 },
                 (Func t, Func f) => { //1:2
-                    if (((Complex)(t.data)).iszero()) {
-                        t.type = f.type; t.data = f.data;
-                    } else {
-                        t.type = 2; t.data = new Many2((Complex)(t.data));
-                        ((Many2)(t.data)).add((Many2)f.data);
-                    }
+                    Many2 rez = new Many2((Many2)(f.data));
+                    rez.add(new Many2((Complex)(t.data)));
+                    t.type = Func.t_many2; t.data = rez;
                 },
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
                 (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
+                (Func t, Func f) => {
+                    Matrix tm = new Matrix((Matrix)(f.data));
+                    tm.add(t);
+                    t.type = Func.t_matr; t.data = tm;
+                },
 
-                (Func t, Func f) => {//2:0
-                    One _o = new One(f);
-                    Many _u = new Many(); _u.data.Add(_o,new Complex(1));
-                    ((Many2)(t.data)).add(new Many2(_u,new Many(new Complex(1))));
-                },
+
+
+                (Func t, Func f) => Func._add((Many2)(t.data),f),//2:0
                 (Func t, Func f) => { //2:1
                     if (! ((Complex)(f.data)).iszero()) {
                         ((Many2)(t.data)).add((Complex)f.data);
                     }
                 },
                 (Func t, Func f) => { //2:2
-                        ((Many2)(t.data)).add((Many2)(f.data));
+                    ((Many2)(t.data)).add((Many2)(f.data));
                 },
+                (Func t, Func f) => Func._add((Many2)(t.data),f),
+                (Func t, Func f) => Func._add((Many2)(t.data),f),
+                (Func t, Func f) => Func._add((Many2)(t.data),f),
+                (Func t, Func f) => Func._add((Many2)(t.data),f),
                 (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
+                (Func t, Func f) => {
+                    Matrix tm = new Matrix((Matrix)(f.data));
+                    tm.add(t);
+                    t.type = Func.t_matr; t.data = tm;
+                },
 
-                (Func t, Func f) => {}, //3:0
+                (Func t, Func f) => Func._add(t,f), //3:0
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
                 (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
+                (Func t, Func f) => {
+                    Matrix tm = new Matrix((Matrix)(f.data));
+                    tm.add(t);
+                    t.type = Func.t_matr; t.data = tm;
+                },
 
-                (Func t, Func f) => {}, //4:0
+                (Func t, Func f) => Func._add(t,f), //4:0
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
                 (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
+                (Func t, Func f) => {
+                    Matrix tm = new Matrix((Matrix)(f.data));
+                    tm.add(t);
+                    t.type = Func.t_matr; t.data = tm;
+                },
 
-                (Func t, Func f) => {}, //5:0
+                (Func t, Func f) => Func._add(t,f), //5:0
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
                 (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
+                (Func t, Func f) => {
+                    Matrix tm = new Matrix((Matrix)(f.data));
+                    tm.add(t);
+                    t.type = Func.t_matr; t.data = tm;
+                },
 
-                (Func t, Func f) => {}, //6:0
+                (Func t, Func f) => Func._add(t,f), //6:0
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
+                (Func t, Func f) => Func._add(t,f),
                 (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
-                (Func t, Func f) => {},
+                (Func t, Func f) => {
+                    Matrix tm = new Matrix((Matrix)(f.data));
+                    tm.add(t);
+                    t.type = Func.t_matr; t.data = tm;
+                },
 
                 (Func t, Func f) => {}, //7:0
                 (Func t, Func f) => {},
@@ -2936,7 +3175,20 @@ namespace shard0
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
                 (Func t, Func f) => {},
-                (Func t, Func f) => {}
+                (Func t, Func f) => {},
+                (Func t, Func f) => {},
+
+
+                (Func t, Func f) => ((Matrix)(t.data)).add(f), //8:0
+                (Func t, Func f) => ((Matrix)(t.data)).add(f),
+                (Func t, Func f) => ((Matrix)(t.data)).add(f),
+                (Func t, Func f) => ((Matrix)(t.data)).add(f),
+                (Func t, Func f) => ((Matrix)(t.data)).add(f),
+                (Func t, Func f) => ((Matrix)(t.data)).add(f),
+                (Func t, Func f) => ((Matrix)(t.data)).add(f),
+                (Func t, Func f) => {},
+                (Func t, Func f) => ((Matrix)(t.data)).add((Matrix)(f.data))
+
               };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void add(Func f)
@@ -2954,9 +3206,11 @@ namespace shard0
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
+                (Func t, Func f) => {return 1;},
 
                 (Func t, Func f) => {return -1;}, //1:0
                 (Func t, Func f) => {return ((Complex)(t.data)).CompareTo(f.data);},
+                (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
@@ -2973,12 +3227,14 @@ namespace shard0
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
+                (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return ((Many2)(t.data)).CompareTo(null);},
 
                 (Func t, Func f) => {return -1;}, //3:0
                 (Func t, Func f) => {return -1;},
                 (Func t, Func f) => {return -1;},
                 (Func t, Func f) => {return ((Many2)(t.data)).CompareTo(f.data);},
+                (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
@@ -2993,6 +3249,7 @@ namespace shard0
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
+                (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return ((Many2)(t.data)).CompareTo(null);},
 
                 (Func t, Func f) => {return -1;}, //5:0
@@ -3001,6 +3258,7 @@ namespace shard0
                 (Func t, Func f) => {return -1;},
                 (Func t, Func f) => {return -1;},
                 (Func t, Func f) => {return ((Many2)(t.data)).CompareTo(f.data);},
+                (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return 1;},
                 (Func t, Func f) => {return ((Many2)(t.data)).CompareTo(null);},
@@ -3013,6 +3271,7 @@ namespace shard0
                 (Func t, Func f) => {return -1;},
                 (Func t, Func f) => {return ((Many2)(t.data)).CompareTo((Many2)(f.data));},
                 (Func t, Func f) => {return -1;},
+                (Func t, Func f) => {return -1;},
                 (Func t, Func f) => {return ((Many2)(t.data)).CompareTo(null);},
 
                 (Func t, Func f) => {return -1;}, //7:0
@@ -3023,6 +3282,18 @@ namespace shard0
                 (Func t, Func f) => {return -1;},
                 (Func t, Func f) => {return -1;},
                 (Func t, Func f) => {return ((Row)(t.data)).CompareTo((Row)(f.data));},
+                (Func t, Func f) => {return 1;},
+                (Func t, Func f) => {return 1;},
+
+                (Func t, Func f) => {return -1;}, //8:0
+                (Func t, Func f) => {return -1;},
+                (Func t, Func f) => {return -1;},
+                (Func t, Func f) => {return -1;},
+                (Func t, Func f) => {return -1;},
+                (Func t, Func f) => {return -1;},
+                (Func t, Func f) => {return -1;},
+                (Func t, Func f) => {return -1;},
+                (Func t, Func f) => {return ((Matrix)(t.data)).CompareTo((Matrix)(f.data));},
                 (Func t, Func f) => {return 1;}
 
                };
@@ -3068,7 +3339,8 @@ namespace shard0
                         t.type = 1; t.data = Func.f_sign(n);
                     }
                 },
-                (Func t) => {((Row)(t.data)).simple();}
+                (Func t) => {((Row)(t.data)).simple();},
+                (Func t) => {((Matrix)(t.data)).simple();}
                               };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void simple()
@@ -3080,6 +3352,7 @@ namespace shard0
                 (Func t) => {return 1;},
                 (Func t) => {return ((Complex)(t.data)).sign();},
                 (Func t) => {return ((Many2)(t.data)).sign();},
+                (Func t) => {return 1;},
                 (Func t) => {return 1;},
                 (Func t) => {return 1;},
                 (Func t) => {return 1;},
@@ -3099,12 +3372,13 @@ namespace shard0
                     t.data = ((Vals)(t.data)).var.vals[_i];
                 },
                 (Func t, int d) => {},
-                (Func t, int d) => {((Many2)(t.data)).deeper(d);},
-                (Func t, int d) => {((Many2)(t.data)).deeper(d);},
-                (Func t, int d) => {((Many2)(t.data)).deeper(d);},
-                (Func t, int d) => {((Many2)(t.data)).deeper(d);},
-                (Func t, int d) => {((Many2)(t.data)).deeper(d);},
-                (Func t, int d) => {((Row)(t.data)).deeper(d);}
+                (Func t, int d) => ((Many2)(t.data)).deeper(d),
+                (Func t, int d) => ((Many2)(t.data)).deeper(d),
+                (Func t, int d) => ((Many2)(t.data)).deeper(d),
+                (Func t, int d) => ((Many2)(t.data)).deeper(d),
+                (Func t, int d) => ((Many2)(t.data)).deeper(d),
+                (Func t, int d) => ((Row)(t.data)).deeper(d),
+                (Func t, int d) => ((Matrix)(t.data)).deeper(d)
                };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void deeper(int d) {
@@ -3151,6 +3425,10 @@ namespace shard0
                 (Func t) => {
                     IDS.sys.error("row:not prep");
                     return new Complex(0);
+                },
+                (Func t) => {
+                    IDS.sys.error("matr:not prep");
+                    return new Complex(0);
                 }
               };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -3179,6 +3457,10 @@ namespace shard0
                 (Func t, Complex e) => {
                     IDS.sys.error("row: not prep");
                     return new Complex(0);
+                },
+                (Func t, Complex e) => {
+                    IDS.sys.error("matr: not prep");
+                    return new Complex(0);
                 }
               };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -3189,12 +3471,13 @@ namespace shard0
         static public Action<Func,One>[] findvals_func = {
               (Func t, One o) => {if (! o.exps.ContainsKey(t)) o.exps.Add(new Func(t),new Func(new Complex(1)));},
               (Func t, One o) => {},
-              (Func t, One o) => {((Many2)(t.data)).findvals(o);},
-              (Func t, One o) => {((Many2)(t.data)).findvals(o);},
-              (Func t, One o) => {((Many2)(t.data)).findvals(o);},
-              (Func t, One o) => {((Many2)(t.data)).findvals(o);},
-              (Func t, One o) => {((Many2)(t.data)).findvals(o);},
-              (Func t, One o) => {((Row)(t.data)).findvals(o);}
+              (Func t, One o) => ((Many2)(t.data)).findvals(o),
+              (Func t, One o) => ((Many2)(t.data)).findvals(o),
+              (Func t, One o) => ((Many2)(t.data)).findvals(o),
+              (Func t, One o) => ((Many2)(t.data)).findvals(o),
+              (Func t, One o) => ((Many2)(t.data)).findvals(o),
+              (Func t, One o) => ((Row)(t.data)).findvals(o),
+              (Func t, One o) => ((Matrix)(t.data)).findvals(o)
         };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void findvals(One o)
@@ -3208,6 +3491,7 @@ namespace shard0
               (Func t, Vals a) => {t.data = ((Many2)(t.data)).diff_down(a);},
               (Func t, Vals a) => {},
 
+              (Func t, Vals a) => {},
               (Func t, Vals a) => {},
               (Func t, Vals a) => {},
               (Func t, Vals a) => {},
@@ -3235,6 +3519,7 @@ namespace shard0
               (Func t, Vals a) => {},
               (Func t, Vals a) => {},
               (Func t, Vals a) => {},
+              (Func t, Vals a) => {},
               (Func t, Vals a) => {}
         };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -3250,7 +3535,7 @@ namespace shard0
                         if ((e.type == Func.t_val) && (e.data == a)) {
                             o = new One(new Func(t),new Func(e));
                             Many m = new Many(new Complex(1));
-                            m.add(new One(new Func(3,new Many2(new Func(t)))),new Complex(1));
+                            m.add(new One(new Func(3,new Many2(new Func(t)))),Complex._r1);
                             o.addto(new Func(new Many2(m)));
                         } else {
                             Func tt = new Func(e); tt.add(new Func(new Complex(-1)));
@@ -3317,6 +3602,7 @@ namespace shard0
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
 
 
                 (Func t, Func e, Vals a) => {//1:0
@@ -3345,6 +3631,7 @@ namespace shard0
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
 
                 (Func t, Func e, Vals a) => {//2:0
                     Func _e = new Func(e); _e.add(new Func(new Complex(-1)));
@@ -3353,7 +3640,7 @@ namespace shard0
                     if ((e.type == Func.t_val) && (e.data == a)) {
                         One om = new One(new Func(t)); 
                         om.addto(new Func(3,new Many2((Many2)(t.data))));
-                        dm.mul(new One(e),new Complex(1));
+                        dm.mul(new One(e),Complex._r1);
                         Many m0 = new Many(om);
                         m0.add(new One(new Func(dm)));
                         o.addto(new Func(new Many2(m0)));
@@ -3401,6 +3688,7 @@ namespace shard0
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
 
                 (Func t, Func e, Vals a) => {//3:0
                     Many2 dm = ((Many2)(t.data)).diff_down(a);
@@ -3418,7 +3706,7 @@ namespace shard0
                         Many2 m = new Many2((Many2)(t.data));
                         One o = new One(new Func(dm));
                         o.addto(new Func(m),new Func(new Complex(-1)));
-                        Many _m = new Many(new Func(e)); _m.add(new One(),new Complex(-1));
+                        Many _m = new Many(new Func(e)); _m.add(new One(),Complex._r_1);
                         o.addto(new Func(t),new Func(new Many2(_m)));
                         o.addto(new Func(e));
                         return new Func(new Many2(o));
@@ -3470,8 +3758,10 @@ namespace shard0
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
 
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));}, //4:0
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
@@ -3488,6 +3778,7 @@ namespace shard0
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
 
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));}, //6:0
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
@@ -3497,8 +3788,20 @@ namespace shard0
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
 
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));}, //7:0
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
+
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));}, //8:0
+                (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
                 (Func t, Func e, Vals a) => {return new Func(new Complex(0));},
@@ -4303,13 +4606,14 @@ namespace shard0
                 eval = null; ex = new Func(new Complex(1));
                 }
             };
-            char[] pc = {isabc,isnum,'{','('};
+            char[] pc = {isabc,isnum,'{','(','['};
             Action[] pf = {
                       () => { 
                           ex.mul(new Func(new One(infunc()),new Complex(1)));
                       },
                       () => ex.mul(new Complex(get(isnum))),
                       () => ex.mul(calc()),
+                      () => ex.mul(fpars("",true)),
                       () => ex.mul(fpars("",true)),
                       () => sys.error("noNum in calc")
                           };
@@ -4327,17 +4631,19 @@ namespace shard0
                 },
                 () => sys.error("noNum in calc")
                 };
-            char[] nc = {isabc,isnum,'{','('};
+            char[] nc = {isabc,isnum,'{','(','['};
             Action[] nf = {
                 () => {eval = infunc();},
                 () => {eval = new Func(new Complex(get(isnum)));},
                 () => {eval = new Func(calc());},
                 () => {eval = fpars("",true);},
+                () => {eval = fpars("",true);},
                 () => sys.error("noNum in calc")
                 };
-            char[] oc = {isoper,isclose,isend};
+            char[] oc = {isoper,isclose,isend,','};
             Action[] of = {
                 () => branchnow("+-*/^",oof),
+                () => {l = false; },
                 () => {l = false; },
                 () => {l = false; },
                 () => sys.error("noNum in calc")
@@ -4358,7 +4664,7 @@ namespace shard0
             Many m = new Many();
             KeyValuePair<One,Complex> on;
             int d = deep.Count;
-            while ((! isequnow(isclose)) && (!isequnow(isend))) {
+            while ((! isequnow(isclose)) && (!isequnow(isend)) && (!isequnow(','))) {
                 on = opars(); m.add(on.Key,on.Value);
             }
             if (d < deep.Count) next();
@@ -4374,8 +4680,9 @@ namespace shard0
             Func r = null;
             if (! Program.root.fnames.ContainsKey(_fn)) sys.error("parse: func");
             tp = Program.root.fnames[_fn];
-            if (_pair) { if (isequnow('(')) next(); else sys.error("parse: func"); }
-            if (tp == 7) {
+            if (_pair) { if (isequnow(ispair)) {if (isequnow('[')) tp = 8; next();} else sys.error("parse: func"); }
+            switch (tp) {
+                case 7:
                     r = new Func(new Row());
                     if (! isequnow(isnum)) sys.error("parse:row");
                     ((Row)(r.data)).point = get_int();
@@ -4387,7 +4694,26 @@ namespace shard0
                         if (! isequnow(',')) break;
                         next(); i++;
                     }
-            } else r = new Func(tp,m2pars());
+                    break;
+                case 8:
+                    List<List<Func>> tm = new List<List<Func>>();
+                    while (! isequnow(']')) {
+                        if (! isequnow('[')) sys.error("parse: matr");
+                        next(); tm.Add(new List<Func>());
+                        while (! isequnow(']')) {
+                            tm.Last().Add(new Func(Func.t_many2,m2pars()));
+                            if (isequnow(',')) next();
+                        }
+                        next();
+                        if (isequnow(',')) next();
+                        if (tm.Last().Count != tm[0].Count) sys.error("parse: matr size");
+                    }
+                    r = new Func(new Matrix(tm));
+                    break;
+                default:
+                    r = new Func(tp,m2pars());
+                    break;
+            }
             if (d < deep.Count) next();
             r.simple(); return r;
         }
@@ -4571,6 +4897,20 @@ namespace shard0
                           ret += "," + print(m.Value);
                       }
                       ret += ")";
+                  },
+                  () => {
+                      ret += "[";
+                      int ix,iy;
+                      ix = 0; while (ix < ((Matrix)(f.data)).x) {
+                          ret += (ix > 0 ? ",[" : "[");
+                          iy = 0; while (iy < ((Matrix)(f.data)).y) {
+                              ret += (iy > 0 ? "," : "") + print(((Matrix)(f.data)).data[ix,iy],false);
+                              iy++;
+                          }
+                          ret += "]";
+                          ix++;
+                      }
+                      ret += "]";
                   }
                  };
             p[f.type]();
@@ -4701,7 +5041,6 @@ namespace shard0
         public static IDS root;
 
 
-        [STAThread]
         static int Main(string[] args)
         {
             IDS.sx = 0; IDS.sy = 0; int step = 4, exp = 11;
@@ -4723,11 +5062,7 @@ namespace shard0
             par.next(); root.v_ln2 = root.findadd_var(par.get(Parse.isname)); root.v_ln2.var = new Func(new Complex(IDS.n_ln2));
             par.next(); root.v_x = root.findadd_var(par.get(Parse.isname)); par.next(); root.v_n = root.findadd_var(par.get(Parse.isname));
             IDS.v_res = 5;
-
-            Thread calc = new Thread(doit);
-            calc.Start();
-//            Application.Run(m0);
-
+            doit();
             return 0;
         }
         struct calc_out {
@@ -4843,6 +5178,17 @@ namespace shard0
                                 }
                                 par.sys.wline(0,par.print(var0));
                             break;
+
+                            case '|':
+                                var0 = root.find_var(name);
+                                if (var0.var == null) par.sys.error("empty name");
+                                if (var0.var.type != Func.t_matr) par.sys.error("not matr");
+                                par.next();
+                                Many det = ((Matrix)(var0.var.data)).det();
+                                det.simple(); var0.var = new Func(new Many2(det));
+                                par.sys.wline(0,par.print(var0));
+                            break;
+
                             case '<':
                                 var0 = root.find_var(name);
                                 if (var0.var == null) par.sys.error("empty name");
