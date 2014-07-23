@@ -4296,7 +4296,9 @@ namespace shard0
         public void error(string e)
         {
             fout[0].WriteLine("");
-            fout[0].WriteLine("Line {0:G}: " + ((IDS.now_func != null) ? IDS.par.print(IDS.now_func,true) + " " : "") + e, nline+1);
+            fout[0].WriteLine(IDS.par.prev);
+            fout[0].WriteLine(IDS.par.val);
+            fout[0].WriteLine("Position {0:G}: " + ((IDS.now_func != null) ? IDS.par.print(IDS.now_func,true) + " " : "") + e, IDS.par.pos);
             fout[0].Flush();
             Environment.Exit(-1);
         }
@@ -4331,7 +4333,6 @@ namespace shard0
         public Mbody(int n, string s)
         { nparm = n; body = s; }
     }
-
     class Parse: IDisposable
     {
         static public char[] m_n_to_c = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F','G','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'};
@@ -4369,7 +4370,7 @@ namespace shard0
         public static char isall = (char)0, isname = (char)1, issymb = (char)2, ispair = (char)3, 
                            isnum = (char)4, isabc = (char)5,
                            isoper = (char)6, isother = (char)7, isopen = (char)8, isclose = (char)9, issys = (char)10,
-                           isend = (char)13;
+                           isend = ';';
         static int[] m_c_prior = {
          0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 0, 0,  0, 0, 0, 0,
          0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 0, 0,  0, 0, 0, 0,
@@ -4387,20 +4388,53 @@ namespace shard0
 //       `
          0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 0, 0,  0, 0, 0, 0};
 //                                           {   |  }  ~ 	
-        public string val;
-        public int pos;
+        public string prev, val;
+        public int pos,opers;
         public char now, oper;
         SortedDictionary<string,Mbody> macro;
         List<Deep> deep;
         List<List<Deep>> stack;
+        public List<string> body;
         public Fileio sys;
         public Parse(Fileio s)
         {
             sys = s;
-            val = ""; pos = 0;
+            val = ""; pos = 0; opers = 0;
             macro = new SortedDictionary<string,Mbody>();
             deep = new List<Deep>();
             stack = new List<List<Deep>>();
+            body = new List<string>();
+        }
+        public int find2(string s0, string s1) {
+            int i0 = val.IndexOf(s0,pos);
+            int i1 = val.IndexOf(s1,pos);
+            if (i0 < 0) i0 = val.Length-1;
+            if (i1 < 0) i1 = val.Length-1;
+            return Math.Min(i0,i1); val = ""; prev = "";
+        }
+        public void init() {
+            string now = "";
+            bool inside = false;
+            while (sys.has) if (lnext()) 
+            {
+                pos = 0; while (pos < val.Length) {
+                    if (inside) {
+                        pos = find2("\"","\\\"");
+                        if (val[pos] == '"') inside = false; else pos++; pos++;
+                    } else {
+                        pos = find2("\"",";");
+                        if (val[pos] == '"') inside = true; 
+                        if (val[pos] == ';') {
+                            now += val.Substring(0,pos); val = val.Substring(pos+1);
+                            while ((now.Length > 0) && (now[0] < '!')) now = now.Substring(1);
+                            if (now.IndexOf('=') < 0) opers++;
+                            body.Add(now); now = ""; pos = 0;
+                        }
+                        pos++;
+                    }
+                }
+                now += val;
+            }
         }
         string _parm() {
             string s1;
@@ -4426,6 +4460,11 @@ namespace shard0
             stack.RemoveAt(stack.Count-1);
             pos = deep[deep.Count-1].pos;
             now = (more() ? val[pos] : isend);
+        }
+        public void set(string _v)
+        {
+            deep.Clear(); deep.Add(new Deep(isend,isend));
+            prev = val; val = _v; pos = 0; now = val[0];
         }
         public bool lnext()
         {
@@ -4487,7 +4526,7 @@ namespace shard0
         public bool more() { return pos < val.Length; }
         public bool isequ(char t, char tst)
         {
-            if (tst < isend) {
+            if (tst < m_c_type_fr.Length) {
                 int _t = m_c_type[t] - m_c_type_fr[tst];
                 return _t >= 0 && _t < m_c_type_sz[tst];
             } else return t == tst;
@@ -5048,7 +5087,6 @@ namespace shard0
             if (args.Length < 1) return 0;
             string ss = (args.Length < 2 ? "" : args[1]);
             Fileio _f = new Fileio(args[0], ss);
-
             par = new Parse(_f);
             par.lnext(); IDS.sx = par.get_int(); par.next(); IDS.sy = par.get_int(); par.next(); step = par.get_int(); par.next(); exp = par.get_int();
             if ((IDS.sx < 100) || (IDS.sx > 2000) || (IDS.sy < 100) || (IDS.sy > 2000) || (step < 4) || (step > 11) || (exp < 11) || (exp > 6666)) _f.error("wrong head");
@@ -5058,11 +5096,13 @@ namespace shard0
             bm1 = new System.Drawing.Bitmap(IDS.sx, IDS.sy);
             for (int i0 = 0; i0 < IDS.sx; i0++) for (int i1 = 0; i1 < IDS.sy; i1++) bm1.SetPixel(i0, i1, Color.FromArgb(0, 0, 0));
             root = new IDS(step, exp, par.sys,par);
-            par.lnext(); root.v_pi = root.findadd_var(par.get(Parse.isname)); root.v_pi.var = new Func(new Complex(IDS.n_pi));
-            par.next(); root.v_e = root.findadd_var(par.get(Parse.isname)); root.v_e.var = new Func(new Complex(IDS.n_e));
-            par.next(); root.v_ln2 = root.findadd_var(par.get(Parse.isname)); root.v_ln2.var = new Func(new Complex(IDS.n_ln2));
-            par.next(); root.v_x = root.findadd_var(par.get(Parse.isname)); par.next(); root.v_n = root.findadd_var(par.get(Parse.isname));
+            root.v_pi = root.findadd_var("pi"); root.v_pi.var = new Func(new Complex(IDS.n_pi));
+            par.next(); root.v_e = root.findadd_var("e"); root.v_e.var = new Func(new Complex(IDS.n_e));
+            par.next(); root.v_ln2 = root.findadd_var("ln2"); root.v_ln2.var = new Func(new Complex(IDS.n_ln2));
+            par.next(); root.v_ln2 = root.findadd_var("i"); root.v_ln2.var = new Func(new Complex(Complex._i1));
+            par.next(); root.v_x = root.findadd_var("x"); root.v_n = root.findadd_var("n");
             IDS.v_res = 5;
+            par.init();
             doit();
             return 0;
         }
@@ -5116,12 +5156,10 @@ namespace shard0
             List<Func> id;
             string val,name;
             DateTime ddnow = DateTime.Now;
- 
- 
-            while (par.sys.has)
-            {
-                if (par.lnext()) 
+
+            foreach(string _v in par.body) 
                 {
+                    par.set(_v); 
                     if (par.isequnow(Parse.isabc)) {
                         name = par.get(Parse.isname);
                         switch (par.now) 
@@ -5308,7 +5346,6 @@ namespace shard0
                         }
                     }
                 }
-            }
             TimeSpan ime =  DateTime.Now - ddnow;
             par.sys.wline(0,"finished, vars = " + (root.var.Count()).ToString() + "; time has " + ime.ToString());
             bm1.Save(par.sys.nout + ".png");
