@@ -2735,7 +2735,7 @@ namespace shard0
                 (Func t, Func f) => { //1 *= 2
                     if (! ((Complex)(t.data)).iszero()) {
                         if (((Complex)(t.data)).isint(1,0)) {
-                            t.type = f.type; t.data = new Complex(0);
+                            t.type = Func.t_many2; t.data = new Many2((Many2)(f.data));
                         } else {
                             t.type = Func.t_many2; t.data = new Many2(new Complex((Complex)(t.data)));
                             ((Many2)(t.data)).mul((Many2)f.data);
@@ -4597,7 +4597,7 @@ namespace shard0
             bool l = true;
             Action eset = () => {
                 if (eval != null) {
-                if ((eval.type == 1)  && (ex.type_pow() == 0)) {
+                if ((eval.type == Func.t_num)  && (ex.type_pow() == 0)) {
                     Complex nval = new Complex((Complex)(eval.data));
                     nval.exp((Complex)(ex.data)); rn.mul(nval); 
                 } else {
@@ -4617,6 +4617,7 @@ namespace shard0
                       () => ex.mul(fpars("",true)),
                       () => sys.error("noNum in calc")
                           };
+            const string ooc = "+-*/^";
             Action[] oof = {
                 () => {l = false; }, //+
                 () => {l = false; }, //-
@@ -4642,7 +4643,7 @@ namespace shard0
                 };
             char[] oc = {isoper,isclose,isend,','};
             Action[] of = {
-                () => branchnow("+-*/^",oof),
+                () => branchnow(ooc,oof),
                 () => {l = false; },
                 () => {l = false; },
                 () => {l = false; },
