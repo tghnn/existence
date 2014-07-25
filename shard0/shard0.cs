@@ -24,6 +24,30 @@ namespace shard0
             data.Add(new Complex(0),new Complex(1));
             data.Add(new Complex(1),v);
         }
+        public void save(BinaryWriter file)
+        {
+            val.save(file);
+            file.Write((Int32)(data.Count-2));
+            foreach(KeyValuePair<Complex,Complex> v in data.Where(v => ((! v.Key.isint(0,0)) && (!v.Key.isint(1,0))))) {
+                v.Key.save(file);
+                v.Value.save(file);
+            }
+        }
+        public static Exps_n load(BinaryReader file)
+        {
+            Exps_n ret = new Exps_n(Complex.load(file));
+            Complex k,v;
+            int i = 0, cnt = file.ReadInt32();
+            while (i < cnt) {
+                k = Complex.load(file);
+                v = Complex.load(file);
+                ret.data.Add(k,v);
+                i++;
+            }
+            return ret;
+        }
+
+
         public Complex exp(Complex e)
         {
             if (! data.ContainsKey(e)) {
@@ -41,15 +65,38 @@ namespace shard0
     class Vals
     {
         public static int _ind = 0;
-        public int ind;
+        public static Vals[] inds;
+        public Int32 ind;
         public Exps_n val;
         public Vars var;
         public int deep;
-        public Vals(Vars vr, Complex vl, int d)
+        public Vals(Vars vr, Exps_n vl, int d)
         {
-            val = new Exps_n(vl);
-            var = vr; deep = d; ind = Vals._ind++;
+            val = vl; var = vr; deep = d; ind = Vals._ind++; 
+            if (Vals.inds.Length <= ind) Array.Resize<Vals>(ref Vals.inds, Vals.inds.Length + 100);
+            Vals.inds[ind] = this;
         }
+
+        public static void save(BinaryWriter file)
+        {
+            file.Write((Int32)(Vals._ind));
+            int i = 0; while (i < Vals._ind) {
+                file.Write((Int32)(Vals.inds[i].var.ind));
+                Vals.inds[i].val.save(file);
+                file.Write((Int16)(Vals.inds[i].deep));
+                i++;
+            }
+        }
+        public static void load(BinaryReader file)
+        {
+            int i = 0, cnt = file.ReadInt32();
+            Vals._ind = 0; Vals tmp;
+            while (i < cnt) {
+                tmp = new Vals(Vars.inds[file.ReadInt32()],Exps_n.load(file),file.ReadInt16());
+                i++;
+            }
+        }
+
         public Exps_n get_exp()
         {
             if (var.stat != Program.root.stat_calc) { 
@@ -80,26 +127,59 @@ namespace shard0
     class Vars: IComparable
     {
         public static int _ind = 0;
+        public static Vars[] inds;
         public int ind;
         public Vals[] vals;
         public Func var;
         public int stat;
         public string name;
+        void set_ind() {
+            ind = Vars._ind++;
+            if (Vars.inds.Length <= ind) Array.Resize<Vars>(ref Vars.inds, Vars.inds.Length + 100);
+            Vars.inds[ind] = this;
+        }
         public Vars(string n, int valn, Complex vl)
         {
             name = n; stat = 0; var = null; vals = new Vals[valn+1];
             int i = 0; while (i <= valn) {
-                vals[i] = new Vals(this,vl,i); i++;
+                vals[i] = new Vals(this,new Exps_n(vl),i); i++;
             }
-            ind = Vars._ind++;
+            set_ind();
         }
         public Vars(string n, Complex[] vl)
         {
             name = n; stat = 0; var = null; vals = new Vals[vl.Length+1];
             int i = 0; while (i <= vl.Length) {
-                vals[i] = new Vals(this,vl[i],i); i++;
+                vals[i] = new Vals(this,new Exps_n(vl[i]),i); i++;
             }
-            ind = Vars._ind++;
+            set_ind();
+        }
+        public Vars(string n, int valn, int _stat)
+        {
+            name = n; stat = _stat; var = null; vals = new Vals[valn+1];
+            set_ind();
+        }
+        public static int save(BinaryWriter file)
+        {
+            int ret = 0;
+            file.Write((Int32)(Vars._ind));
+            int i = 0; while (i < Vars._ind) {
+                file.Write(Vars.inds[i].name);
+                file.Write((Int32)(Vars.inds[i].vals.Length-1));
+                file.Write((Int32)(Vars.inds[i].stat));
+                if (Vars.inds[i].var != null) ret++;
+                i++;
+            }
+            return ret;
+        }
+        public static void load(BinaryReader file)
+        {
+            int i = 0, cnt = file.ReadInt32();
+            Vars._ind = 0; Vars tmp;
+            while (i < cnt) {
+                tmp = new Vars(file.ReadString(),file.ReadInt32(),file.ReadInt32());
+                i++;
+            }
         }
         public void set_now(Complex v0)
         {
@@ -217,6 +297,56 @@ namespace shard0
             }
             IDS.root = this;
         }
+        public void save()
+        {
+            BinaryWriter file = new BinaryWriter(File.Open("step.bin", FileMode.Create));
+            file.Write((Int32)(par.opers));
+            file.Write((Int32)(par.pos));
+            file.Write((Int32)(par.body_num));
+            file.Write((Int32)(par.body.Count));
+            foreach(string s in par.body) file.Write(s);
+            int funcs = Vars.save(file);
+            Vals.save(file);
+            file.Write((Int32)funcs);
+            int i = 0; while (i < Vars._ind) {
+                if (Vars.inds[i].var != null) {
+                    file.Write((Int32)i);
+                    Vars.inds[i].var.save(file);
+                }
+                i++;
+            }
+
+
+            file.Close();
+        }
+        public void load()
+        {
+            BinaryReader file = new BinaryReader(File.Open("step.bin", FileMode.Open));
+            par.opers = file.ReadInt32();
+            par.pos = file.ReadInt32();
+            par.body_num = file.ReadInt32();
+            int i = 0, cnt =  file.ReadInt32(); while (i < cnt) {
+                par.body.Add(file.ReadString());
+                i++;
+            }
+            par.val = par.body[par.body_num];
+            par.now = par.val[par.pos];
+            Vars.load(file);
+            Vals.load(file);
+            i = 0; cnt = file.ReadInt32(); while (i < cnt) {
+                Vars.inds[file.ReadInt32()].var = Func.load(file);
+                i++;
+            }
+            var.Clear();
+            i = 0; while (i < Vars._ind) {
+                var.Add(Vars.inds[i].name,Vars.inds[i]);
+                i++;
+            }
+
+
+
+            file.Close();
+        }
         int deep(string n)
         {
             int i = 0; while ((i < n.Length) && (n[i]=='\'')) i++;
@@ -323,6 +453,35 @@ namespace shard0
         public Num()
         {
             init(0, 0);
+        }
+        public static Num load(BinaryReader file) 
+        {
+            Num ret;
+            Int16 cnt = file.ReadInt16();
+            if (cnt < 0) {
+                ret = IDS.nums[-cnt];
+            } else {
+                ret = new Num();
+                ret.up = new BigInteger(file.ReadBytes(cnt));
+                cnt = file.ReadInt16();
+                ret.down = new BigInteger(file.ReadBytes(cnt));
+                ret.sign = (ret.up > 0 ? 1 : 0);
+                if (ret.up < 0) {ret.up = -ret.up; ret.sign = -1;}
+            }
+            return ret;
+        }
+        public void save(BinaryWriter file) 
+        {
+            if ((down == 1) && (up < IDS.znums)) {
+                file.Write((Int16)(-(int)(up)*sign-IDS.znums));
+            } else {
+                byte[] tmp = (up*sign).ToByteArray();
+                file.Write((Int16)(tmp.Length));
+                file.Write(tmp);
+                tmp = down.ToByteArray();
+                file.Write((Int16)(tmp.Length));
+                file.Write(tmp);
+            }
         }
         public Num(Num n)
         {
@@ -838,11 +997,17 @@ namespace shard0
             Complex r = new Complex(d0); r.div(d1);
             return r;
         }
-
+        public static Complex load(BinaryReader file) {
+            return new Complex(Num.load(file),Num.load(file));
+        }
+        public void save(BinaryWriter file) {
+            r.save(file);
+            i.save(file);
+        }
         public Complex(Num _r, Num _i) 
         {
-            r = new Num(_r);
-            i = new Num(_i);
+            r = _r;
+            i = _i;
             s = null;
         }
         public Complex(int _r, string _s)
@@ -1091,6 +1256,24 @@ namespace shard0
         {
             exps = new SortedDictionary<Func,Func>();
             set(o);
+        }
+        public static One load(BinaryReader file)
+        {
+            One ret = new One();
+            int i = 0,cnt = file.ReadInt32();
+            while (i < cnt) {
+                ret.exps.Add(Func.load(file),Func.load(file));
+                i++;
+            }
+            return ret;
+        }
+        public void save(BinaryWriter file)
+        {
+            file.Write((Int32)(exps.Count));
+            foreach(KeyValuePair<Func,Func> m in exps) {
+                m.Key.save(file);
+                m.Value.save(file);
+            }
         }
         public void set(One o)
         {
@@ -1356,6 +1539,25 @@ namespace shard0
         {
             set(m);
         }
+        public static Many load(BinaryReader file)
+        {
+            Many ret = new Many();
+            int i = 0,cnt = file.ReadInt32();
+            while (i < cnt) {
+                ret.data.Add(One.load(file),Complex.load(file));
+                i++;
+            }
+            return ret;
+        }
+        public void save(BinaryWriter file)
+        {
+            file.Write((Int32)(data.Count));
+            foreach (KeyValuePair<One,Complex> o in data) {
+                o.Key.save(file);
+                o.Value.save(file);
+            }
+        }
+
         public static SortedDictionary<One,Complex> copy(SortedDictionary<One,Complex> c)
         {
             SortedDictionary<One,Complex> r = new SortedDictionary<One,Complex>();
@@ -1802,6 +2004,16 @@ namespace shard0
         {
             up = new Many(m.up); down = new Many(m.down);
         }
+        public static Many2 load(BinaryReader file)
+        {
+            return new Many2(Many.load(file),Many.load(file));;
+        }
+        public void save(BinaryWriter file)
+        {
+            up.save(file);
+            down.save(file);
+        }
+
         public override void set(Many2 s)
         {
             up.set(s.up); down.set(s.down);
@@ -2158,6 +2370,28 @@ namespace shard0
             data = new SortedDictionary<int,Many2>();
             foreach(KeyValuePair<int,Many2> m in r.data) data.Add(m.Key,new Many2(m.Value));
         }
+
+        public static Row load(BinaryReader file)
+        {
+            Row ret = new Row();
+            ret.point = file.ReadInt32();
+            int i = 0,cnt = file.ReadInt32();
+            while (i < cnt) {
+                ret.data.Add(file.ReadInt32(), Many2.load(file));
+                i++;
+            }
+            return ret;
+        }
+        public void save(BinaryWriter file)
+        {
+            file.Write((Int32)(point));
+            file.Write((Int32)(data.Count));
+            foreach (KeyValuePair<int,Many2> m in data) {
+                file.Write((Int32)(m.Key));
+                m.Value.save(file);
+            }
+        }
+
         public void set(Row r) {
             point = r.point;
             data.Clear();
@@ -2265,6 +2499,32 @@ namespace shard0
             ix = 0; while (ix < x) {
                 iy = 0; while (iy < y) {
                     data[ix,iy] = tm[ix][iy];
+                    iy++;
+                }
+                ix++;
+            }
+        }
+        public static Matrix load(BinaryReader file)
+        {
+            Matrix ret = new Matrix(file.ReadInt32(),file.ReadInt32());
+            int ix,iy;
+            ix = 0; while (ix < ret.x) {
+                iy = 0; while (iy < ret.y) {
+                    ret.data[ix,iy] = Func.load(file);
+                    iy++;
+                }
+                ix++;
+            }
+            return ret;
+        }
+        public void save(BinaryWriter file)
+        {
+            file.Write((Int32)x);
+            file.Write((Int32)y);
+            int ix,iy;
+            ix = 0; while (ix < x) {
+                iy = 0; while (iy < y) {
+                    data[ix,iy].save(file);
                     iy++;
                 }
                 ix++;
@@ -2468,6 +2728,45 @@ namespace shard0
         public Func()
         {
             type = -1; data = null;
+        }
+        public Func(BinaryReader file)
+        {
+            load(file);
+        }
+        static public Action<Func,BinaryReader>[] load_func = {
+              (Func t, BinaryReader f) => t.data = Vals.inds[f.ReadInt32()],
+              (Func t, BinaryReader f) => t.data = Complex.load(f),
+              (Func t, BinaryReader f) => t.data = Many2.load(f),
+
+              (Func t, BinaryReader f) => t.data = Many2.load(f),
+              (Func t, BinaryReader f) => t.data = Many2.load(f),
+              (Func t, BinaryReader f) => t.data = Many2.load(f),
+              (Func t, BinaryReader f) => t.data = Many2.load(f),
+              (Func t, BinaryReader f) => t.data = Row.load(f),
+              (Func t, BinaryReader f) => t.data = Matrix.load(f)
+        };
+        public static Func load(BinaryReader file)
+        {
+            Func ret = new Func();
+            ret.type = file.ReadByte();
+            Func.load_func[ret.type](ret,file);
+            return ret;
+        }
+        static public Action<Func,BinaryWriter>[] save_func = {
+              (Func t, BinaryWriter f) => f.Write(((Vals)(t.data)).ind),
+              (Func t, BinaryWriter f) => ((Complex)(t.data)).save(f),
+              (Func t, BinaryWriter f) => ((Many2)(t.data)).save(f),
+              (Func t, BinaryWriter f) => ((Many2)(t.data)).save(f),
+              (Func t, BinaryWriter f) => ((Many2)(t.data)).save(f),
+              (Func t, BinaryWriter f) => ((Many2)(t.data)).save(f),
+              (Func t, BinaryWriter f) => ((Many2)(t.data)).save(f),
+              (Func t, BinaryWriter f) => ((Row)(t.data)).save(f),
+              (Func t, BinaryWriter f) => ((Matrix)(t.data)).save(f)
+        };
+        public void save(BinaryWriter file)
+        {
+            file.Write((byte)type);
+            Func.save_func[type](this,file);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Func(Vals v)
@@ -3859,6 +4158,50 @@ namespace shard0
             lexp = 2; exps[0] = new Num(0); exps[1] = new Num(1);
             lval = 0;
         }
+        public void save(BinaryWriter file) {
+            file.Write((Int32)nvals);
+            file.Write((UInt16)lexp);
+            int m, i = 0; while (i < lexp) {
+                exps[i].save(file);
+                i++;
+            }
+            file.Write((UInt16)lval);
+            m = 0; i = 0; while (i < lval) {
+                vals[i].save(file);
+                if (mao[i] != null) m++;
+                i++;
+            }
+            file.Write((UInt16)m);
+            i = 0; while (i < lval) {
+                if (mao[i] != null) {
+                    file.Write((UInt16)i);
+                    mao[i].save(file);
+                }
+                i++;
+            }
+        }
+        public static MAO_dict load(BinaryReader file) {
+            MAO_dict ret = new MAO_dict(file.ReadInt32());
+            ret.lexp = file.ReadUInt16();
+            int m, i = 0; while (i < ret.lexp) {
+                ret.exps[i] = Num.load(file);
+                i++;
+            }
+            ret.lval = file.ReadUInt16();
+            Func v;
+            i = 0; while (i < ret.lval) {
+                v = Func.load(file);
+                ret.to_val[v] = i;
+                ret.vals[i] = v;
+                i++;
+            }
+            i = 0; m = file.ReadUInt16();
+            while (i < m) {
+                ret.mao[file.ReadUInt16()] = Many_as_one.load(file,ret);
+                i++;
+            }
+            return ret;
+        }
         public ushort exp(Num e)
         {
             ushort i;
@@ -3932,14 +4275,29 @@ namespace shard0
         public MAO_key(MAO_dict d, ushort[] k)
         {
             dict = d;
-            key = new ushort[dict.nvals];
-            for (int i = 0; i < d.nvals; i++) key[i] = k[i];
+            key = k;
         }
         public MAO_key(MAO_key k)
         {
             dict = k.dict;
             key = new ushort[dict.nvals];
             set(k);
+        }
+        public void save(BinaryWriter file)
+        {
+            int i = 0; while (i < dict.nvals) {
+                file.Write((UInt16)(key[i]));
+                i++;
+            }
+        }
+        public static MAO_key load(BinaryReader file, MAO_dict d)
+        {
+            ushort[] k = new ushort[d.nvals];
+            int i = 0; while (i < d.nvals) {
+                k[i] = file.ReadUInt16();
+                i++;
+            }
+            return new MAO_key(d,k);
         }
         public void set(MAO_key k)
         {
@@ -3996,6 +4354,33 @@ namespace shard0
         {
             dict = d;
             _data_i();
+        }
+        public void save(BinaryWriter file, SortedDictionary<MAO_key,Complex> m)
+        {
+            file.Write((Int32)m.Count);
+            foreach (KeyValuePair<MAO_key, Complex> d in m) {
+                d.Key.save(file);
+                d.Value.save(file);
+            }
+        }
+        public void save(BinaryWriter file)
+        {
+            save(file,data[0]);
+            save(file,data[1]);
+        }
+        public static void load(BinaryReader file, SortedDictionary<MAO_key,Complex> m, MAO_dict d)
+        {
+            int i = 0, max = file.ReadInt32(); while (i < max) {
+                m.Add(MAO_key.load(file,d),Complex.load(file));
+                i++;
+            }
+        }
+        public static Many_as_one load(BinaryReader file, MAO_dict d)
+        {
+            Many_as_one ret = new Many_as_one(d);
+            Many_as_one.load(file,ret.data[0],d);
+            Many_as_one.load(file,ret.data[1],d);
+            return ret;
         }
         void _data_i(){
             data = new SortedDictionary<MAO_key,Complex>[2];
@@ -4389,7 +4774,7 @@ namespace shard0
          0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 0, 0,  0, 0, 0, 0};
 //                                           {   |  }  ~ 	
         public string prev, val;
-        public int pos,opers;
+        public int pos,opers, body_num;
         public char now, oper;
         SortedDictionary<string,Mbody> macro;
         List<Deep> deep;
@@ -4399,23 +4784,24 @@ namespace shard0
         public Parse(Fileio s)
         {
             sys = s;
-            val = ""; pos = 0; opers = 0;
+            pos = 0; opers = 0;
             macro = new SortedDictionary<string,Mbody>();
             deep = new List<Deep>();
             stack = new List<List<Deep>>();
             body = new List<string>();
+            val = ""; prev = "";
         }
         public int find2(string s0, string s1) {
             int i0 = val.IndexOf(s0,pos);
             int i1 = val.IndexOf(s1,pos);
             if (i0 < 0) i0 = val.Length-1;
             if (i1 < 0) i1 = val.Length-1;
-            return Math.Min(i0,i1); val = ""; prev = "";
+            return Math.Min(i0,i1);
         }
         public void init() {
-            string now = "";
+            string _now = "";
             bool inside = false;
-            while (sys.has) if (lnext()) 
+            while (sys.has) if (lnext() && (val.Length > 0)) 
             {
                 pos = 0; while (pos < val.Length) {
                     if (inside) {
@@ -4425,16 +4811,17 @@ namespace shard0
                         pos = find2("\"",";");
                         if (val[pos] == '"') inside = true; 
                         if (val[pos] == ';') {
-                            now += val.Substring(0,pos); val = val.Substring(pos+1);
-                            while ((now.Length > 0) && (now[0] < '!')) now = now.Substring(1);
-                            if (now.IndexOf('=') < 0) opers++;
-                            body.Add(now); now = ""; pos = 0;
+                            _now += val.Substring(0,pos); val = val.Substring(pos+1);
+                            while ((_now.Length > 0) && (_now[0] < '!')) _now = _now.Substring(1);
+                            if (_now.IndexOf('=') < 0) opers++;
+                            body.Add(_now); _now = ""; pos = 0;
                         }
                         pos++;
                     }
                 }
-                now += val;
+                _now += val;
             }
+            body_num = -1;
         }
         string _parm() {
             string s1;
@@ -4461,10 +4848,12 @@ namespace shard0
             pos = deep[deep.Count-1].pos;
             now = (more() ? val[pos] : isend);
         }
-        public void set(string _v)
+        public bool bnext()
         {
-            deep.Clear(); deep.Add(new Deep(isend,isend));
-            prev = val; val = _v; pos = 0; now = val[0];
+            body_num++; deep.Clear(); deep.Add(new Deep(isend,isend));
+            if (body_num >= body.Count) return false;
+            prev = val; val = body[body_num]; pos = 0; now = val[0];
+            return true;
         }
         public bool lnext()
         {
@@ -5084,6 +5473,8 @@ namespace shard0
         static int Main(string[] args)
         {
             IDS.sx = 0; IDS.sy = 0; int step = 4, exp = 11;
+            Vals.inds = new Vals[100];
+            Vars.inds = new Vars[100];
             if (args.Length < 1) return 0;
             string ss = (args.Length < 2 ? "" : args[1]);
             Fileio _f = new Fileio(args[0], ss);
@@ -5102,7 +5493,6 @@ namespace shard0
             par.next(); root.v_ln2 = root.findadd_var("i"); root.v_ln2.var = new Func(new Complex(Complex._i1));
             par.next(); root.v_x = root.findadd_var("x"); root.v_n = root.findadd_var("n");
             IDS.v_res = 5;
-            par.init();
             doit();
             return 0;
         }
@@ -5156,10 +5546,10 @@ namespace shard0
             List<Func> id;
             string val,name;
             DateTime ddnow = DateTime.Now;
+            par.init();
 
-            foreach(string _v in par.body) 
+            while(par.bnext()) 
                 {
-                    par.set(_v); 
                     if (par.isequnow(Parse.isabc)) {
                         name = par.get(Parse.isname);
                         switch (par.now) 
