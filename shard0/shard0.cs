@@ -13,7 +13,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 
 namespace shard0
 {
-    class Exps_n
+    public class Exps_n
     {
         public SortedDictionary<Complex,Complex> data;
         public Complex val;
@@ -62,7 +62,7 @@ namespace shard0
         }
     }
 
-    class Vals
+    public class Vals
     {
         public static int _ind = 0;
         public static Vals[] inds;
@@ -124,7 +124,7 @@ namespace shard0
         }
 
     }
-    class Vars: IComparable
+    public class Vars: IComparable
     {
         public static int _ind = 0;
         public static Vars[] inds;
@@ -200,7 +200,7 @@ namespace shard0
             if (ind < v.ind) return -1; else return +1;
         }
     }
-    class IDS
+    public class IDS
     {
         public const int znums = 100;
         public static Num ln_prec,n_e_full,n_e,n_pi_full,n_pi,n_ln2_full,n_ln2;
@@ -392,11 +392,11 @@ namespace shard0
 //calc    get             get
     }
 
-    interface IPower{
+    public interface IPower{
         void exp2();
     }
 
-    abstract class Power<T> where T :IPower, new()
+    public abstract class Power<T> where T :IPower, new()
     {
         public abstract void set(T s);
         public abstract void set0();
@@ -456,7 +456,7 @@ namespace shard0
         }
     }
 
-    class Num : Power<Num>, IPower, IComparable
+    public class Num : Power<Num>, IPower, IComparable
     {
         public BigInteger up, down;
         public int sign;
@@ -949,7 +949,7 @@ namespace shard0
             return (u0 < u1 ? -1 : 1);
         }
     }
-    class Complex: Power<Complex>, IPower, IComparable
+    public class Complex: Power<Complex>, IPower, IComparable
     {
         public static Complex _0,_r1,_i1,_r_1;
         public Num r, i;
@@ -1229,7 +1229,7 @@ namespace shard0
         }
 
     }
-    class Row_simple
+    public class Row_simple
     {
 
 
@@ -1246,7 +1246,7 @@ namespace shard0
         }
     }
 
-    class One: IComparable
+    public class One: IComparable
     {
         public SortedDictionary<Func,Func> exps;
         public One()
@@ -1519,7 +1519,7 @@ namespace shard0
 
     }
 
-    class Many: Power<Many>, IPower, IComparable
+    public class Many: Power<Many>, IPower, IComparable
     {
         public SortedDictionary<One,Complex> data;
         public Many()
@@ -1963,7 +1963,7 @@ namespace shard0
         }
     }
 
-    class Many2: Power<Many2>, IPower, IComparable
+    public class Many2: Power<Many2>, IPower, IComparable
     {
         public Many up,down;
         public Many2()
@@ -2269,7 +2269,7 @@ namespace shard0
             r.simple(); return r;
         }
     }
-    class Exps_f 
+    public class Exps_f 
     {
         public Complex max, min;
         int deep;
@@ -2369,7 +2369,7 @@ namespace shard0
         }
     }
 
-    class Row: IComparable {
+    public class Row: IComparable {
         public int point;
         public SortedDictionary<int,Many2> data;
         public Row() {
@@ -2469,7 +2469,7 @@ namespace shard0
             foreach(KeyValuePair<int,Many2> m in data) m.Value.findvals(o);          
         }
     }
-    class Matrix: IComparable {
+    public class Matrix: IComparable {
         public Func[,] data;
         public int x,y;
         public Matrix(int _x, int _y) {
@@ -2731,7 +2731,7 @@ namespace shard0
             return 0;
         }
     }
-    class Func: Power<Func>, IPower, IComparable
+    public class Func: Power<Func>, IPower, IComparable
     {
         public const int types = 9, t_val = 0, t_num = 1, t_many2 = 2, t_ln = 3, t_fact = 4, t_int = 5, t_sign = 6, t_row = 7, t_matr = 8;
         public Object data;
@@ -4147,7 +4147,7 @@ namespace shard0
         }
     }
 
-    class MAO_dict {
+    public class MAO_dict {
         static short bmexp = 11;
         static int mexp = 1 << bmexp;
         public int nvals;
@@ -4274,7 +4274,7 @@ namespace shard0
             return eneg[e];
         }
     }
-    class MAO_key :IComparable {
+    public class MAO_key :IComparable {
         public MAO_dict dict;
         public ushort[] key;
         public MAO_key(MAO_dict d)
@@ -4357,7 +4357,7 @@ namespace shard0
             return 0;
         }
     }
-    class Many_as_one {
+    public class Many_as_one {
         MAO_dict dict;
         public SortedDictionary<MAO_key,Complex>[] data;
 
@@ -4608,7 +4608,7 @@ namespace shard0
     }
 
 
-    class Fileio: IDisposable
+    public class Fileio: IDisposable
     {
         StreamReader fin, f611 = null;
         StreamWriter[] fout;
@@ -4683,20 +4683,20 @@ namespace shard0
             for (int n = 0; n < 40; n++) if (fout[n] != null) fout[n].Close();
         }
     }
-    class Deep {
+    public class Deep {
         public char pair,oper;
         public int pos;
         public Deep(char p, char o) {
             pair = p; oper = o;
         }
     }
-    class Mbody {
+    public class Mbody {
         public int nparm;
         public string body;
         public Mbody(int n, string s)
         { nparm = n; body = s; }
     }
-    class Parse: IDisposable
+    public class Parse: IDisposable
     {
         static public char[] m_n_to_c = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F','G','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'};
         static public int[] m_c_to_n = {
@@ -5357,7 +5357,7 @@ namespace shard0
     }
 
 
-    class Fdim 
+    public class Fdim 
     {
         public Vars var;
         public Complex now,from,step,to;
@@ -5381,7 +5381,7 @@ namespace shard0
             return r;
         }
     }
-    class Ftoint
+    public class Ftoint
     {
         Complex nfr, ndiv;
         int ifr, isiz;
@@ -5405,7 +5405,7 @@ namespace shard0
             return ifr + (int)(t.toint());
         }
     }
-    class Fdo
+    public class Fdo
     {
         int type,parm;
         string sb,sa;
@@ -5443,7 +5443,7 @@ namespace shard0
             }
         }
     }
-    class Flow {
+    public class Flow {
         public int[] patch;
         public Flow(int size)
         {
@@ -5481,7 +5481,7 @@ namespace shard0
             return patch[level] < max;
         }
     }
-    static class Program
+    public static class Program
     {
         public static System.Drawing.Bitmap bm1;
         public static Parse par;
