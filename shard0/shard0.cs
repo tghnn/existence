@@ -302,6 +302,8 @@ namespace shard0
             BinaryWriter file = new BinaryWriter(File.Open("step.bin", FileMode.Create));
             file.Write((Int32)(par.opers));
             file.Write((Int32)(par.pos));
+            file.Write(par.name);
+            file.Write(par.main_oper);
             file.Write((Int32)(par.body_num));
             file.Write((Int32)(par.body.Count));
             foreach(string s in par.body) file.Write(s);
@@ -324,6 +326,8 @@ namespace shard0
             BinaryReader file = new BinaryReader(File.Open("step.bin", FileMode.Open));
             par.opers = file.ReadInt32();
             par.pos = file.ReadInt32();
+            par.name = file.ReadString();
+            par.main_oper = file.ReadChar();
             par.body_num = file.ReadInt32();
             int i = 0, cnt =  file.ReadInt32(); while (i < cnt) {
                 par.body.Add(file.ReadString());
@@ -364,6 +368,13 @@ namespace shard0
             if (!var.ContainsKey(n0)) sys.error(n0 + " var not found"); 
             return var[n0];
         }
+        public Vars find_var_fill(string n0)
+        {
+            if (!var.ContainsKey(n0)) sys.error(n0 + " var not found"); 
+            if (var[n0].var == null) par.sys.error(n0 + " empty name");
+            return var[n0];
+        }
+
         public Vars findadd_var(string n)
         {
             int i = deep(n); string n0 = n.Substring(i);
@@ -4599,45 +4610,25 @@ namespace shard0
 
     class Fileio: IDisposable
     {
-        StreamReader fin, f611;
+        StreamReader fin, f611 = null;
         StreamWriter[] fout;
-        int nline,ncline, lines, clines;
-        public string buf,nout,xout;
-        public Boolean has, quit;
-        public Fileio(string nin, string _nout)
+        public string nout,xout;
+        public Boolean has;
+        public Fileio(string nin)
         {
             string iexf;
-            StreamReader fc; string ts;
             if (!File.Exists(nin)) Environment.Exit(-1);
             iexf = Path.GetExtension(nin);
-            if (_nout == "") {
-                nout = Path.GetFileNameWithoutExtension(nin);
-                xout = ".txt";
-            } else {
-                nout = Path.GetFileNameWithoutExtension(_nout);
-                xout = Path.GetExtension(_nout);
-            }
-            fc = new StreamReader(nin);
-            clines++; lines = 0; quit = false; while ((ts = fc.ReadLine()) != null)
-            {
-                if (ts == "`end") break;
-                if (ts == "`quit") { quit = true; break; }
-                lines++;
-                if ((ts.Length > 4) && (ts[0] != '`') && ((ts[0] != '#') || (ts[1] != '#'))) clines++;
-            }
-            fc.Close();
-            f611 = (File.Exists("611"+iexf) ?  new StreamReader("611"+iexf) : null);
+            nout = Path.GetFileNameWithoutExtension(nin);
+            xout = ".txt";
+//            f611 = (File.Exists("611"+iexf) ?  new StreamReader("611"+iexf) : null);
             fin = new StreamReader(nin);
             fout = new StreamWriter[40];
-            fout[0] = new StreamWriter(nout + "0" + xout);
-            nline = 0; ncline = 0; has = true;
-//            head = h; 
-            buf = fin.ReadLine() + "\n" + fin.ReadLine();
+            has = true;
         }
         private string rfile() {
             string r;
             if ((f611 != null) && ((r = f611.ReadLine()) != null)) return r;
-            nline++;
             return fin.ReadLine();
         }
 
@@ -4653,38 +4644,25 @@ namespace shard0
  */
         }
  
-        public void addline(string add){
-            buf = add + buf;
-        }
         public string rline()
         {
             string r;
             has = true;
-            if (buf.Length > 1) {
-                int i = buf.IndexOf("\n");
-                if (i < 0) i = buf.Length;
-                r = buf.Substring(0,i);
-                buf = (i < buf.Length ? buf.Substring(i+1) : "");
-            } else {
-                r = rfile();
-                if ((r == null) || (nline > lines)) { has = false; r = ""; }
-                if ((r.Length > 4) && (r[0] != '`') && ((r[0] != '#') || (r[1] != '#'))) ncline++;
-            }
+            r = rfile();
+            if (r == null) { has = false; r = ""; }
             return r;
         }
         public void close()
         {
             fin.Close();
             foreach (StreamWriter _f in fout) if (_f != null) _f.Close();
-            if (quit) Environment.Exit(0);
         }
         public void error(string e)
         {
-            fout[0].WriteLine("");
-            fout[0].WriteLine(IDS.par.prev);
-            fout[0].WriteLine(IDS.par.val);
-            fout[0].WriteLine("Position {0:G}: " + ((IDS.now_func != null) ? IDS.par.print(IDS.now_func,true) + " " : "") + e, IDS.par.pos);
-            fout[0].Flush();
+            wline(0,"");
+            wline(0,IDS.par.prev);
+            wline(0,IDS.par.val);
+            wline(0,"Position " + IDS.par.pos.ToString() + ": " + ((IDS.now_func != null) ? IDS.par.print(IDS.now_func,true) + " " : "") + e);
             Environment.Exit(-1);
         }
         public void wline(int n, string s)
@@ -4773,9 +4751,9 @@ namespace shard0
 //       `
          0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 0, 0,  0, 0, 0, 0};
 //                                           {   |  }  ~ 	
-        public string prev, val;
+        public string prev, val, name;
         public int pos,opers, body_num;
-        public char now, oper;
+        public char now, oper, main_oper;
         SortedDictionary<string,Mbody> macro;
         List<Deep> deep;
         List<List<Deep>> stack;
@@ -4853,6 +4831,8 @@ namespace shard0
             body_num++; deep.Clear(); deep.Add(new Deep(isend,isend));
             if (body_num >= body.Count) return false;
             prev = val; val = body[body_num]; pos = 0; now = val[0];
+            if (isequnow(Parse.isabc)) name = get(Parse.isname); else name = "";
+            main_oper = now;
             return true;
         }
         public bool lnext()
@@ -4905,10 +4885,6 @@ namespace shard0
                     else for (s1 = "", i2 = floop; i2 >= tloop; i2--) s1 += s0.Replace("#" + m_n_to_c[ploop], i2.ToString().Trim());
                     val = sf + s1 + st;
                 }
-            }
-            i1 = val.IndexOf("\n");
-            if (i1 > -1) {
-                sys.addline(val.Substring(i1+1)); val = val.Substring(0,i1);
             }
             pos = 0; now = val[0]; return true;
         }
@@ -5374,6 +5350,10 @@ namespace shard0
         {
             return v.name + " = " + (v.var == null ? "" : print(v.var,false));
         }
+        public string print(int v)
+        {
+            return print(Vars.inds[v]);
+        }
     }
 
 
@@ -5463,6 +5443,44 @@ namespace shard0
             }
         }
     }
+    class Flow {
+        public int[] patch;
+        public Flow(int size)
+        {
+            patch = new int[size];
+        }
+        public void save(BinaryWriter file) {
+            file.Write((UInt16)patch.Length);
+            foreach(int i in patch) file.Write((Int32)i);
+        }
+        public static Flow load(BinaryReader file) {
+            Flow ret = new Flow(file.ReadUInt16());
+            int i = 0; while (i < ret.patch.Length) ret.patch[i++] = file.ReadInt32();
+            return ret;
+        }
+/*
+        public void next_level(){
+            level++;
+            if (level >= patch.Length) IDS.sys.error("flow: level++");
+        }
+        public void prev_level(){
+            level--;
+            if (level < 0) IDS.sys.error("flow: level--");
+        }
+ */
+        public void set_bit(int level, int bit) {
+            patch[level] |= (1 << bit);
+        }
+        public bool is_bit(int level, int bit) {
+            return (patch[level] & (1 << bit)) != 0;
+        }
+        public void next_count(int level) {
+            patch[level]++;
+        }
+        public bool is_count(int level, int max) {
+            return patch[level] < max;
+        }
+    }
     static class Program
     {
         public static System.Drawing.Bitmap bm1;
@@ -5476,8 +5494,7 @@ namespace shard0
             Vals.inds = new Vals[100];
             Vars.inds = new Vars[100];
             if (args.Length < 1) return 0;
-            string ss = (args.Length < 2 ? "" : args[1]);
-            Fileio _f = new Fileio(args[0], ss);
+            Fileio _f = new Fileio(args[0]);
             par = new Parse(_f);
             par.lnext(); IDS.sx = par.get_int(); par.next(); IDS.sy = par.get_int(); par.next(); step = par.get_int(); par.next(); exp = par.get_int();
             if ((IDS.sx < 100) || (IDS.sx > 2000) || (IDS.sy < 100) || (IDS.sy > 2000) || (step < 4) || (step > 11) || (exp < 11) || (exp > 6666)) _f.error("wrong head");
@@ -5493,7 +5510,11 @@ namespace shard0
             par.next(); root.v_ln2 = root.findadd_var("i"); root.v_ln2.var = new Func(new Complex(Complex._i1));
             par.next(); root.v_x = root.findadd_var("x"); root.v_n = root.findadd_var("n");
             IDS.v_res = 5;
+            try {
             doit();
+            } catch (OutOfMemoryException e) {
+
+            }
             return 0;
         }
         struct calc_out {
@@ -5541,201 +5562,212 @@ namespace shard0
         }
         static char[] spl = {'.'};
         static void doit() {
-            Vars var0;
             Vals val0,val1;
-            List<Func> id;
-            string val,name;
+            string val;
+            List<Func> id = null;
             DateTime ddnow = DateTime.Now;
+            int var0,flag,ind0;
+            MAO_dict mao = null;
+
+
             par.init();
-
             while(par.bnext()) 
+            {
+                flag = 0; var0 = 0; ind0 = 0;
+                switch (par.main_oper) 
                 {
-                    if (par.isequnow(Parse.isabc)) {
-                        name = par.get(Parse.isname);
-                        switch (par.now) 
+                    case '=':
+                        if (root.fnames.ContainsKey(par.name)) IDS.sys.error("reserved name");
+                        var0 = root.findadd_var(par.name).ind;
+                        if (var0 < IDS.v_res) IDS.sys.error("reserved var");
+                        par.next();
+                        Vars.inds[var0].var = (par.isequnow(Parse.isend) ? null : par.fpars("",false));
+                        par.sys.wline(0,par.print(var0));
+                    break;
+                    case '$':
+                        var0 = root.find_var_fill(par.name).ind;
+                        par.next();
+                        if (par.isequnow('!'))
                         {
-                            case '=':
-                                if (root.fnames.ContainsKey(name)) IDS.sys.error("reserved name");
-                                var0 = root.findadd_var(name);
-                                if (var0.ind < IDS.v_res) IDS.sys.error("reserved var");
-                                par.next();
-                                var0.var = (par.isequnow(Parse.isend) ? null : par.fpars("",false));
-                                par.sys.wline(0,par.print(var0));
-                            break;
-                            case '$':
-                                bool _div = false, _exp0 = false, _fast = false;
-                                var0 = root.find_var(name);
-                                if (var0.var == null) par.sys.error("empty name");
-                                par.next();
-                                MAO_dict mao = null;
-                                if (par.isequnow('!'))
-                                {
-                                    _fast = true; par.next(); mao = new MAO_dict(par.get_int()); par.next();
-                                }
-                                if (par.isequnow('*')) {
-                                    id = d_vals(var0); par.next();
-                                } else {
-                                    id = new List<Func>();
-                                    while (par.isequnow(Parse.isname)) {
-                                        val = par.get(Parse.isname); 
-                                        if (par.isequnow(',')) par.next();
-                                        val0 = root.find_val(val);
-                                        if (val0.var == var0) par.sys.error(name + " $recursion - look recursion");
-                                        if (val0.var.var != null) id.Add(new Func(val0));
-                                    }
-                                }
-                                if (par.isequnow('@')) {
-                                    _exp0=true; par.next();
-                                    if (_fast) IDS.sys.error("cant @ on !");
-                                }
-                                if (par.isequnow('$')) {_div=true; par.next();}
-                                foreach (Func i in id) {
-                                    var0.var.revert(i);
-                                }
-                                if (_fast) mao.val(new Func(var0.vals[0]));
-                                foreach (Func i in id) {
-                                    if (_fast) mao.expand(0,mao.val(i)); else var0.var.expand(i);
-                                }
-                                if (_fast) var0.var = mao.mao[0].to_func();
-                                else var0.var.simple();
-                                if (_exp0) var0.var.expand();
-                                if (_div && ((var0.var.type == 2) && (((Many2)(var0.var.data)).down.type_exp() < 2)))
-                                {
-                                    ((Many2)(var0.var.data)).down.div();
-                                    ((Many2)(var0.var.data)).up.mul(((Many2)(var0.var.data)).down.data.ElementAt(0).Key,((Many2)(var0.var.data)).down.data.ElementAt(0).Value);
-                                    ((Many2)(var0.var.data)).down = new Many(new Complex(1));
-                                }
-                                par.sys.wline(0,par.print(var0));
-                            break;
-
-                            case '|':
-                                var0 = root.find_var(name);
-                                if (var0.var == null) par.sys.error("empty name");
-                                if (var0.var.type != Func.t_matr) par.sys.error("not matr");
-                                par.next();
-                                Many det = ((Matrix)(var0.var.data)).det();
-                                det.simple(); var0.var = new Func(new Many2(det));
-                                par.sys.wline(0,par.print(var0));
-                            break;
-
-                            case '<':
-                                var0 = root.find_var(name);
-                                if (var0.var == null) par.sys.error("empty name");
-                                par.next();
-                                val0 = root.find_val(par.get(Parse.isname));
-                                var0.var.diff_down(val0);
-                                par.sys.wline(0,par.print(var0));
-                            break;
-                            case '>':
-                                var0 = root.find_var(name);
-                                if (var0.var == null) par.sys.error("empty name");
-                                par.next();
-                                val0 = root.find_val(par.get(Parse.isname));
-                                var0.var.diff_up(val0);
-                                par.sys.wline(0,par.print(var0));
-                            break;
+                            flag |= 1; par.next(); mao = new MAO_dict(par.get_int()); par.next();
                         }
-                    } else {
-                        switch (par.now) 
-                        {
-                            case '[':
-                                par.next();
-                                List<Fdim> fdim = new List<Fdim>();
-                                List<Fdo> fdo = new List<Fdo>();
-                                do {
-                                    if (! par.isequnow(Parse.isabc)) IDS.sys.error("calc: wrong");
-                                    var0 = root.find_var(par.get(Parse.isname));
-                                    foreach (Fdim fd in fdim) if (fd.var == var0) IDS.sys.error("calc: double");
-                                    switch (par.now) 
-                                    {
-                                        case '[':
-                                            par.next(); 
-                                            fdim.Add(new Fdim(var0,par.calc(),par.calc(),par.calc()));
-                                            par.next();
-                                            break;
-                                        case '{':
-                                            fdim.Add(new Fdim(var0,par.calc()));
-                                            break;
-                                        default:
-                                            IDS.sys.error("calc: wrong");
-                                            break;
-                                    }
-                                    if (par.now == ']') break;
+                        if (par.isequnow('*')) {
+                            id = d_vals(Vars.inds[var0]); par.next();
+                        } else {
+                            id = new List<Func>();
+                            while (par.isequnow(Parse.isname)) {
+                                val = par.get(Parse.isname); 
+                                if (par.isequnow(',')) par.next();
+                                val0 = root.find_val(val);
+                                if (val0.var.ind == var0) par.sys.error(par.name + " $recursion - look recursion");
+                                if (val0.var.var != null) id.Add(new Func(val0));
+                            }
+                        }
+                        if (par.isequnow('@')) {
+                            flag |= 2; par.next();
+                            if ((flag & 1) != 0) IDS.sys.error("cant @ on !");
+                        }
+                        if (par.isequnow('$')) {flag |= 4; par.next();}
+                    break;
+
+                    case '|':
+                        var0 = root.find_var_fill(par.name).ind;
+                        if (Vars.inds[var0].var.type != Func.t_matr) par.sys.error("not matr");
+                        par.next();
+                        Many det = ((Matrix)(Vars.inds[var0].var.data)).det();
+                        det.simple(); Vars.inds[var0].var = new Func(new Many2(det));
+                        par.sys.wline(0,par.print(var0));
+                    break;
+
+                    case '<':
+                        var0 = root.find_var_fill(par.name).ind;
+                        par.next();
+                        val0 = root.find_val(par.get(Parse.isname));
+                        Vars.inds[var0].var.diff_down(val0);
+                        par.sys.wline(0,par.print(var0));
+                    break;
+                    case '>':
+                        var0 = root.find_var_fill(par.name).ind;
+                        par.next();
+                        val0 = root.find_val(par.get(Parse.isname));
+                        Vars.inds[var0].var.diff_up(val0);
+                        par.sys.wline(0,par.print(var0));
+                    break;
+                    case '[':
+                        par.next();
+                        List<Fdim> fdim = new List<Fdim>();
+                        List<Fdo> fdo = new List<Fdo>();
+                        do {
+                            if (! par.isequnow(Parse.isabc)) IDS.sys.error("calc: wrong");
+                            var0 = root.find_var(par.get(Parse.isname)).ind;
+                            foreach (Fdim fd in fdim) if (fd.var.ind == var0) IDS.sys.error("calc: double");
+                            switch (par.now) 
+                            {
+                                case '[':
+                                    par.next(); 
+                                    fdim.Add(new Fdim(Vars.inds[var0],par.calc(),par.calc(),par.calc()));
                                     par.next();
-                                } while (true);
-                                par.next();
-                                while(par.more()) {
-                                    if (par.isequnow(Parse.isabc)) {
-                                        val0 = root.find_val(par.get(Parse.isname));
-                                        if (! par.isequnow('"')) IDS.sys.error("wrong do");
-                                        String[] sp = str_proc(par.get("\""));
-                                        if (sp.Length != 3) IDS.sys.error("wrong do");
-                                        int _a = -1, _b = 0;
-                                        if (sp[1] == "i") _a = 0; else {
-                                            String[] _sp = sp[1].Split(spl);
-                                            if (_sp.Length == 2) {
-                                                Int32.TryParse(_sp[0], out _a); if (_sp[1].Length > 0) Int32.TryParse(_sp[1], out _b); else _b = -1;
-                                            }
-                                        }
-                                        fdo.Add(new Fdo(par.get_int(),sp[0],sp[2],val0,_a,_b));
-                                    } else switch (par.now) {
-                                        case '"':
-                                            val = par.get("\"");
-                                            fdo.Add(new Fdo(par.get_int(),str_proc(val)[0],"",null,-1,0));
-                                            break;
-                                        case '[':
-                                            int _fx,_sx,_fy,_sy;
-                                            par.next(); 
-                                            if (par.isequnow('[')) {
-                                                par.next(); _fx = par.get_int();
-                                                par.next(); _sx = par.get_int();
-                                                par.next(); _fy = par.get_int();
-                                                par.next(); _sy = par.get_int();
-                                                par.next();
-                                                if ((_sx < 4) || (_sy < 4) || (_fx + _sx >= IDS.sx)  || (_fy + _sy >= IDS.sy)) IDS.sys.error("draw: wrong");
-                                            } else {
-                                                _fx = 0; _sx = IDS.sx-1; _fy = 0; _sy = IDS.sy-1;
-                                            }
-                                            val0 = root.find_val(par.get(Parse.isname));
-                                            Ftoint ftx = d_toint(fdim,val0,_fx,_sx);
-                                            if (! par.isequnow(',')) IDS.sys.error("draw:wrong"); par.next();
-                                            val1 = root.find_val(par.get(Parse.isname));
-                                            Ftoint fty = d_toint(fdim,val1,_fy,_sy);
-                                            Fdo _fd = new Fdo(val0,ftx,val1,fty,0,0,0);
-                                            if (! par.isequnow(',')) IDS.sys.error("draw:wrong"); par.next();
-                                            if (par.isequnow(Parse.isnum)) _fd.ir = par.get_int(); else {
-                                                _fd.r = root.find_val(par.get(Parse.isname));
-                                                _fd.tr = d_toint(fdim,_fd.r,0,255);
-                                            }
-                                            if (! par.isequnow(',')) IDS.sys.error("draw:wrong"); par.next();
-                                            if (par.isequnow(Parse.isnum)) _fd.ig = par.get_int(); else {
-                                                _fd.g = root.find_val(par.get(Parse.isname));
-                                                _fd.tg = d_toint(fdim,_fd.g,0,255);
-                                            }
-                                            if (! par.isequnow(',')) IDS.sys.error("draw:wrong"); par.next();
-                                            if (par.isequnow(Parse.isnum)) _fd.ib = par.get_int(); else {
-                                                _fd.b = root.find_val(par.get(Parse.isname));
-                                                _fd.tb = d_toint(fdim,_fd.b,0,255);
-                                            }
-                                            par.next(); fdo.Add(_fd);
-                                            break;
+                                    break;
+                                case '{':
+                                    fdim.Add(new Fdim(Vars.inds[var0],par.calc()));
+                                    break;
+                                default:
+                                    IDS.sys.error("calc: wrong");
+                                    break;
+                            }
+                            if (par.now == ']') break;
+                            par.next();
+                        } while (true);
+                        par.next();
+                        while(par.more()) {
+                            if (par.isequnow(Parse.isabc)) {
+                                val0 = root.find_val(par.get(Parse.isname));
+                                if (! par.isequnow('"')) IDS.sys.error("wrong do");
+                                String[] sp = str_proc(par.get("\""));
+                                if (sp.Length != 3) IDS.sys.error("wrong do");
+                                int _a = -1, _b = 0;
+                                if (sp[1] == "i") _a = 0; else {
+                                    String[] _sp = sp[1].Split(spl);
+                                    if (_sp.Length == 2) {
+                                        Int32.TryParse(_sp[0], out _a); if (_sp[1].Length > 0) Int32.TryParse(_sp[1], out _b); else _b = -1;
                                     }
-                                    if (par.isequnow(',')) par.next();
                                 }
-                                bool w;
-                                do {
-                                    root.uncalc(); foreach (Fdim fd in fdim) fd.var.set_now(fd.now);
-                                    foreach(Fdo fd in fdo) fd.doit();
-                                    w = false;
-                                    foreach (Fdim fd in fdim) {
-                                        if (w = fd.next()) break;
+                                fdo.Add(new Fdo(par.get_int(),sp[0],sp[2],val0,_a,_b));
+                            } else switch (par.now) {
+                                case '"':
+                                    val = par.get("\"");
+                                    fdo.Add(new Fdo(par.get_int(),str_proc(val)[0],"",null,-1,0));
+                                    break;
+                                case '[':
+                                    int _fx,_sx,_fy,_sy;
+                                    par.next(); 
+                                    if (par.isequnow('[')) {
+                                        par.next(); _fx = par.get_int();
+                                        par.next(); _sx = par.get_int();
+                                        par.next(); _fy = par.get_int();
+                                        par.next(); _sy = par.get_int();
+                                        par.next();
+                                        if ((_sx < 4) || (_sy < 4) || (_fx + _sx >= IDS.sx)  || (_fy + _sy >= IDS.sy)) IDS.sys.error("draw: wrong");
+                                    } else {
+                                        _fx = 0; _sx = IDS.sx-1; _fy = 0; _sy = IDS.sy-1;
                                     }
-                                } while (w);
-//                                m0.Set(1); m0.Set(2); m0.rp = true;
-                                break;
+                                    val0 = root.find_val(par.get(Parse.isname));
+                                    Ftoint ftx = d_toint(fdim,val0,_fx,_sx);
+                                    if (! par.isequnow(',')) IDS.sys.error("draw:wrong"); par.next();
+                                    val1 = root.find_val(par.get(Parse.isname));
+                                    Ftoint fty = d_toint(fdim,val1,_fy,_sy);
+                                    Fdo _fd = new Fdo(val0,ftx,val1,fty,0,0,0);
+                                    if (! par.isequnow(',')) IDS.sys.error("draw:wrong"); par.next();
+                                    if (par.isequnow(Parse.isnum)) _fd.ir = par.get_int(); else {
+                                        _fd.r = root.find_val(par.get(Parse.isname));
+                                        _fd.tr = d_toint(fdim,_fd.r,0,255);
+                                    }
+                                    if (! par.isequnow(',')) IDS.sys.error("draw:wrong"); par.next();
+                                    if (par.isequnow(Parse.isnum)) _fd.ig = par.get_int(); else {
+                                        _fd.g = root.find_val(par.get(Parse.isname));
+                                        _fd.tg = d_toint(fdim,_fd.g,0,255);
+                                    }
+                                    if (! par.isequnow(',')) IDS.sys.error("draw:wrong"); par.next();
+                                    if (par.isequnow(Parse.isnum)) _fd.ib = par.get_int(); else {
+                                        _fd.b = root.find_val(par.get(Parse.isname));
+                                        _fd.tb = d_toint(fdim,_fd.b,0,255);
+                                    }
+                                    par.next(); fdo.Add(_fd);
+                                    break;
+                            }
+                            if (par.isequnow(',')) par.next();
                         }
-                    }
+                        bool w;
+                        do {
+                            root.uncalc(); foreach (Fdim fd in fdim) fd.var.set_now(fd.now);
+                            foreach(Fdo fd in fdo) fd.doit();
+                            w = false;
+                            foreach (Fdim fd in fdim) {
+                                if (w = fd.next()) break;
+                            }
+                        } while (w);
+//                        m0.Set(1); m0.Set(2); m0.rp = true;
+                        break;
                 }
+
+
+                switch (par.main_oper) 
+                {
+                    case '$':
+                        if ((flag >> 8) == 0) {
+                            while (ind0 < id.Count) {
+                                Vars.inds[var0].var.revert(id[ind0]);
+                                ind0++;
+                            }
+                            if ((flag & 1) != 0) mao.val(new Func(Vars.inds[var0].vals[0]));
+                            ind0 = 0; flag += 256;
+                        }
+                        if ((flag >> 8) == 1) {
+                            while (ind0 < id.Count) {
+                                if ((flag & 1) != 0) mao.expand(0,mao.val(id[ind0])); else Vars.inds[var0].var.expand(id[ind0]);
+                                ind0++;
+                            }
+                            ind0 = 0; flag += 256;
+                        }
+                        if ((flag >> 8) == 2) {
+                            if ((flag & 1) != 0) Vars.inds[var0].var = mao.mao[0].to_func();
+                            else Vars.inds[var0].var.simple();
+                            flag += 256;
+                        }
+
+
+                        if ((flag & 2) != 0) Vars.inds[var0].var.expand();
+                        if (((flag & 4) != 0) && ((Vars.inds[var0].var.type == 2) && (((Many2)(Vars.inds[var0].var.data)).down.type_exp() < 2)))
+                        {
+                            ((Many2)(Vars.inds[var0].var.data)).down.div();
+                            ((Many2)(Vars.inds[var0].var.data)).up.mul(((Many2)(Vars.inds[var0].var.data)).down.data.ElementAt(0).Key,((Many2)(Vars.inds[var0].var.data)).down.data.ElementAt(0).Value);
+                            ((Many2)(Vars.inds[var0].var.data)).down = new Many(new Complex(1));
+                        }
+                        par.sys.wline(0,par.print(var0));
+                        break;
+                }
+                
+            }
             TimeSpan ime =  DateTime.Now - ddnow;
             par.sys.wline(0,"finished, vars = " + (root.var.Count()).ToString() + "; time has " + ime.ToString());
             bm1.Save(par.sys.nout + ".png");
