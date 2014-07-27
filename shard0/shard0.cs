@@ -207,6 +207,7 @@ namespace shard0
         public static Fileio sys;
         public static Parse par;
         public static IDS root;
+        public static Flow flow;
         public static BigInteger exp_max;
         public static int prec2,prec10,sqr_steps,sqr_exp_bits, v_res;
         public static int[] h_to_l2;
@@ -227,10 +228,10 @@ namespace shard0
             while (i != 0) {i >>= 1; i0++;}
             return i0;
         }
-        public IDS(int sqr_s, int m_e, Fileio f, Parse p)
+        public IDS(int sqr_s, int m_e, Fileio f, Parse p, Flow fl)
         {
             int i;
-            IDS.sys = f; IDS.par = p; stat_uncalc = 1; stat_calc = 2;
+            IDS.sys = f; IDS.par = p; IDS.flow = fl; stat_uncalc = 1; stat_calc = 2;
             fnames = new SortedDictionary<string,int>();
             var = new SortedDictionary<string,Vars>();
             IDS.ln = new SortedDictionary<Num,Num>();
@@ -297,7 +298,7 @@ namespace shard0
             }
             IDS.root = this;
         }
-        public void save()
+        public BinaryWriter save()
         {
             BinaryWriter file = new BinaryWriter(File.Open("step.bin", FileMode.Create));
             file.Write((Int32)(par.opers));
@@ -317,11 +318,11 @@ namespace shard0
                 }
                 i++;
             }
-
-
-            file.Close();
+            flow.save(file);
+            file.Flush();
+            return file;
         }
-        public void load()
+        public BinaryReader load()
         {
             BinaryReader file = new BinaryReader(File.Open("step.bin", FileMode.Open));
             par.opers = file.ReadInt32();
@@ -346,10 +347,8 @@ namespace shard0
                 var.Add(Vars.inds[i].name,Vars.inds[i]);
                 i++;
             }
-
-
-
-            file.Close();
+            flow = Flow.load(file);
+            return file;
         }
         int deep(string n)
         {
@@ -4652,10 +4651,11 @@ namespace shard0
             if (r == null) { has = false; r = ""; }
             return r;
         }
-        public void close()
+        public void finish(int r)
         {
             fin.Close();
             foreach (StreamWriter _f in fout) if (_f != null) _f.Close();
+            Environment.Exit(r);
         }
         public void error(string e)
         {
@@ -4663,7 +4663,7 @@ namespace shard0
             wline(0,IDS.par.prev);
             wline(0,IDS.par.val);
             wline(0,"Position " + IDS.par.pos.ToString() + ": " + ((IDS.now_func != null) ? IDS.par.print(IDS.now_func,true) + " " : "") + e);
-            Environment.Exit(-1);
+            finish(-1);
         }
         public void wline(int n, string s)
         {
@@ -5445,18 +5445,31 @@ namespace shard0
     }
     public class Flow {
         public int[] patch;
-        public Flow(int size)
+        public BinaryReader read = null;
+        public List<Func> id;
+        DateTime time;
+        public Flow(int size, int sec)
         {
             patch = new int[size];
+            id = new List<Func>();
+            time = DateTime.Now.AddSeconds(sec);
         }
         public void save(BinaryWriter file) {
             file.Write((UInt16)patch.Length);
             foreach(int i in patch) file.Write((Int32)i);
+            file.Write((UInt16)id.Count);
+            foreach(Func f in id) f.save(file);
         }
         public static Flow load(BinaryReader file) {
-            Flow ret = new Flow(file.ReadUInt16());
+            Flow ret = new Flow(file.ReadUInt16(),100);
             int i = 0; while (i < ret.patch.Length) ret.patch[i++] = file.ReadInt32();
+            int cnt = file.ReadUInt16(); i = 0; while (i < cnt) {ret.id.Add(Func.load(file)); i++;}
+            ret.read = file;
             return ret;
+        }
+        public void clear() {
+            int i = 0; while (i < patch.Length) patch[i++] = 0;
+            id.Clear();
         }
 /*
         public void next_level(){
@@ -5474,11 +5487,39 @@ namespace shard0
         public bool is_bit(int level, int bit) {
             return (patch[level] & (1 << bit)) != 0;
         }
-        public void next_count(int level) {
-            patch[level]++;
+        public Func get_var_func(int level) { return Vars.inds[patch[level]].var; }
+        public Vars get_var(int level) { return Vars.inds[patch[level]]; }
+        public void select(int level, Action[] sel) {
+            if (patch[level] < sel.Length) sel[patch[level]](); else IDS.sys.error("flow: select");
         }
-        public bool is_count(int level, int max) {
-            return patch[level] < max;
+        public void repeat(int level, int max, Action<int> rep, Action save) {
+            while (patch[level] < max) {
+                if (DateTime.Now > time) {
+                    save(); IDS.sys.finish(0);
+                }
+                rep(patch[level]);
+                patch[level]++;
+            }
+            patch[level] = 0;
+        }
+        public void repeat<T>(int level, List<T> list, Action<T> rep, Action save) {
+            while (patch[level] < list.Count) {
+                if (DateTime.Now > time) {
+                    save(); IDS.sys.finish(0);
+                }
+                rep(list[patch[level]]);
+                patch[level]++;
+            }
+            patch[level] = 0;
+        }
+        public void repeat(int level, Action[] rep, Action save) {
+            while (patch[level] < rep.Length) {
+                if (DateTime.Now > time) {
+                    save(); IDS.sys.finish(0);
+                }
+                rep[patch[level]]();
+                patch[level]++;
+            }
         }
     }
     public static class Program
@@ -5503,7 +5544,7 @@ namespace shard0
 //            m0 = new Shard0(sx, sy);
             bm1 = new System.Drawing.Bitmap(IDS.sx, IDS.sy);
             for (int i0 = 0; i0 < IDS.sx; i0++) for (int i1 = 0; i1 < IDS.sy; i1++) bm1.SetPixel(i0, i1, Color.FromArgb(0, 0, 0));
-            root = new IDS(step, exp, par.sys,par);
+            root = new IDS(step, exp, par.sys,par,new Flow(11,100));
             root.v_pi = root.findadd_var("pi"); root.v_pi.var = new Func(new Complex(IDS.n_pi));
             par.next(); root.v_e = root.findadd_var("e"); root.v_e.var = new Func(new Complex(IDS.n_e));
             par.next(); root.v_ln2 = root.findadd_var("ln2"); root.v_ln2.var = new Func(new Complex(IDS.n_ln2));
@@ -5532,11 +5573,11 @@ namespace shard0
             }
             return null;
         }
-        static List<Func> d_vals(Vars v)
+        static List<Func> d_vals(Func v)
         {
             List<Func> r = new List<Func>();
             One o = new One();
-            v.var.findvals(o);
+            v.findvals(o);
             foreach(KeyValuePair<Func,Func> m in o.exps) r.Add(m.Key);
             return r;
         }
@@ -5562,75 +5603,112 @@ namespace shard0
         }
         static char[] spl = {'.'};
         static void doit() {
+            Vars var0;
             Vals val0,val1;
             string val;
-            List<Func> id = null;
-            DateTime ddnow = DateTime.Now;
-            int var0,flag,ind0;
             MAO_dict mao = null;
 
+            const int flow_level_oper = 0;
+            const int flow_level_var = 1;
+            const int flow_level_flag = 2;
+            const int flow_level_step0 = 3;
+            const int flow_level_step1 = 4;
 
             par.init();
-            while(par.bnext()) 
-            {
-                flag = 0; var0 = 0; ind0 = 0;
+            Action save = () => {
+                IDS.root.save().Close();
+            };
+            Action<Func> expand_revert = (Func _i) => IDS.flow.get_var_func(flow_level_var).revert(_i);
+            Action<Func> expand_expand = (Func _i) => {if (IDS.flow.is_bit(flow_level_flag,1)) mao.expand(0,mao.val(_i)); else IDS.flow.get_var_func(flow_level_var).expand(_i);};
+            Action[] expand = {
+            () => {
+                IDS.flow.repeat(flow_level_step1,IDS.flow.id,expand_revert,save);
+                if (IDS.flow.is_bit(flow_level_flag,0)) mao.val(new Func(IDS.flow.get_var(flow_level_var).vals[0]));
+            },
+            () => IDS.flow.repeat(flow_level_step1,IDS.flow.id,expand_expand,save),
+            () => {
+                if (IDS.flow.is_bit(flow_level_flag,0)) IDS.flow.get_var(flow_level_var).var = mao.mao[0].to_func(); else IDS.flow.get_var_func(flow_level_var).simple();
+            },
+            () => {
+                if (IDS.flow.is_bit(flow_level_flag,1)) Vars.inds[IDS.flow.patch[flow_level_var]].var.expand();
+            },
+            () => {
+                        if (IDS.flow.is_bit(flow_level_flag,2) && ((IDS.flow.get_var_func(flow_level_var).type == 2) && (((Many2)(IDS.flow.get_var_func(flow_level_var).data)).down.type_exp() < 2)))
+                        {
+                            ((Many2)(IDS.flow.get_var_func(flow_level_var).data)).down.div();
+                            ((Many2)(IDS.flow.get_var_func(flow_level_var).data)).up.mul(((Many2)(IDS.flow.get_var_func(flow_level_var).data)).down.data.ElementAt(0).Key,((Many2)(IDS.flow.get_var_func(flow_level_var).data)).down.data.ElementAt(0).Value);
+                            ((Many2)(IDS.flow.get_var_func(flow_level_var).data)).down = new Many(new Complex(1));
+                        }
+                        par.sys.wline(0,par.print(IDS.flow.patch[flow_level_var]));
+            }
+            };
+            Action[] oper = {
+            () => {},
+            () => IDS.flow.repeat(flow_level_oper,expand,save)
+            };
+
+            do {
+                IDS.flow.select(flow_level_oper,oper);
+                IDS.flow.clear();
+
                 switch (par.main_oper) 
                 {
                     case '=':
                         if (root.fnames.ContainsKey(par.name)) IDS.sys.error("reserved name");
-                        var0 = root.findadd_var(par.name).ind;
-                        if (var0 < IDS.v_res) IDS.sys.error("reserved var");
+                        var0 = root.findadd_var(par.name);
+                        if (var0.ind < IDS.v_res) IDS.sys.error("reserved var");
                         par.next();
-                        Vars.inds[var0].var = (par.isequnow(Parse.isend) ? null : par.fpars("",false));
+                        var0.var = (par.isequnow(Parse.isend) ? null : par.fpars("",false));
                         par.sys.wline(0,par.print(var0));
                     break;
                     case '$':
-                        var0 = root.find_var_fill(par.name).ind;
+                        IDS.flow.patch[flow_level_oper] = 1;
+                        IDS.flow.patch[flow_level_var]= root.find_var_fill(par.name).ind;
                         par.next();
                         if (par.isequnow('!'))
                         {
-                            flag |= 1; par.next(); mao = new MAO_dict(par.get_int()); par.next();
+                            IDS.flow.set_bit(flow_level_flag,0); par.next(); mao = new MAO_dict(par.get_int()); par.next();
                         }
                         if (par.isequnow('*')) {
-                            id = d_vals(Vars.inds[var0]); par.next();
+                            IDS.flow.id = d_vals(IDS.flow.get_var_func(flow_level_var)); par.next();
                         } else {
-                            id = new List<Func>();
+                            IDS.flow.id.Clear();
                             while (par.isequnow(Parse.isname)) {
                                 val = par.get(Parse.isname); 
                                 if (par.isequnow(',')) par.next();
                                 val0 = root.find_val(val);
-                                if (val0.var.ind == var0) par.sys.error(par.name + " $recursion - look recursion");
-                                if (val0.var.var != null) id.Add(new Func(val0));
+                                if (val0.var.ind == IDS.flow.patch[flow_level_var]) par.sys.error(par.name + " $recursion - look recursion");
+                                if (val0.var.var != null) IDS.flow.id.Add(new Func(val0));
                             }
                         }
                         if (par.isequnow('@')) {
-                            flag |= 2; par.next();
-                            if ((flag & 1) != 0) IDS.sys.error("cant @ on !");
+                            IDS.flow.set_bit(flow_level_flag,1); par.next();
+                            if (IDS.flow.is_bit(flow_level_flag,0)) IDS.sys.error("cant @ on !");
                         }
-                        if (par.isequnow('$')) {flag |= 4; par.next();}
+                        if (par.isequnow('$')) {IDS.flow.set_bit(flow_level_flag,2); par.next();}
                     break;
 
                     case '|':
-                        var0 = root.find_var_fill(par.name).ind;
-                        if (Vars.inds[var0].var.type != Func.t_matr) par.sys.error("not matr");
+                        var0 = root.find_var_fill(par.name);
+                        if (var0.var.type != Func.t_matr) par.sys.error("not matr");
                         par.next();
-                        Many det = ((Matrix)(Vars.inds[var0].var.data)).det();
-                        det.simple(); Vars.inds[var0].var = new Func(new Many2(det));
+                        Many det = ((Matrix)(var0.var.data)).det();
+                        det.simple(); var0.var = new Func(new Many2(det));
                         par.sys.wline(0,par.print(var0));
                     break;
 
                     case '<':
-                        var0 = root.find_var_fill(par.name).ind;
+                        var0 = root.find_var_fill(par.name);
                         par.next();
                         val0 = root.find_val(par.get(Parse.isname));
-                        Vars.inds[var0].var.diff_down(val0);
+                        var0.var.diff_down(val0);
                         par.sys.wline(0,par.print(var0));
                     break;
                     case '>':
-                        var0 = root.find_var_fill(par.name).ind;
+                        var0 = root.find_var_fill(par.name);
                         par.next();
                         val0 = root.find_val(par.get(Parse.isname));
-                        Vars.inds[var0].var.diff_up(val0);
+                        var0.var.diff_up(val0);
                         par.sys.wline(0,par.print(var0));
                     break;
                     case '[':
@@ -5639,17 +5717,17 @@ namespace shard0
                         List<Fdo> fdo = new List<Fdo>();
                         do {
                             if (! par.isequnow(Parse.isabc)) IDS.sys.error("calc: wrong");
-                            var0 = root.find_var(par.get(Parse.isname)).ind;
-                            foreach (Fdim fd in fdim) if (fd.var.ind == var0) IDS.sys.error("calc: double");
+                            var0 = root.find_var(par.get(Parse.isname));
+                            foreach (Fdim fd in fdim) if (fd.var.ind == var0.ind) IDS.sys.error("calc: double");
                             switch (par.now) 
                             {
                                 case '[':
                                     par.next(); 
-                                    fdim.Add(new Fdim(Vars.inds[var0],par.calc(),par.calc(),par.calc()));
+                                    fdim.Add(new Fdim(var0,par.calc(),par.calc(),par.calc()));
                                     par.next();
                                     break;
                                 case '{':
-                                    fdim.Add(new Fdim(Vars.inds[var0],par.calc()));
+                                    fdim.Add(new Fdim(var0,par.calc()));
                                     break;
                                 default:
                                     IDS.sys.error("calc: wrong");
@@ -5731,47 +5809,14 @@ namespace shard0
                 }
 
 
-                switch (par.main_oper) 
-                {
-                    case '$':
-                        if ((flag >> 8) == 0) {
-                            while (ind0 < id.Count) {
-                                Vars.inds[var0].var.revert(id[ind0]);
-                                ind0++;
-                            }
-                            if ((flag & 1) != 0) mao.val(new Func(Vars.inds[var0].vals[0]));
-                            ind0 = 0; flag += 256;
-                        }
-                        if ((flag >> 8) == 1) {
-                            while (ind0 < id.Count) {
-                                if ((flag & 1) != 0) mao.expand(0,mao.val(id[ind0])); else Vars.inds[var0].var.expand(id[ind0]);
-                                ind0++;
-                            }
-                            ind0 = 0; flag += 256;
-                        }
-                        if ((flag >> 8) == 2) {
-                            if ((flag & 1) != 0) Vars.inds[var0].var = mao.mao[0].to_func();
-                            else Vars.inds[var0].var.simple();
-                            flag += 256;
-                        }
-
-
-                        if ((flag & 2) != 0) Vars.inds[var0].var.expand();
-                        if (((flag & 4) != 0) && ((Vars.inds[var0].var.type == 2) && (((Many2)(Vars.inds[var0].var.data)).down.type_exp() < 2)))
-                        {
-                            ((Many2)(Vars.inds[var0].var.data)).down.div();
-                            ((Many2)(Vars.inds[var0].var.data)).up.mul(((Many2)(Vars.inds[var0].var.data)).down.data.ElementAt(0).Key,((Many2)(Vars.inds[var0].var.data)).down.data.ElementAt(0).Value);
-                            ((Many2)(Vars.inds[var0].var.data)).down = new Many(new Complex(1));
-                        }
-                        par.sys.wline(0,par.print(var0));
-                        break;
-                }
                 
-            }
-            TimeSpan ime =  DateTime.Now - ddnow;
-            par.sys.wline(0,"finished, vars = " + (root.var.Count()).ToString() + "; time has " + ime.ToString());
+            } while(par.bnext());
+            IDS.flow.select(flow_level_oper,oper);
+
+
+            par.sys.wline(0,"finished, vars = " + (root.var.Count()).ToString());
             bm1.Save(par.sys.nout + ".png");
-            par.sys.close();
+            par.sys.finish(0);
         }
     }
 }
