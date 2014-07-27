@@ -13,6 +13,16 @@ using System.Runtime.Serialization.Formatters.Binary;
 
 namespace shard0
 {
+    public class FinishException: System.Exception
+    {
+        public FinishException()
+        {
+        }
+
+        public FinishException(string message): base(message)
+        {
+        }
+    }
     public class Exps_n
     {
         public SortedDictionary<Complex,Complex> data;
@@ -214,7 +224,7 @@ namespace shard0
         public static Num[] e2,e10, sqr2, nums;
         public static SortedDictionary<Num,Num> ln;
         public static Func now_func = null;
-        public static int sx,sy;
+        public static int sx,sy,ret=0;
         public int stat_uncalc, stat_calc;
         public SortedDictionary<string,Vars> var;
         public Vars v_e,v_pi,v_ln2,v_x,v_n;
@@ -4651,11 +4661,11 @@ namespace shard0
             if (r == null) { has = false; r = ""; }
             return r;
         }
-        public void finish(int r)
+        public void finish()
         {
             fin.Close();
             foreach (StreamWriter _f in fout) if (_f != null) _f.Close();
-            Environment.Exit(r);
+            throw new FinishException();
         }
         public void error(string e)
         {
@@ -4663,7 +4673,8 @@ namespace shard0
             wline(0,IDS.par.prev);
             wline(0,IDS.par.val);
             wline(0,"Position " + IDS.par.pos.ToString() + ": " + ((IDS.now_func != null) ? IDS.par.print(IDS.now_func,true) + " " : "") + e);
-            finish(-1);
+            IDS.ret = -1;
+            finish();
         }
         public void wline(int n, string s)
         {
@@ -5495,7 +5506,7 @@ namespace shard0
         public void repeat(int level, int max, Action<int> rep, Action save) {
             while (patch[level] < max) {
                 if (DateTime.Now > time) {
-                    save(); IDS.sys.finish(0);
+                    save(); IDS.sys.finish();
                 }
                 rep(patch[level]);
                 patch[level]++;
@@ -5505,7 +5516,7 @@ namespace shard0
         public void repeat<T>(int level, List<T> list, Action<T> rep, Action save) {
             while (patch[level] < list.Count) {
                 if (DateTime.Now > time) {
-                    save(); IDS.sys.finish(0);
+                    save(); IDS.sys.finish();
                 }
                 rep(list[patch[level]]);
                 patch[level]++;
@@ -5515,7 +5526,7 @@ namespace shard0
         public void repeat(int level, Action[] rep, Action save) {
             while (patch[level] < rep.Length) {
                 if (DateTime.Now > time) {
-                    save(); IDS.sys.finish(0);
+                    save(); IDS.sys.finish();
                 }
                 rep[patch[level]]();
                 patch[level]++;
@@ -5535,6 +5546,7 @@ namespace shard0
             Vals.inds = new Vals[100];
             Vars.inds = new Vars[100];
             if (args.Length < 1) return 0;
+            try {
             Fileio _f = new Fileio(args[0]);
             par = new Parse(_f);
             par.lnext(); IDS.sx = par.get_int(); par.next(); IDS.sy = par.get_int(); par.next(); step = par.get_int(); par.next(); exp = par.get_int();
@@ -5556,7 +5568,10 @@ namespace shard0
             } catch (OutOfMemoryException e) {
 
             }
-            return 0;
+            } catch (FinishException fe) {
+
+            }
+            return IDS.ret;
         }
         struct calc_out {
             public readonly string str;
@@ -5816,7 +5831,7 @@ namespace shard0
 
             par.sys.wline(0,"finished, vars = " + (root.var.Count()).ToString());
             bm1.Save(par.sys.nout + ".png");
-            par.sys.finish(0);
+            par.sys.finish();
         }
     }
 }
