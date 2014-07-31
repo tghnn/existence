@@ -86,8 +86,7 @@ namespace shard0
             if (Vals.inds.Length <= ind) Array.Resize<Vals>(ref Vals.inds, Vals.inds.Length + 100);
             Vals.inds[ind] = this;
         }
-
-        public static void save(BinaryWriter file)
+        public static void saves(BinaryWriter file)
         {
             file.Write((Int32)(Vals._ind));
             int i = 0; while (i < Vals._ind) {
@@ -97,24 +96,38 @@ namespace shard0
                 i++;
             }
         }
-        public static void load(BinaryReader file)
+        public static void loads(BinaryReader file)
         {
             int i = 0, cnt = file.ReadInt32();
-            Vals._ind = 0; Vals tmp;
+            Vals._ind = 0;
+            int[] vnum = new int[Vars._ind];
+            int vr;
             while (i < cnt) {
-                tmp = new Vals(Vars.inds[file.ReadInt32()],Exps_n.load(file),file.ReadInt16());
+                vr = file.ReadInt32();
+                Vars.inds[vr].vals[vnum[vr]++] = new Vals(Vars.inds[vr],Exps_n.load(file),file.ReadInt16());
                 i++;
             }
         }
+        public static Vals load(BinaryReader file)
+        {
+            Vals ret = null;
+            int n = file.ReadInt32();
+            if (n >= 0) ret = Vals.inds[n];
+            return ret;
+        }
 
+        public static void save(BinaryWriter file, Vals v)
+        {
+            file.Write((v == null ? -1 : (Int32)(v.ind)));
+        }
         public Exps_n get_exp()
         {
-            if (var.stat != Program.root.stat_calc) { 
-                if (var.stat == Program.root.stat_uncalc) {
-                    if (deep == 0) IDS.sys.error(var.name + " recursion");
+            if (var.stat != IDS.root.stat_calc) { 
+                if (var.stat == IDS.root.stat_uncalc) {
+                    if (deep == 0) IDS.root.sys.error(var.name + " recursion");
                 } else {
-                    if (var.var == null) IDS.sys.error(var.name + " var: non is non");
-                    var.stat = Program.root.stat_uncalc;
+                    if (var.var == null) IDS.root.sys.error(var.name + " var: non is non");
+                    var.stat = IDS.root.stat_uncalc;
                     var.set_now(var.var.calc());
                 }
            }
@@ -169,7 +182,7 @@ namespace shard0
             name = n; stat = _stat; var = null; vals = new Vals[valn+1];
             set_ind();
         }
-        public static int save(BinaryWriter file)
+        public static int saves(BinaryWriter file)
         {
             int ret = 0;
             file.Write((Int32)(Vars._ind));
@@ -182,7 +195,7 @@ namespace shard0
             }
             return ret;
         }
-        public static void load(BinaryReader file)
+        public static void loads(BinaryReader file)
         {
             int i = 0, cnt = file.ReadInt32();
             Vars._ind = 0; Vars tmp;
@@ -193,13 +206,13 @@ namespace shard0
         }
         public void set_now(Complex v0)
         {
-            if (stat != Program.root.stat_calc) {
+            if (stat != IDS.root.stat_calc) {
                 int i = vals.Length-1;
                 while (i > 0) {
                     vals[i].val = vals[i-1].val;
                     i--;
                 }
-                stat = Program.root.stat_calc;
+                stat = IDS.root.stat_calc;
             }
             vals[0].val = new Exps_n(v0);
         }
@@ -214,23 +227,22 @@ namespace shard0
     {
         public const int znums = 100;
         public static Num ln_prec,n_e_full,n_e,n_pi_full,n_pi,n_ln2_full,n_ln2;
-        public static Fileio sys;
-        public static Parse par;
         public static IDS root;
-        public static Flow flow;
         public static BigInteger exp_max;
-        public static int prec2,prec10,sqr_steps,sqr_exp_bits, v_res;
+        public static int prec2,prec10,digit10,sqr_steps,sqr_exp_bits, v_res, time;
         public static int[] h_to_l2;
         public static BigInteger[] e10,e2;
         public static Num[] sqr2, nums;
         public static SortedDictionary<Num,Num> ln;
         public static Func now_func = null;
-        public static int sx,sy,ret=0;
-        public int stat_uncalc, stat_calc;
+        public BinaryReader fload = null;
+        public Fileio sys;
+        public Flow flow;
+        public Parse par;
+        public System.Drawing.Bitmap pic;
+        public int stat_uncalc, stat_calc, n_step, steps;
         public SortedDictionary<string,Vars> var;
         public Vars v_e,v_pi,v_ln2,v_x,v_n;
-        public Func fzero;
-        public One ozero;
         public string[] funcs_name = {"","","","ln","fact","int","sign","row",""};
         public SortedDictionary<string,int> fnames;
         public Num[] fact;
@@ -239,79 +251,113 @@ namespace shard0
             while (i != 0) {i >>= 1; i0++;}
             return i0;
         }
-        public IDS(int sqr_s, int m_e, Fileio f, Parse p, Flow fl)
+        public IDS(Fileio f, Parse p, Flow fl)
         {
-            int i;
-            IDS.sys = f; IDS.par = p; IDS.flow = fl; stat_uncalc = 1; stat_calc = 2;
+            int i,sx=0,sy=0,exp=0; string parm;
+            sys = f; par = p; flow = fl; stat_uncalc = 1; stat_calc = 2;
             fnames = new SortedDictionary<string,int>();
             var = new SortedDictionary<string,Vars>();
             IDS.ln = new SortedDictionary<Num,Num>();
-
-            BigInteger b, c;
-            IDS.e10 = new BigInteger[400]; b = 1; i = 0;
-            while (i < e10.Count()) {
-                IDS.e10[i] = b; b *= 10; i++;
-            }
-            IDS.e2 = new BigInteger[2200]; b = 1; i = 0;
-            while (i < e2.Count()) {
-                IDS.e2[i] = b; b *= 2; i++;
-            }
-
             IDS.nums = new Num[IDS.znums*2];
             i = 0; while (i < IDS.znums*2) {IDS.nums[i] = new Num(i-IDS.znums); i++;}
             Complex._0 = new Complex(0);
             Complex._r1 = new Complex(1);
             Complex._i1 = new Complex(nums[IDS.znums], nums[IDS.znums+1]);
             Complex._r_1 = new Complex(-1);
-            IDS.n_pi_full = new Num("3.14159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848111745028410270193852110555964462294895493038196442881097566593344612847564823378678316527120190914564856692346034861045432664821339360726024914127372458700660631558817488152092096282925409171536436789259036001133053054882046652138414695194151160943305727036575959195309218611738193261179310511854807446237996274956735188575272489122793818301194912983367336244065664308602139494639522473719070217986094370277053921717629317675238467481846766940513200056812714526356082778577134275778960917363717872146844090122495343014654958537105079227968925892354201995611212902196086403441815981362977477130996051870721134999999837297804995105973173281609631859502445945534690830264252230825334468503526193118817101000313783875288658753320838142061717766914730359825349042875546873115956286388235378759375195778185778053217122680661300192787661119590921642019893809525720106548586327886593615338182796823030195203530185296899577362259941389124972177528347913151557485724245415069595082953311686172785588907509838175463746493931925506040092770167113900984882401285836160356370766010471018194295559619894676783744944825537977472684710404753464620804668425906949129331367702898915210475216205696602405803815019351125338243003558764024749647326391419927260426992279678235478163600934172164121992458631503028618297455570674983850549458858692699569092721079750930295532116534498720275596023648066549911988183479775356636980742654252786255181841757467289097777279380008164706001614524919217321721477235014144197356854816136115735255213347574184946843852332390739414333454776241686251898356948556209921922218427255025425688767179049460165346680498862723279178608578438382796797668145410095388378636095068006422512520511739298489608412848862694560424196528502221066118630674427862203919494504712371378696095636437191728".Substring(0,IDS.e10.Length-2));
-            IDS.n_e_full = new Num("2.71828182845904523536028747135266249775724709369995957496696762772407663035354759457138217852516642742746639193200305992181741359662904357290033429526059563073813232862794349076323382988075319525101901157383418793070215408914993488416750924476146066808226480016847741185374234544243710753907774499206955170276183860626133138458300075204493382656029760673711320070932870912744374704723069697720931014169283681902551510865746377211125238978442505695369677078544996996794686445490598793163688923009879312773617821542499922957635148220826989519366803318252886939849646510582093923982948879332036250944311730123819706841614039701983767932068328237646480429531180232878250981945581530175671736133206981125099618188159304169035159888851934580727386673858942287922849989208680582574927961048419844436346324496848756023362482704197862320900216099023530436994184914631409343173814364054625315209618369088870701676839642437814059271456354906130310720851038375051011574770417189861068739696552126715468895703503540212340784981933432106817012100562788023519303322474501585390473041995777709350366041699732972508868769664035557071622684471625607988265178713419512466520103059212366771943252786753985589448969709640975459185695638023637016211204774272283648961342251644507818244235294863637214174023889344124796357437026375529444833799801612549227850925778256209262264832627793338656648162772516401910590049164499828931505660472580277863186415519565324425869829469593080191529872117255634754639644791014590409058629849679128740687050489585867174798546677575732056812884592054133405392200011378630094556068816674001698420558040336379537645203040243225661352783695117788386387443966253224985065499588623428189970773327617178392803494650143455889707194258639877275471096295374152111513683506275260232648472870392076431005958411661205452970302364725492966693811513732275364509888903136020572481765851180630364428123149655070475102544650117272115551948668508003685322818".Substring(0,IDS.e10.Length-2));
-            IDS.n_ln2_full = new Num("0.69314718055994530941723212145817656807550013436025525412068000949339362196969471560586332699641868754200148102057068573368552023575813055703267075163507596193072757082837143519030703862389167347112335011536449795523912047517268157493206515552473413952588295045300709532636664265410423915781495204374043038550080194417064167151864471283996817178454695702627163106454615025720740248163777338963855069526066834113727387372292895649354702576265209885969320196505855476470330679365443254763274495125040606943814710468994650622016772042452452961268794654619316517468139267250410380254625965686914419287160829380317271436778265487756648508567407764845146443994046142260319309673540257444607030809608504748663852313818167675143866747664789088143714198549423151997354880375165861275352916610007105355824987941472950929311389715599820565439287170007218085761025236889213244971389320378439353088774825970171559107088236836275898425891853530243634214367061189236789192372314672321720534016492568727477823445353476481149418642386776774406069562657379600867076257199184734022651462837904883062033061144630073719489002743643965002580936519443041191150608094879306786515887090060520346842973619384128965255653968602219412292420757432175748909770675268711581705113700915894266547859596489065305846025866838294002283300538207400567705304678700184162404418833232798386349001563121889560650553151272199398332030751408426091479001265168243443893572472788205486271552741877243002489794540196187233980860831664811490930667519339312890431641370681397776498176974868903887789991296503619270710889264105230924783917373501229842420499568935992206602204654941510613918788574424557751020683703086661948089641218680779020818158858000168811597305618667619918739520076671921459223672060253959543654165531129517598994005600036651356756905124592682574394648316833262490180382424082423145230614096380570070255138770268178516306902551370323405380214501901537402950994226299577964742713".Substring(0,IDS.e10.Length-2));
+            IDS.root = this;
+            One.zero = new One();
+            Func.zero = new Func(new Complex(0));
+            if (sys.flag == "") {
+                par.lnext(); parm = par.val + ",0,0";
+                File.Delete(par.sys.name + ".png");
+            } else {
+                if ((! File.Exists(sys.name+".bin")) || (! File.Exists(sys.name + ".png"))) sys.error("fatal: save lost");
+                parm = sys.flag;
+            }
+            String[] parms = parm.Split(new char[] {','}); if (parms.Length != 8) sys.error("wrong parms");
+            if (! (Int32.TryParse(parms[0],out sx) && Int32.TryParse(parms[1],out sy) &&
+                Int32.TryParse(parms[2],out digit10) && Int32.TryParse(parms[3],out sqr_steps) && Int32.TryParse(parms[4],out exp) &&
+                Int32.TryParse(parms[5],out time) && Int32.TryParse(parms[6],out n_step) && Int32.TryParse(parms[7],out steps))) sys.error("wrong parms");
+            if ((sx < 100) || (sx > 2000) || (sy < 100) || (sy > 2000) || (sqr_steps < 4) || (sqr_steps > 11) || 
+                (exp < 11) || (exp > 6666) || (digit10 < 11) || (digit10 > 2000) ||
+                (time < 6) || (time > 20)) sys.error("wrong head");
+            if (File.Exists(sys.name + ".png")) {
+                Bitmap tb = new Bitmap(par.sys.name + ".png");
+                pic = new Bitmap(tb);
+                if ((sx != pic.Width) || (sy != pic.Height)) sys.error("wrong pic");
+            } else {
+                pic = new System.Drawing.Bitmap(sx, sy);
+                for (int i0 = 0; i0 < sx; i0++) for (int i1 = 0; i1 < sy; i1++) pic.SetPixel(i0, i1, Color.FromArgb(0, 0, 0));
+            }
+            IDS.exp_max = new BigInteger(exp);
+            BigInteger b, c;
+            IDS.e10 = new BigInteger[IDS.digit10+2]; b = 1; i = 0;
+            while (i < e10.Count()) {
+                IDS.e10[i] = b; b *= 10; i++;
+            }
+            IDS.e2 = new BigInteger[IDS.digit10*4]; b = 1; i = 0;
+            while (i < e2.Count()) {
+                IDS.e2[i] = b; b *= 2; i++;
+            }
 
-            IDS.sqr_steps = sqr_s;
 //for ^1/2: 4 = 10^380, 5 = 10^760, 6 = 10^1500; 
 //for ^x: 4 = 2^60, 5 = 2^121, 6 = 2^242 (72d), 7 = 2^500 (150d)
-            IDS.sqr_exp_bits = (int)(IDS.e2[IDS.sqr_steps - 4]) * 60;
-            IDS.prec2 = (IDS.sqr_exp_bits * 11) / 10;
-            IDS.prec10 = (IDS.prec2 * 3) / 10;
-            IDS.exp_max = new BigInteger(m_e);
+            sqr_exp_bits = (int)(e2[sqr_steps - 4]) * 60;
+            prec2 = (sqr_exp_bits * 11) / 10;
+            prec10 = (prec2 * 3) / 10;
 
-            IDS.h_to_l2 = new int[256]; //0-7; 8-15; ..
-            i = 0; while (i < IDS.h_to_l2.Length) {
-                IDS.h_to_l2[i] = _l2(i) - 1;
+            if (prec10 > digit10) sys.error("wrong prec");
+
+            h_to_l2 = new int[256]; //0-7; 8-15; ..
+            i = 0; while (i < h_to_l2.Length) {
+                h_to_l2[i] = _l2(i) - 1;
                 i++;
             }
 
-            IDS.ln_prec = new Num((prec2/4)*2+1); ln_prec.div();
-            IDS.n_pi = new Num(IDS.n_pi_full); IDS.n_pi.prec_this();
-            IDS.n_e = new Num(IDS.n_e_full); IDS.n_e.prec_this();
-            IDS.n_ln2 = new Num(IDS.n_ln2_full); IDS.n_ln2.prec_this();
+            n_pi_full = new Num("3.14159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848111745028410270193852110555964462294895493038196442881097566593344612847564823378678316527120190914564856692346034861045432664821339360726024914127372458700660631558817488152092096282925409171536436789259036001133053054882046652138414695194151160943305727036575959195309218611738193261179310511854807446237996274956735188575272489122793818301194912983367336244065664308602139494639522473719070217986094370277053921717629317675238467481846766940513200056812714526356082778577134275778960917363717872146844090122495343014654958537105079227968925892354201995611212902196086403441815981362977477130996051870721134999999837297804995105973173281609631859502445945534690830264252230825334468503526193118817101000313783875288658753320838142061717766914730359825349042875546873115956286388235378759375195778185778053217122680661300192787661119590921642019893809525720106548586327886593615338182796823030195203530185296899577362259941389124972177528347913151557485724245415069595082953311686172785588907509838175463746493931925506040092770167113900984882401285836160356370766010471018194295559619894676783744944825537977472684710404753464620804668425906949129331367702898915210475216205696602405803815019351125338243003558764024749647326391419927260426992279678235478163600934172164121992458631503028618297455570674983850549458858692699569092721079750930295532116534498720275596023648066549911988183479775356636980742654252786255181841757467289097777279380008164706001614524919217321721477235014144197356854816136115735255213347574184946843852332390739414333454776241686251898356948556209921922218427255025425688767179049460165346680498862723279178608578438382796797668145410095388378636095068006422512520511739298489608412848862694560424196528502221066118630674427862203919494504712371378696095636437191728".Substring(0,IDS.digit10-2));
+            n_e_full = new Num("2.71828182845904523536028747135266249775724709369995957496696762772407663035354759457138217852516642742746639193200305992181741359662904357290033429526059563073813232862794349076323382988075319525101901157383418793070215408914993488416750924476146066808226480016847741185374234544243710753907774499206955170276183860626133138458300075204493382656029760673711320070932870912744374704723069697720931014169283681902551510865746377211125238978442505695369677078544996996794686445490598793163688923009879312773617821542499922957635148220826989519366803318252886939849646510582093923982948879332036250944311730123819706841614039701983767932068328237646480429531180232878250981945581530175671736133206981125099618188159304169035159888851934580727386673858942287922849989208680582574927961048419844436346324496848756023362482704197862320900216099023530436994184914631409343173814364054625315209618369088870701676839642437814059271456354906130310720851038375051011574770417189861068739696552126715468895703503540212340784981933432106817012100562788023519303322474501585390473041995777709350366041699732972508868769664035557071622684471625607988265178713419512466520103059212366771943252786753985589448969709640975459185695638023637016211204774272283648961342251644507818244235294863637214174023889344124796357437026375529444833799801612549227850925778256209262264832627793338656648162772516401910590049164499828931505660472580277863186415519565324425869829469593080191529872117255634754639644791014590409058629849679128740687050489585867174798546677575732056812884592054133405392200011378630094556068816674001698420558040336379537645203040243225661352783695117788386387443966253224985065499588623428189970773327617178392803494650143455889707194258639877275471096295374152111513683506275260232648472870392076431005958411661205452970302364725492966693811513732275364509888903136020572481765851180630364428123149655070475102544650117272115551948668508003685322818".Substring(0,IDS.digit10-2));
+            n_ln2_full = new Num("0.69314718055994530941723212145817656807550013436025525412068000949339362196969471560586332699641868754200148102057068573368552023575813055703267075163507596193072757082837143519030703862389167347112335011536449795523912047517268157493206515552473413952588295045300709532636664265410423915781495204374043038550080194417064167151864471283996817178454695702627163106454615025720740248163777338963855069526066834113727387372292895649354702576265209885969320196505855476470330679365443254763274495125040606943814710468994650622016772042452452961268794654619316517468139267250410380254625965686914419287160829380317271436778265487756648508567407764845146443994046142260319309673540257444607030809608504748663852313818167675143866747664789088143714198549423151997354880375165861275352916610007105355824987941472950929311389715599820565439287170007218085761025236889213244971389320378439353088774825970171559107088236836275898425891853530243634214367061189236789192372314672321720534016492568727477823445353476481149418642386776774406069562657379600867076257199184734022651462837904883062033061144630073719489002743643965002580936519443041191150608094879306786515887090060520346842973619384128965255653968602219412292420757432175748909770675268711581705113700915894266547859596489065305846025866838294002283300538207400567705304678700184162404418833232798386349001563121889560650553151272199398332030751408426091479001265168243443893572472788205486271552741877243002489794540196187233980860831664811490930667519339312890431641370681397776498176974868903887789991296503619270710889264105230924783917373501229842420499568935992206602204654941510613918788574424557751020683703086661948089641218680779020818158858000168811597305618667619918739520076671921459223672060253959543654165531129517598994005600036651356756905124592682574394648316833262490180382424082423145230614096380570070255138770268178516306902551370323405380214501901537402950994226299577964742713".Substring(0,IDS.digit10-2));
 
-            IDS.sqr2 = new Num[1000]; //2 = (2:3)
-            IDS.sqr2[0] = new Num(1);
-            IDS.sqr2[1] = new Num("1.4");
+            ln_prec = new Num((IDS.prec2/4)*2+1); ln_prec.div();
+            n_pi = new Num(IDS.n_pi_full); IDS.n_pi.prec_this();
+            n_e = new Num(IDS.n_e_full); IDS.n_e.prec_this();
+            n_ln2 = new Num(IDS.n_ln2_full); IDS.n_ln2.prec_this();
+
+            v_pi = findadd_var("pi"); v_pi.var = new Func(new Complex(IDS.n_pi));
+            v_e = findadd_var("e"); v_e.var = new Func(new Complex(IDS.n_e));
+            v_ln2 = findadd_var("ln2"); v_ln2.var = new Func(new Complex(IDS.n_ln2));
+            v_ln2 = findadd_var("i"); v_ln2.var = new Func(new Complex(Complex._i1));
+            v_x = findadd_var("x"); v_n = findadd_var("n");
+            v_res = 6;
+
+            sqr2 = new Num[IDS.digit10]; //2 = (2:3)
+            sqr2[0] = new Num(1);
+            sqr2[1] = new Num("1.4");
             Num _n = new Num(2);
             Num _2 = new Num(2);
             Num __t;
             i = 2; while (i < IDS.sqr2.Length-1) {
                 __t = Num.mul(_n,IDS.sqr2[1]);
-                IDS.sqr2[i++] = Num.div(Num.add(_n, __t),_2).simple();
+                sqr2[i++] = Num.div(Num.add(_n, __t),_2).simple();
                 _n.mul(_2);
-                IDS.sqr2[i++] = Num.div(Num.add(__t,_n),_2).simple();
+                sqr2[i++] = Num.div(Num.add(__t,_n),_2).simple();
             }
-
-            ozero = new One();
-            fzero = new Func(new Complex(0));
             i = 2; while (i < 8) { fnames.Add(funcs_name[i],i); i++; }
             fact = new Num[1000];
             b = new BigInteger(1); c = new BigInteger(1); fact[0] = new Num(b);
             while (b < fact.Count()) {
                 c *= b; fact[(int)b] = new Num(c); b++;
             }
-            IDS.root = this;
+            root = this;
+            if (sys.flag == "") {
+                par.init();
+            } else {
+                load(sys.name + ".bin");
+            }
         }
-        public BinaryWriter save()
+        public BinaryWriter save(string name)
         {
-            BinaryWriter file = new BinaryWriter(File.Open("step.bin", FileMode.Create));
+            BinaryWriter file = new BinaryWriter(File.Open(name, FileMode.Create));
             file.Write((Int32)(par.opers));
             file.Write((Int32)(par.pos));
             file.Write(par.name);
@@ -319,8 +365,8 @@ namespace shard0
             file.Write((Int32)(par.body_num));
             file.Write((Int32)(par.body.Count));
             foreach(string s in par.body) file.Write(s);
-            int funcs = Vars.save(file);
-            Vals.save(file);
+            int funcs = Vars.saves(file);
+            Vals.saves(file);
             file.Write((Int32)funcs);
             int i = 0; while (i < Vars._ind) {
                 if (Vars.inds[i].var != null) {
@@ -333,24 +379,24 @@ namespace shard0
             file.Flush();
             return file;
         }
-        public BinaryReader load()
+        public void load(string name)
         {
-            BinaryReader file = new BinaryReader(File.Open("step.bin", FileMode.Open));
-            par.opers = file.ReadInt32();
-            par.pos = file.ReadInt32();
-            par.name = file.ReadString();
-            par.main_oper = file.ReadChar();
-            par.body_num = file.ReadInt32();
-            int i = 0, cnt =  file.ReadInt32(); while (i < cnt) {
-                par.body.Add(file.ReadString());
+            fload = new BinaryReader(File.Open(name, FileMode.Open));
+            par.opers = fload.ReadInt32();
+            par.pos = fload.ReadInt32();
+            par.name = fload.ReadString();
+            par.main_oper = fload.ReadChar();
+            par.body_num = fload.ReadInt32();
+            int i = 0, cnt =  fload.ReadInt32(); while (i < cnt) {
+                par.body.Add(fload.ReadString());
                 i++;
             }
-            par.val = par.body[par.body_num];
-            par.now = par.val[par.pos];
-            Vars.load(file);
-            Vals.load(file);
-            i = 0; cnt = file.ReadInt32(); while (i < cnt) {
-                Vars.inds[file.ReadInt32()].var = Func.load(file);
+            par.val = (par.body_num >= par.body.Count ? "" : par.body[par.body_num]);
+            par.now = (par.now >= par.val.Length ? ';' : par.val[par.pos]);
+            Vars.loads(fload);
+            Vals.loads(fload);
+            i = 0; cnt = fload.ReadInt32(); while (i < cnt) {
+                Vars.inds[fload.ReadInt32()].var = Func.load(fload);
                 i++;
             }
             var.Clear();
@@ -358,8 +404,7 @@ namespace shard0
                 var.Add(Vars.inds[i].name,Vars.inds[i]);
                 i++;
             }
-            flow = Flow.load(file);
-            return file;
+            flow = Flow.load(fload,time);
         }
         int deep(string n)
         {
@@ -419,12 +464,12 @@ namespace shard0
         }
         public void exp(BigInteger ex)
         {
-            if (ex > IDS.exp_max) IDS.sys.error("exp: too");
+            if (ex > IDS.exp_max) IDS.root.sys.error("exp: too");
             _exp((int)ex);
         }
         public void exp(int ex)
         {
-            if (ex > IDS.exp_max) IDS.sys.error("exp: too");
+            if (ex > IDS.exp_max) IDS.root.sys.error("exp: too");
             _exp(ex);
         }
         public void _exp(int ex)
@@ -602,9 +647,9 @@ namespace shard0
         static char[] pnt = {'.'};
         public void set(string s)
         {
-            if (s.Length > IDS.e10.Length) IDS.sys.error("num: too long");
+            if (s.Length > IDS.e10.Length) IDS.root.sys.error("num: too long");
             string[] ss = s.Split(Num.pnt);
-            if (ss.Length > 2) IDS.sys.error("num: parse");
+            if (ss.Length > 2) IDS.root.sys.error("num: parse");
             if (ss.Length == 2) {
                 ss[0] += ss[1];
                 down = BigInteger.Abs(IDS.e10[ss[1].Length]);
@@ -686,7 +731,7 @@ namespace shard0
                     if ((_d == 1) && (_u < IDS.znums)) return IDS.nums[IDS.znums + (int)(_u)*sign];
                     else return new Num(sign,_u,_d);
                 }
-            } else if (down == 0) IDS.sys.error("div0");
+            } else if (down == 0) IDS.root.sys.error("div0");
             if ((down == 1) && (up < IDS.znums)) return IDS.nums[IDS.znums + (int)(up)*sign];
             else return this;
         }
@@ -819,7 +864,7 @@ namespace shard0
         Num sq_exp(Num sq) //up > down
         { 
             int i0,i1 = IDS.sqr_exp_bits;
-            if (sq.down.IsEven && (sign < 0)) IDS.sys.error("exp: neg sqr");
+            if (sq.down.IsEven && (sign < 0)) IDS.root.sys.error("exp: neg sqr");
             Num res = new Num(1), _sq = new Num(sq), tmp = new Num(1), _t = new Num(this); // (5/11-1/2)*2 = ((5*2-11)/(11*2))*2
             BigInteger _ud = up/down;
             if (_ud > 3) {
@@ -864,7 +909,7 @@ namespace shard0
         }
         public void ln()
         {
-            if (sign < 1) IDS.sys.error("ln: not pos");
+            if (sign < 1) IDS.root.sys.error("ln: not pos");
             bool dv = down > up;
             if (dv) div();
             Num r = null;
@@ -1183,7 +1228,7 @@ namespace shard0
             s = null;
         }
         public void exp(Complex pow) {
-            if (pow.i.sign != 0) IDS.sys.error("not yet");
+            if (pow.i.sign != 0) IDS.root.sys.error("not yet");
             exp(pow.r);
         }
         public void ln()
@@ -1198,7 +1243,7 @@ namespace shard0
         public void exp(Num pow) {
             if (pow.isint()) exp(pow.toint()); else {
                 if (i.sign == 0) r = Num.exp(r,pow); else {
-                    IDS.sys.error("not yet");
+                    IDS.root.sys.error("not yet");
                 }
             }
         }
@@ -1258,6 +1303,7 @@ namespace shard0
 
     public class One: IComparable
     {
+        public static One zero;
         public SortedDictionary<Func,Func> exps;
         public One()
         {
@@ -1312,14 +1358,14 @@ namespace shard0
             while (true) {
                 do n0 = e0.MoveNext(); while (n0 && (e0.Current.Value.isconst(0,0)));
                 do n1 = e1.MoveNext(); while (n1 && (e1.Current.Value.isconst(0,0)));
-                if (n0 ^ n1) return (n0 ? e0.Current.Value.CompareTo(Program.root.fzero) : Program.root.fzero.CompareTo(e1.Current.Value));
+                if (n0 ^ n1) return (n0 ? e0.Current.Value.CompareTo(Func.zero) : Func.zero.CompareTo(e1.Current.Value));
                 else {
                     if (! n0) return 0;
                     if ((rk = e0.Current.Key.CompareTo(e1.Current.Key)) == 0) {
                         if ((rv = e0.Current.Value.CompareTo(e1.Current.Value)) != 0) return rv;
                     } else {
-                        if (rk < 0) return e0.Current.Value.CompareTo(Program.root.fzero);
-                        else return Program.root.fzero.CompareTo(e1.Current.Value); 
+                        if (rk < 0) return e0.Current.Value.CompareTo(Func.zero);
+                        else return Func.zero.CompareTo(e1.Current.Value); 
                     }
                 }
             }
@@ -1430,7 +1476,7 @@ namespace shard0
                     ff.Key.simple();
                     if ((ff.Key.type == Func.t_num) && (ff.Value.type_pow() == 0)) rt.mul(Complex.exp((Complex)(ff.Key.data),(Complex)(ff.Value.data)));
                     else {
-                        if ((ff.Key.type == Func.t_val) && (((Vals)(ff.Key.data)).var == Program.root.v_e) && (ff.Value.type == Func.t_ln))
+                        if ((ff.Key.type == Func.t_val) && (((Vals)(ff.Key.data)).var == IDS.root.v_e) && (ff.Value.type == Func.t_ln))
                         {p = new Func((Many2)(ff.Value.data)); e = new Func(new Complex(1));}
                         else {p = ff.Key; e = ff.Value;}
                         if ((p.type == Func.t_many2) && (((Many2)(p.data)).type_exp() < 2)) {
@@ -1496,14 +1542,14 @@ namespace shard0
             One o = new One();
             Func fa = new Func(at), ex = new Func(new Complex(0));
             foreach(KeyValuePair<Func,Func> ff in exps) {
-                if ((ff.Value.type > Func.t_num) || (ff.Key.type > Func.t_num)) IDS.sys.error("S: too complex");
+                if ((ff.Value.type > Func.t_num) || (ff.Key.type > Func.t_num)) IDS.root.sys.error("S: too complex");
                 if (ff.Value.type == Func.t_val) {
                     if (ff.Value.data == at) {
-                        if (ff.Value.CompareTo(ff.Key) == 0) IDS.sys.error("S: x^x");
-                        IDS.sys.error("now not implemented");
+                        if (ff.Value.CompareTo(ff.Key) == 0) IDS.root.sys.error("S: x^x");
+                        IDS.root.sys.error("now not implemented");
                     } else {
                         if (ff.Key.CompareTo(fa) == 0) {
-                            if (! ex.isconst(0,0)) IDS.sys.error("now not implemented");
+                            if (! ex.isconst(0,0)) IDS.root.sys.error("now not implemented");
                             ex.add(ff.Value);
                         } else {
                             o.addto(new Func(ff.Key),new Func(ff.Value));
@@ -1511,7 +1557,7 @@ namespace shard0
                     }
                 } else {
                     if (ff.Key.CompareTo(fa) == 0) {
-                        if (! ex.isconst(0,0)) IDS.sys.error("now not implemented");
+                        if (! ex.isconst(0,0)) IDS.root.sys.error("now not implemented");
                         ex.add(ff.Value);
                     } else {
                         o.addto(new Func(ff.Key),new Func(ff.Value));
@@ -1605,7 +1651,7 @@ namespace shard0
         }
         public override void div()
         {
-            if (data.Count != 1) IDS.sys.error("cant divide many");
+            if (data.Count != 1) IDS.root.sys.error("cant divide many");
             data[data.ElementAt(0).Key].div(); 
             data.ElementAt(0).Key.div(); 
         }
@@ -1659,7 +1705,7 @@ namespace shard0
         {
             Complex r = null;
             if (data.Count == 0) r = new Complex(0);
-            if ((data.Count == 1) && (data.ElementAt(0).Key.CompareTo(Program.root.ozero) == 0))
+            if ((data.Count == 1) && (data.ElementAt(0).Key.CompareTo(One.zero) == 0))
                 r = new Complex(data.ElementAt(0).Value);
             return r;
         }
@@ -1821,7 +1867,7 @@ namespace shard0
         public void exp(Func e)
         {
             int te = type_exp(),tp = e.type_pow();
-            if (te + tp > 2) IDS.sys.error("exp: cant Many to many");
+            if (te + tp > 2) IDS.root.sys.error("exp: cant Many to many");
             if (te > 1) exp((int)(((Complex)(e.data)).r.up));
             else {
                 One to = data.ElementAt(0).Key;
@@ -2058,7 +2104,7 @@ namespace shard0
         public override void div()
         {
             Many t;
-            if ((up.data.Count == 1) && (up.data.ElementAt(0).Value.iszero())) IDS.sys.error("div0");
+            if ((up.data.Count == 1) && (up.data.ElementAt(0).Value.iszero())) IDS.root.sys.error("div0");
             t = up; up = down; down = t;
         }
 
@@ -2181,8 +2227,8 @@ namespace shard0
         public Complex get_num_part() //up[num_one]/down(Num)
         {
             Complex d = down.get_Num();
-            if ((d == null) || (! up.data.ContainsKey(Program.root.ozero))) return new Complex(0);
-            d.div(); d.mul(up.data[Program.root.ozero]); return d;
+            if ((d == null) || (! up.data.ContainsKey(One.zero))) return new Complex(0);
+            d.div(); d.mul(up.data[One.zero]); return d;
         }
         public void common(Many2 m)
         {
@@ -2251,7 +2297,7 @@ namespace shard0
         }
         public Complex calc() {
             Complex d = down.calc();
-            if (d.iszero()) IDS.sys.error("div0");
+            if (d.iszero()) IDS.root.sys.error("div0");
             d.div(); d.mul(up.calc()); d.simple(); return d;
         }
         public void findvals(One o)
@@ -2421,15 +2467,15 @@ namespace shard0
         Many2 step(Many2 ind, int exp, Vals val)
         {
             Many2 r = new Many2(ind);
-            r.replace(Program.root.v_x.vals[0],new Func(val));
-            r.replace(Program.root.v_n.vals[0],new Func(new Complex(exp)));
+            r.replace(IDS.root.v_x.vals[0],new Func(val));
+            r.replace(IDS.root.v_n.vals[0],new Func(new Complex(exp)));
             Complex n = r.simple();
             if (n != null) return new Many2(n); else return r;
         }
         public Many2 prep_calc(Vals val, int steps)
         {
             int len = data.Count - point;
-            if (len < 1) IDS.sys.error("row: empty");
+            if (len < 1) IDS.root.sys.error("row: empty");
             Many2 calc = new Many2(new Complex(0)), t;
             int i0 = 0; while (i0 < point) {calc.add(step(data[i0],i0,val)); i0++;}
             int e = point, i1 = 0; while (i1 < steps) {
@@ -2484,7 +2530,7 @@ namespace shard0
         public int x,y;
         public Matrix(int _x, int _y) {
             x=_x; y=_y;
-            if ((x == 0) || (y == 0)) IDS.sys.error("matr: 0 size");
+            if ((x == 0) || (y == 0)) IDS.root.sys.error("matr: 0 size");
             data = new Func[x,y];
         }
         public Matrix(Matrix m) {
@@ -2514,7 +2560,7 @@ namespace shard0
         public Matrix(List<List<Func>> tm)
         {
             x = tm.Count; y = tm[0].Count;
-            if ((x == 0) || (y == 0)) IDS.sys.error("matr: 0 size");
+            if ((x == 0) || (y == 0)) IDS.root.sys.error("matr: 0 size");
             data = new Func[x,y];
             int ix,iy;
             ix = 0; while (ix < x) {
@@ -2592,7 +2638,7 @@ namespace shard0
             }
         }
         public void add(Matrix m) {
-            if ((x != m.x) || (y != m.y)) IDS.sys.error("matr: wrong add");
+            if ((x != m.x) || (y != m.y)) IDS.root.sys.error("matr: wrong add");
             int ix,iy; 
             ix = 0; while (ix < x) {
                 iy = 0; while (iy < m.y) {
@@ -2603,7 +2649,7 @@ namespace shard0
             }
         }
         public void mul(Matrix m) {
-            if (y != m.x) IDS.sys.error("matr: wrong mul");
+            if (y != m.x) IDS.root.sys.error("matr: wrong mul");
             int ix,iy,n; 
             Func[,] res = new Func[x,m.y];
             Func tmp;
@@ -2700,7 +2746,7 @@ namespace shard0
         };
 
         public Many det() {
-            if (x != y) IDS.sys.error("matr: wrong det");
+            if (x != y) IDS.root.sys.error("matr: wrong det");
             return Matrix._det[x < 4 ? x : 3](this);
         }
         public void replace(Vals v, Func f) {
@@ -2744,6 +2790,7 @@ namespace shard0
     public class Func: Power<Func>, IPower, IComparable
     {
         public const int types = 9, t_val = 0, t_num = 1, t_many2 = 2, t_ln = 3, t_fact = 4, t_int = 5, t_sign = 6, t_row = 7, t_matr = 8;
+        public static Func zero;
         public Object data;
         public int type; //0: &val, 1: &Complex, 2: &many2, 3: ln(Many2), 4: fact(Many2), 5: int(Many2), 6: sign(Many2), 7: row(Row), 8: matrix(func[][])
         public Func()
@@ -3688,7 +3735,7 @@ namespace shard0
 
         static public Action<Func,int>[] deeper_func = {
                 (Func t, int d) => {
-                    int _i; if ((_i = ((Vals)(t.data)).deep + d) >= ((Vals)(t.data)).var.vals.Length) IDS.sys.error("too deep");
+                    int _i; if ((_i = ((Vals)(t.data)).deep + d) >= ((Vals)(t.data)).var.vals.Length) IDS.root.sys.error("too deep");
                     t.data = ((Vals)(t.data)).var.vals[_i];
                 },
                 (Func t, int d) => {},
@@ -3720,8 +3767,8 @@ namespace shard0
         public static Complex f_fact(Complex n, Func t)
         {
             IDS.now_func = t;
-            if ((n.i.sign != 0) || (n.r.sign < 1) || (! n.r.isint()) || (n.r.up >= Program.root.fact.Count())) IDS.sys.error("fact: not yet");
-            return new Complex(Program.root.fact[(int)n.r.up]);
+            if ((n.i.sign != 0) || (n.r.sign < 1) || (! n.r.isint()) || (n.r.up >= IDS.root.fact.Count())) IDS.root.sys.error("fact: not yet");
+            return new Complex(IDS.root.fact[(int)n.r.up]);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Complex f_int(Complex n)
@@ -3743,11 +3790,11 @@ namespace shard0
                 (Func t) => {return Func.f_int(((Many2)(t.data)).calc());},
                 (Func t) => {return Func.f_sign(((Many2)(t.data)).calc());},
                 (Func t) => {
-                    IDS.sys.error("row:not prep");
+                    IDS.root.sys.error("row:not prep");
                     return new Complex(0);
                 },
                 (Func t) => {
-                    IDS.sys.error("matr:not prep");
+                    IDS.root.sys.error("matr:not prep");
                     return new Complex(0);
                 }
               };
@@ -3775,11 +3822,11 @@ namespace shard0
                     return new Complex((e.r.up & 1) == 0 ? s*s : s);
                 },
                 (Func t, Complex e) => {
-                    IDS.sys.error("row: not prep");
+                    IDS.root.sys.error("row: not prep");
                     return new Complex(0);
                 },
                 (Func t, Complex e) => {
-                    IDS.sys.error("matr: not prep");
+                    IDS.root.sys.error("matr: not prep");
                     return new Complex(0);
                 }
               };
@@ -4135,19 +4182,19 @@ namespace shard0
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Func diff_down(Func exp, Vals d) 
         {
-            if ((type == Func.t_row) || (exp.type == Func.t_row)) IDS.sys.error("cant diff on innate row");
+            if ((type == Func.t_row) || (exp.type == Func.t_row)) IDS.root.sys.error("cant diff on innate row");
             Func r;
             if (type > Func.t_ln) {
-                if (((Many2)(data)).hasval(d)) IDS.sys.error("cant diff on such");
+                if (((Many2)(data)).hasval(d)) IDS.root.sys.error("cant diff on such");
                 if (exp.type > Func.t_ln) {
-                    if (((Many2)(exp.data)).hasval(d)) IDS.sys.error("cant diff on such");
+                    if (((Many2)(exp.data)).hasval(d)) IDS.root.sys.error("cant diff on such");
                     return new Func(new Complex(0));
                 } else {
                     r = Func.diffe_down_func[0 + exp.type](this,exp,d);
                 }
             } else {
                 if (exp.type > Func.t_ln) {
-                    if (((Many2)(exp.data)).hasval(d)) IDS.sys.error("cant diff on such");
+                    if (((Many2)(exp.data)).hasval(d)) IDS.root.sys.error("cant diff on such");
                     r = Func.diffe_down_func[type*Func.types + 0](this,exp,d);
                 } else {
                     r = Func.diffe_down_func[type*Func.types + exp.type](this,exp,d);
@@ -4227,7 +4274,7 @@ namespace shard0
         {
             ushort i;
             for (i = 0; i < lexp; i++) if (e.CompareTo(exps[i]) == 0) return i;
-            if (lexp > mexp-2) IDS.sys.error("too Many exp");
+            if (lexp > mexp-2) IDS.root.sys.error("too Many exp");
             exps[lexp++] = new Num(e);
             return i;
         }
@@ -4235,7 +4282,7 @@ namespace shard0
         {
             if (! to_val.ContainsKey(v))
             {
-                if (lval >= nvals) IDS.sys.error("MAO: too many funcs");
+                if (lval >= nvals) IDS.root.sys.error("MAO: too many funcs");
                 to_val[v] = lval;
                 vals[lval++] = v;
             }
@@ -4243,10 +4290,10 @@ namespace shard0
         }
         public void set_mao(int i)
         {
-            if (i >= lval) IDS.sys.error("MAO: wrong expand");
+            if (i >= lval) IDS.root.sys.error("MAO: wrong expand");
             if (mao[i] == null) {
-                if ((vals[i].type != 0) || (((Vals)(vals[i].data)).var.var == null)) IDS.sys.error("MAO: wrong expand");
-                Func f = new Func(((Vals)(vals[i].data)).var.var); if (f.type != 2) IDS.sys.error("MAO: only many2");
+                if ((vals[i].type != 0) || (((Vals)(vals[i].data)).var.var == null)) IDS.root.sys.error("MAO: wrong expand");
+                Func f = new Func(((Vals)(vals[i].data)).var.var); if (f.type != 2) IDS.root.sys.error("MAO: only many2");
                 f.deeper(((Vals)(vals[i].data)).deep);
                 mao[i] = new Many_as_one(f,this);
             }
@@ -4415,7 +4462,7 @@ namespace shard0
             for (i0 = 0; i0 < dict.nvals; i0++) ret.Key.key[i0] = 0;
             foreach (KeyValuePair<Func,Func> f in o.Key.exps)
             {
-                if (f.Value.type_pow() > 1) IDS.sys.error("cant fast on complex exp");
+                if (f.Value.type_pow() > 1) IDS.root.sys.error("cant fast on complex exp");
                 v0 = dict.val(f.Key);
                 ret.Key.key[v0] = dict.exp(((Complex)(f.Value.data)).r);
             }
@@ -4492,8 +4539,8 @@ namespace shard0
         {
             int i=0, cn = data[0].Count + data[1].Count;
             Many _u = new Many(); Many _d = new Many();
-            foreach (KeyValuePair<MAO_key, Complex> d in data[0]) {_u.data.Add(to_one(d.Key),new Complex(d.Value)); IDS.sys.progr(i++,cn);}
-            foreach (KeyValuePair<MAO_key, Complex> d in data[1]) {_d.data.Add(to_one(d.Key), new Complex(d.Value)); IDS.sys.progr(i++,cn);}
+            foreach (KeyValuePair<MAO_key, Complex> d in data[0]) {_u.data.Add(to_one(d.Key),new Complex(d.Value)); IDS.root.sys.progr(i++,cn);}
+            foreach (KeyValuePair<MAO_key, Complex> d in data[1]) {_d.data.Add(to_one(d.Key), new Complex(d.Value)); IDS.root.sys.progr(i++,cn);}
             return new Func(new Many2(_u,_d));
         }
 
@@ -4546,7 +4593,7 @@ namespace shard0
             KeyValuePair<MAO_key, Complex> tu = new KeyValuePair<MAO_key,Complex>(new MAO_key(dict), new Complex(0));
             me[0] = new Many_as_one(e,0);
             me[1] = new Many_as_one(e,1);
-            if ((e.data[0].Count < 1) || (e.data[1].Count < 1)) IDS.sys.error("wrong");
+            if ((e.data[0].Count < 1) || (e.data[1].Count < 1)) IDS.root.sys.error("wrong");
             int pnow = 0;
             foreach (KeyValuePair<MAO_key, Complex> u in data[n]) 
             {
@@ -4564,7 +4611,7 @@ namespace shard0
                 if (me[tex] != null) tu.Key.key[ex] = 0; else tex = 0;
                 if (ae[tex] == null) ae[tex] = new Many_as_one(dict);
                 ae[tex].add(0,tu);
-                IDS.sys.progr(pnow++,data[n].Count);
+                IDS.root.sys.progr(pnow++,data[n].Count);
             }
             max_d.neg();
             for (tex = 0; tex < 254; tex++) 
@@ -4588,7 +4635,7 @@ namespace shard0
                     if (me[ee] == null) me[ee] = new Many_as_one(e,ee);
                     ae[tex].mul(0, me[ee].data[0]);
                 }
-                IDS.sys.progr(tex,254);
+                IDS.root.sys.progr(tex,254);
             }
             ee = dict.exp(max_u);
             if (me[ee] == null) me[ee] = new Many_as_one(e,ee);
@@ -4603,7 +4650,7 @@ namespace shard0
                   me[tex].mul(0, ae[tex].data[0]);
                   add(n, me[tex].data[0]);
                 }
-                IDS.sys.progr(tex,254);
+                IDS.root.sys.progr(tex,254);
             }
             return ret;
         }
@@ -4618,22 +4665,30 @@ namespace shard0
     }
 
 
-    public class Fileio: IDisposable
+    public class Fileio//: IDisposable
     {
         StreamReader fin, f611 = null;
-        StreamWriter[] fout;
-        public string nout,xout;
+        StreamWriter file_flag;
+        public string flag;
+        List<string>[] sout;
+        public string name,xout;
         public Boolean has;
         public Fileio(string nin)
         {
-            string iexf;
+            string iexf, fname;
             if (!File.Exists(nin)) Environment.Exit(-1);
             iexf = Path.GetExtension(nin);
-            nout = Path.GetFileNameWithoutExtension(nin);
-            xout = ".txt";
+            name = Path.GetFileNameWithoutExtension(nin);
+            xout = ".txt"; fname = name + ".flg"; flag = "";
+            if (File.Exists(fname)) {
+                StreamReader _fl = new StreamReader(fname);
+                flag = _fl.ReadLine(); if (flag == null) flag = ""; _fl.Close();
+                if ((flag.Length > 0) && (flag[0] == '#')) flag = "";
+            }
+            file_flag = new StreamWriter(fname);
 //            f611 = (File.Exists("611"+iexf) ?  new StreamReader("611"+iexf) : null);
             fin = new StreamReader(nin);
-            fout = new StreamWriter[40];
+            sout = new List<string>[40];
             has = true;
         }
         private string rfile() {
@@ -4664,35 +4719,43 @@ namespace shard0
         }
         public void finish()
         {
+            StreamWriter fout;
             fin.Close();
-            foreach (StreamWriter _f in fout) if (_f != null) _f.Close();
+            int i = 0; while (i < sout.Length) {
+                if (sout[i] != null) {
+                    fout = new StreamWriter(name + Parse.m_n_to_c[i] + xout,true);
+                    foreach(string _s in sout[i]) fout.WriteLine(_s);
+                    fout.Close();
+                }
+                i++;
+            }
+            IDS.root.pic.Save(name + ".png");
+            file_flag.WriteLine(flag);
+            file_flag.Close();
+            if (flag == "") {
+                File.Delete(name + ".flg");
+                File.Delete(name + ".bin");
+            }
             throw new FinishException();
         }
         public void error(string e)
         {
             wline(0,"");
-            wline(0,IDS.par.prev);
-            wline(0,IDS.par.val);
-            wline(0,"Position " + IDS.par.pos.ToString() + ": " + ((IDS.now_func != null) ? IDS.par.print(IDS.now_func,true) + " " : "") + e);
-            IDS.ret = -1;
+            wline(0,IDS.root.par.prev);
+            wline(0,IDS.root.par.val);
+            wline(0,"Position " + IDS.root.par.pos.ToString() + ": " + ((IDS.now_func != null) ? IDS.root.par.print(IDS.now_func,true) + " " : "") + e);
+            flag = "#error:" + e;
             finish();
         }
         public void wline(int n, string s)
         {
-            if (fout[n] == null) fout[n] = new StreamWriter(nout + Parse.m_n_to_c[n] + xout);
-            fout[n].WriteLine(s);
-            fout[n].Flush();
+            if (sout[n] == null) sout[n] = new List<string>();
+            sout[n].Add(s);
         }
         public void wstr(int n, string s)
         {
-            if (fout[n] == null) fout[n] = new StreamWriter(nout + Parse.m_n_to_c[n] + xout);
-            if (s == "\\n") fout[n].WriteLine(""); else fout[n].Write(s);
-            fout[n].Flush();
-        }
-        public void Dispose()
-        {
-            fin.Close();
-            for (int n = 0; n < 40; n++) if (fout[n] != null) fout[n].Close();
+            if (sout[n] == null) sout[n] = new List<string>();
+            if (s == "\\n") sout[n].Add(""); else sout[n][sout[n].Count-1] += s;
         }
     }
     public class Deep {
@@ -4708,7 +4771,7 @@ namespace shard0
         public Mbody(int n, string s)
         { nparm = n; body = s; }
     }
-    public class Parse: IDisposable
+    public class Parse//: IDisposable
     {
         static public char[] m_n_to_c = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F','G','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'};
         static public int[] m_c_to_n = {
@@ -4812,6 +4875,7 @@ namespace shard0
                 _now += val;
             }
             body_num = -1;
+            IDS.root.steps = opers;
         }
         string _parm() {
             string s1;
@@ -4947,7 +5011,7 @@ namespace shard0
         public int get_int()
         {
             int r = 0;
-            if (! (isequnow(isnum) && Int32.TryParse(get(isnum),out r))) IDS.sys.error("not int");
+            if (! (isequnow(isnum) && Int32.TryParse(get(isnum),out r))) IDS.root.sys.error("not int");
             return r;
         }
         public string get(string delim)
@@ -4989,18 +5053,18 @@ namespace shard0
             Func r;
             string _n = get(isname);
             if (isequnow('(')) {
-                if (Program.root.fnames.ContainsKey(_n)) r = fpars(_n,true);
+                if (IDS.root.fnames.ContainsKey(_n)) r = fpars(_n,true);
                 else {
-                    Vars vr = Program.root.find_var(_n);
-                    if ((vr.var == null) || (vr.var.type != 7)) IDS.sys.error("not row");
-                    next(); if (!isequnow(isabc)) IDS.sys.error("wrong row call");
-                    Vals vl = Program.root.find_val(get(isname));
-                    if (!isequnow(',')) IDS.sys.error("wrong row call");
-                    next(); if (!isequnow(isnum)) IDS.sys.error("wrong row call");
+                    Vars vr = IDS.root.find_var(_n);
+                    if ((vr.var == null) || (vr.var.type != 7)) IDS.root.sys.error("not row");
+                    next(); if (!isequnow(isabc)) IDS.root.sys.error("wrong row call");
+                    Vals vl = IDS.root.find_val(get(isname));
+                    if (!isequnow(',')) IDS.root.sys.error("wrong row call");
+                    next(); if (!isequnow(isnum)) IDS.root.sys.error("wrong row call");
                     int st; Int32.TryParse(get(isnum),out st);
                     r = new Func(((Row)(vr.var.data)).prep_calc(vl,st));
                 }
-            } else r = new Func(Program.root.find_val(_n));
+            } else r = new Func(IDS.root.find_val(_n));
             return r;
         }
         public KeyValuePair<One,Complex> opars()
@@ -5095,8 +5159,8 @@ namespace shard0
         {
             int tp, d = deep.Count;
             Func r = null;
-            if (! Program.root.fnames.ContainsKey(_fn)) sys.error("parse: func");
-            tp = Program.root.fnames[_fn];
+            if (! IDS.root.fnames.ContainsKey(_fn)) sys.error("parse: func");
+            tp = IDS.root.fnames[_fn];
             if (_pair) { if (isequnow(ispair)) {if (isequnow('[')) tp = 8; next();} else sys.error("parse: func"); }
             switch (tp) {
                 case 7:
@@ -5187,10 +5251,6 @@ namespace shard0
                 isi = ! isi;
             }
             ln[0].simple(); return ln[0];
-        }
-        public void Dispose()
-        {
-            sys.Dispose();
         }
 
         public string print_mul(Complex p, ref bool first, bool noone)
@@ -5295,7 +5355,7 @@ namespace shard0
         public string print(Func f, bool nopow)
         {
             if (f == null) return "";
-            string ret = Program.root.funcs_name[f.type];
+            string ret = IDS.root.funcs_name[f.type];
             Action[] p = {
                   () => {
                       ret += ((Vals)(f.data)).get_name();
@@ -5343,13 +5403,13 @@ namespace shard0
                   () => {
                       return print((Complex)(f.data),false,true);
                   },
-                  () => {return Program.root.funcs_name[2] + print((Many2)(f.data));},
-                  () => {return Program.root.funcs_name[3] + print((Many2)(f.data));},
-                  () => {return Program.root.funcs_name[4] + print((Many2)(f.data));},
-                  () => {return Program.root.funcs_name[5] + print((Many2)(f.data));},
-                  () => {return Program.root.funcs_name[6] + print((Many2)(f.data));},
+                  () => {return IDS.root.funcs_name[2] + print((Many2)(f.data));},
+                  () => {return IDS.root.funcs_name[3] + print((Many2)(f.data));},
+                  () => {return IDS.root.funcs_name[4] + print((Many2)(f.data));},
+                  () => {return IDS.root.funcs_name[5] + print((Many2)(f.data));},
+                  () => {return IDS.root.funcs_name[6] + print((Many2)(f.data));},
                   () => {
-                      string _r = Program.root.funcs_name[7] + "(" + ((Row)(f.data)).point.ToString();
+                      string _r = IDS.root.funcs_name[7] + "(" + ((Row)(f.data)).point.ToString();
                       foreach(KeyValuePair<int,Many2> m in ((Row)(f.data)).data) {
                           _r += "," + print(m.Value);
                       }
@@ -5373,6 +5433,8 @@ namespace shard0
     {
         public Vars var;
         public Complex now,from,step,to;
+        Fdim() {
+        }
         public Fdim(Vars v, Complex n)
         {
             var = v;from = n; now = new Complex(n); step = new Complex(0); to = new Complex(0);
@@ -5381,7 +5443,23 @@ namespace shard0
         {
             var = v; from = f; now = new Complex(f); step = new Complex(s); to = new Complex(t);
             Complex _t = Complex.sub(to,from);
-            if ((_t.sign() == 0) || (_t.sign() != step.sign())) IDS.sys.error("fcalc: wrong direction");
+            if ((_t.sign() == 0) || (_t.sign() != step.sign())) IDS.root.sys.error("fcalc: wrong direction");
+        }
+        public void save(BinaryWriter file) {
+            file.Write((Int32)var.ind);
+            now.save(file);
+            from.save(file);
+            step.save(file);
+            to.save(file);
+        }
+        public static Fdim load(BinaryReader file) {
+            Fdim ret = new Fdim();
+            ret.var = Vars.inds[file.ReadInt32()];
+            ret.now = Complex.load(file);
+            ret.from = Complex.load(file);
+            ret.step = Complex.load(file);
+            ret.to = Complex.load(file);
+            return ret;
         }
         public bool next()
         {
@@ -5397,6 +5475,8 @@ namespace shard0
     {
         Complex nfr, ndiv;
         int ifr, isiz;
+        Ftoint() {
+        }
         public Ftoint(Complex _nfr, Complex _n, int _ifr, int _i, bool siz)
         {
             nfr = new Complex(_nfr); ifr = _ifr;
@@ -5407,6 +5487,28 @@ namespace shard0
             }
             ndiv.div();
         }
+
+        public static void save(BinaryWriter file, Ftoint f) {
+            if (f == null) file.Write(false); else {
+                file.Write(true);
+                f.nfr.save(file);
+                f.ndiv.save(file);
+                file.Write((Int32)f.ifr);
+                file.Write((Int32)f.isiz);
+            }
+        }
+        public static Ftoint load(BinaryReader file) {
+            Ftoint ret = null;
+            if (file.ReadBoolean()) {
+                ret = new Ftoint();
+                ret.nfr = Complex.load(file);
+                ret.ndiv = Complex.load(file);
+                ret.ifr = file.ReadInt32();
+                ret.isiz = file.ReadInt32();
+            }
+            return ret;
+        }
+
         public int get(Complex n)
         {
             Complex t = Complex.sub(n,nfr);
@@ -5420,10 +5522,12 @@ namespace shard0
     public class Fdo
     {
         int type,parm;
-        string sb,sa;
+        string sb = "",sa = "";
         public Vals x,y,r,g,b;
         public Ftoint tx,ty,tr,tg,tb;
         public int ir,ig,ib;
+        Fdo() {
+        }
         public Fdo(int p, string b, string a, Vals v, int i0, int i1)
         {
             type = 0; parm = p; sb = b; sa=a;  x = v; ir = i0; ig = i1;
@@ -5434,16 +5538,52 @@ namespace shard0
             x = _x; tx = _tx; y = _y; ty = _ty;
             r = null; g = null; b = null; tr = null; tg = null; tb = null; ir = _ir; ig = _ig; ib = _ib;
         }
+        public void save(BinaryWriter file) {
+            file.Write((Int32)type); file.Write((Int32)parm);
+            file.Write(sb); file.Write(sa);
+            Vals.save(file,x);
+            Vals.save(file,y);
+            Vals.save(file,r);
+            Vals.save(file,g);
+            Vals.save(file,b);
+            Ftoint.save(file,tx);
+            Ftoint.save(file,ty);
+            Ftoint.save(file,tr);
+            Ftoint.save(file,tg);
+            Ftoint.save(file,tb);
+            file.Write((Int32)ir); 
+            file.Write((Int32)ig);
+            file.Write((Int32)ib);
+        }
+        public static Fdo load(BinaryReader file) {
+            Fdo ret = new Fdo();
+            ret.type = file.ReadInt32(); ret.parm = file.ReadInt32();
+            ret.sb = file.ReadString(); ret.sa = file.ReadString();
+            ret.x = Vals.load(file);
+            ret.y = Vals.load(file);
+            ret.r = Vals.load(file);
+            ret.g = Vals.load(file);
+            ret.b = Vals.load(file);
+            ret.tx = Ftoint.load(file);
+            ret.ty = Ftoint.load(file);
+            ret.tr = Ftoint.load(file);
+            ret.tg = Ftoint.load(file);
+            ret.tb = Ftoint.load(file);
+            ret.ir = file.ReadInt32();
+            ret.ig = file.ReadInt32();
+            ret.ib = file.ReadInt32();
+            return ret;
+        }
         public void doit()
         {
             switch(type) {
                 case 0: //print x"str" to #parm
-                    IDS.sys.wstr(parm,sb + (x == null ? "" : (ir < 0 ? IDS.par.print(x.get_val(),0) : (ir == 0 ? x.get_val().toint().ToString().Trim() : IDS.par.print(x.get_val(),ir,ig)))) + sa);
+                    IDS.root.sys.wstr(parm,sb + (x == null ? "" : (ir < 0 ? IDS.root.par.print(x.get_val(),0) : (ir == 0 ? x.get_val().toint().ToString().Trim() : IDS.root.par.print(x.get_val(),ir,ig)))) + sa);
                     break;
                 case 1:
                     int _x = tx.get(x.get_val());
                     int _y = ty.get(y.get_val());
-                    Program.bm1.SetPixel(_x,_y, Color.FromArgb(
+                    IDS.root.pic.SetPixel(_x,_y, Color.FromArgb(
                         (r == null ? ir : tr.get(r.get_val())),
                         (g == null ? ig : tg.get(g.get_val())),
                         (b == null ? ib : tr.get(b.get_val()))));
@@ -5472,8 +5612,8 @@ namespace shard0
             file.Write((UInt16)id.Count);
             foreach(Func f in id) f.save(file);
         }
-        public static Flow load(BinaryReader file) {
-            Flow ret = new Flow(file.ReadUInt16(),100);
+        public static Flow load(BinaryReader file, int time) {
+            Flow ret = new Flow(file.ReadUInt16(),time);
             int i = 0; while (i < ret.patch.Length) ret.patch[i++] = file.ReadInt32();
             int cnt = file.ReadUInt16(); i = 0; while (i < cnt) {ret.id.Add(Func.load(file)); i++;}
             ret.read = file;
@@ -5483,16 +5623,6 @@ namespace shard0
             int i = 0; while (i < patch.Length) patch[i++] = 0;
             id.Clear();
         }
-/*
-        public void next_level(){
-            level++;
-            if (level >= patch.Length) IDS.sys.error("flow: level++");
-        }
-        public void prev_level(){
-            level--;
-            if (level < 0) IDS.sys.error("flow: level--");
-        }
- */
         public void set_bit(int level, int bit) {
             patch[level] |= (1 << bit);
         }
@@ -5501,74 +5631,80 @@ namespace shard0
         }
         public Func get_var_func(int level) { return Vars.inds[patch[level]].var; }
         public Vars get_var(int level) { return Vars.inds[patch[level]]; }
-        public void select(int level, Action[] sel) {
-            if (patch[level] < sel.Length) sel[patch[level]](); else IDS.sys.error("flow: select");
+        public void save(Action<BinaryWriter> _s) {
+            BinaryWriter _f = IDS.root.save(IDS.root.sys.name + ".bin");
+            _s(_f);
+            _f.Close();
+            IDS.root.sys.flag = IDS.root.pic.Width.ToString() + "," + IDS.root.pic.Height.ToString() + "," + 
+                    IDS.digit10.ToString() + "," + IDS.sqr_steps.ToString() + "," + IDS.exp_max.ToString() + "," +
+                    IDS.time.ToString() + "," + IDS.root.n_step.ToString() + "," + IDS.root.steps.ToString();
         }
-        public void repeat(int level, int max, Action<int> rep, Action save) {
+        public void select(int level, Action[] sel) {
+            if (patch[level] < sel.Length) sel[patch[level]](); else IDS.root.sys.error("flow: select");
+        }
+        public void repeat(int level, int max, Action<int> rep, Action<BinaryWriter> savex) {
             while (patch[level] < max) {
                 if (DateTime.Now > time) {
-                    save(); IDS.sys.finish();
+                    save(savex); IDS.root.sys.finish();
                 }
                 rep(patch[level]);
                 patch[level]++;
             }
             patch[level] = 0;
         }
-        public void repeat<T>(int level, List<T> list, Action<T> rep, Action save) {
+        public void repeat<T>(int level, List<T> list, Action<T> rep, Action<BinaryWriter> savex) {
             while (patch[level] < list.Count) {
                 if (DateTime.Now > time) {
-                    save(); IDS.sys.finish();
+                    save(savex); IDS.root.sys.finish();
                 }
                 rep(list[patch[level]]);
                 patch[level]++;
             }
             patch[level] = 0;
         }
-        public void repeat(int level, Action[] rep, Action save) {
+        public void repeat(int level, Action[] rep, Action<BinaryWriter> savex) {
             while (patch[level] < rep.Length) {
                 if (DateTime.Now > time) {
-                    save(); IDS.sys.finish();
+                    save(savex); IDS.root.sys.finish();
                 }
                 rep[patch[level]]();
                 patch[level]++;
             }
         }
+        public void repeat(Func<bool> rep, Action<BinaryWriter> savex) {
+            do {
+                if (DateTime.Now > time) {
+                    save(savex); IDS.root.sys.finish();
+                }
+            } while (rep());
+        }
     }
     public static class Program
     {
-        public static System.Drawing.Bitmap bm1;
-        public static Parse par;
-        public static IDS root;
-
-
+        static IDS root;
         static int Main(string[] args)
         {
-            IDS.sx = 0; IDS.sy = 0; int step = 4, exp = 11;
-            Vals.inds = new Vals[100];
-            Vars.inds = new Vars[100];
             if (args.Length < 1) return 0;
             try {
-            Fileio _f = new Fileio(args[0]);
-            par = new Parse(_f);
-            par.lnext(); IDS.sx = par.get_int(); par.next(); IDS.sy = par.get_int(); par.next(); step = par.get_int(); par.next(); exp = par.get_int();
-            if ((IDS.sx < 100) || (IDS.sx > 2000) || (IDS.sy < 100) || (IDS.sy > 2000) || (step < 4) || (step > 11) || (exp < 11) || (exp > 6666)) _f.error("wrong head");
-//            m0 = new Shard0(sx, sy);
-            bm1 = new System.Drawing.Bitmap(IDS.sx, IDS.sy);
-            for (int i0 = 0; i0 < IDS.sx; i0++) for (int i1 = 0; i1 < IDS.sy; i1++) bm1.SetPixel(i0, i1, Color.FromArgb(0, 0, 0));
-            root = new IDS(step, exp, par.sys,par,new Flow(11,100));
-            root.v_pi = root.findadd_var("pi"); root.v_pi.var = new Func(new Complex(IDS.n_pi));
-            par.next(); root.v_e = root.findadd_var("e"); root.v_e.var = new Func(new Complex(IDS.n_e));
-            par.next(); root.v_ln2 = root.findadd_var("ln2"); root.v_ln2.var = new Func(new Complex(IDS.n_ln2));
-            par.next(); root.v_ln2 = root.findadd_var("i"); root.v_ln2.var = new Func(new Complex(Complex._i1));
-            par.next(); root.v_x = root.findadd_var("x"); root.v_n = root.findadd_var("n");
-            IDS.v_res = 5;
-//            try {
-            doit();
-//            } catch (OutOfMemoryException e) {  }
+                Vals.inds = new Vals[100];
+                Vars.inds = new Vars[100];
+                Fileio _f = new Fileio(args[0]);
+                root = new IDS(_f,new Parse(_f),new Flow(11,5));
+                doit();
             } catch (FinishException fe) {
-
+                return 0;
+            } catch (OutOfMemoryException e) {
+                root.par.sys.wline(0,"Position " + IDS.root.par.pos.ToString() + ": " + ((IDS.now_func != null) ? IDS.root.par.print(IDS.now_func,true) + " " : "") + "fatal: memory out");
+                root.par.sys.flag = "#error:fatal:memory out";
+                root.par.sys.finish();
+                return -1;
+            } catch (Exception ee) {
+                root.par.sys.wline(0,"Position " + IDS.root.par.pos.ToString() + ": " + ((IDS.now_func != null) ? IDS.root.par.print(IDS.now_func,true) + " " : "") + "fatal: " + ee.ToString());
+                root.par.sys.flag = "#error:fatal:" + ee.ToString();
+                root.par.sys.finish();
+                return -1;
             }
-            return IDS.ret;
+            return 0;
         }
         struct calc_out {
             public readonly string str;
@@ -5578,10 +5714,10 @@ namespace shard0
             }
         };
         static Ftoint d_toint(List<Fdim> fdim, Vals v, int fr, int sz) {
-            if (par.isequnow('{')) return new Ftoint(par.calc(),par.calc(),fr,fr+sz,false);
+            if (IDS.root.par.isequnow('{')) return new Ftoint(IDS.root.par.calc(),IDS.root.par.calc(),fr,fr+sz,false);
             else {
                 foreach (Fdim fd in fdim) if ((fd.var == v.var) && (fd.step.sign() != 0)) return new Ftoint(fd.from, fd.to,fr,fr+sz,false);
-                IDS.sys.error("draw: no interval");
+                IDS.root.sys.error("draw: no interval");
             }
             return null;
         }
@@ -5619,85 +5755,124 @@ namespace shard0
             Vals val0,val1;
             string val;
             MAO_dict mao = null;
-
+            Parse par = IDS.root.par;
+            Flow flow = IDS.root.flow;
+            List<Fdim> fdim = new List<Fdim>();
+            List<Fdo> fdo = new List<Fdo>();
             const int flow_level_oper = 0;
             const int flow_level_var = 1;
             const int flow_level_flag = 2;
             const int flow_level_step0 = 3;
             const int flow_level_step1 = 4;
-
-            par.init();
-            Action save = () => {
-                IDS.root.save().Close();
+            Action[] load = {
+                () => {},
+                () => {if (IDS.root.flow.is_bit(flow_level_flag,0)) mao = MAO_dict.load(IDS.root.fload);},
+                () => {
+                    int _i = 0, cnt = IDS.root.fload.ReadInt16();
+                    while (_i < cnt) {fdim.Add(Fdim.load(IDS.root.fload)); _i++;}
+                    _i = 0; cnt = IDS.root.fload.ReadInt16();
+                    while (_i < cnt) {fdo.Add(Fdo.load(IDS.root.fload)); _i++;}
+                }
             };
-            Action<Func> expand_revert = (Func _i) => IDS.flow.get_var_func(flow_level_var).revert(_i);
-            Action<Func> expand_expand = (Func _i) => {if (IDS.flow.is_bit(flow_level_flag,1)) mao.expand(0,mao.val(_i)); else IDS.flow.get_var_func(flow_level_var).expand(_i);};
+
+            if (IDS.root.fload != null) {
+                load[flow.patch[flow_level_oper]]();
+                IDS.root.fload.Close();
+                File.Delete("step.bin");
+            }
+
+            Action<BinaryWriter> save1 = (BinaryWriter _f) => {
+                if (mao != null) mao.save(_f);
+            };
+            Action<BinaryWriter> save2 = (BinaryWriter _f) => {
+                _f.Write((Int16)fdim.Count);
+                foreach (Fdim fd in fdim) fd.save(_f);
+                _f.Write((Int16)fdo.Count);
+                foreach (Fdo fd in fdo) fd.save(_f);
+            };
+            Action<Func> expand_revert = (Func _i) => flow.get_var_func(flow_level_var).revert(_i);
+            Action<Func> expand_expand = (Func _i) => {if (flow.is_bit(flow_level_flag,1)) mao.expand(0,mao.val(_i)); else flow.get_var_func(flow_level_var).expand(_i);};
             Action[] expand = {
             () => {
-                IDS.flow.repeat(flow_level_step1,IDS.flow.id,expand_revert,save);
-                if (IDS.flow.is_bit(flow_level_flag,0)) mao.val(new Func(IDS.flow.get_var(flow_level_var).vals[0]));
+                flow.repeat(flow_level_step1,flow.id,expand_revert,save1);
+                if (flow.is_bit(flow_level_flag,0)) mao.val(new Func(flow.get_var(flow_level_var).vals[0]));
             },
-            () => IDS.flow.repeat(flow_level_step1,IDS.flow.id,expand_expand,save),
+            () => flow.repeat(flow_level_step1,flow.id,expand_expand,save1),
             () => {
-                if (IDS.flow.is_bit(flow_level_flag,0)) IDS.flow.get_var(flow_level_var).var = mao.mao[0].to_func(); else IDS.flow.get_var_func(flow_level_var).simple();
-            },
-            () => {
-                if (IDS.flow.is_bit(flow_level_flag,1)) Vars.inds[IDS.flow.patch[flow_level_var]].var.expand();
+                if (flow.is_bit(flow_level_flag,0)) flow.get_var(flow_level_var).var = mao.mao[0].to_func(); else flow.get_var_func(flow_level_var).simple();
             },
             () => {
-                        if (IDS.flow.is_bit(flow_level_flag,2) && ((IDS.flow.get_var_func(flow_level_var).type == 2) && (((Many2)(IDS.flow.get_var_func(flow_level_var).data)).down.type_exp() < 2)))
+                if (flow.is_bit(flow_level_flag,1)) Vars.inds[flow.patch[flow_level_var]].var.expand();
+            },
+            () => {
+                        if (flow.is_bit(flow_level_flag,2) && ((flow.get_var_func(flow_level_var).type == 2) && (((Many2)(flow.get_var_func(flow_level_var).data)).down.type_exp() < 2)))
                         {
-                            ((Many2)(IDS.flow.get_var_func(flow_level_var).data)).down.div();
-                            ((Many2)(IDS.flow.get_var_func(flow_level_var).data)).up.mul(((Many2)(IDS.flow.get_var_func(flow_level_var).data)).down.data.ElementAt(0).Key,((Many2)(IDS.flow.get_var_func(flow_level_var).data)).down.data.ElementAt(0).Value);
-                            ((Many2)(IDS.flow.get_var_func(flow_level_var).data)).down = new Many(new Complex(1));
+                            ((Many2)(flow.get_var_func(flow_level_var).data)).down.div();
+                            ((Many2)(flow.get_var_func(flow_level_var).data)).up.mul(((Many2)(flow.get_var_func(flow_level_var).data)).down.data.ElementAt(0).Key,((Many2)(flow.get_var_func(flow_level_var).data)).down.data.ElementAt(0).Value);
+                            ((Many2)(flow.get_var_func(flow_level_var).data)).down = new Many(new Complex(1));
                         }
-                        par.sys.wline(0,par.print(IDS.flow.patch[flow_level_var]));
+                        par.sys.wline(0,par.print(flow.patch[flow_level_var]));
             }
             };
+            Func<bool> numeric = () => {
+                  root.uncalc(); foreach (Fdim fd in fdim) fd.var.set_now(fd.now);
+                  foreach(Fdo fd in fdo) fd.doit();
+                  foreach (Fdim fd in fdim) {
+                      if (fd.next()) return true;
+                  }
+                  return false;
+            };
+
+
+
             Action[] oper = {
             () => {},
-            () => IDS.flow.repeat(flow_level_oper,expand,save)
+            () => flow.repeat(flow_level_step0,expand,save1),
+            () => flow.repeat(numeric,save2)
             };
 
             do {
-                IDS.flow.select(flow_level_oper,oper);
-                IDS.flow.clear();
+                flow.select(flow_level_oper,oper);
+                flow.clear(); mao = null;
+
+                if (par.body_num >= par.body.Count) break;
+                if (par.main_oper != '=') IDS.root.n_step++;
 
                 switch (par.main_oper) 
                 {
                     case '=':
-                        if (root.fnames.ContainsKey(par.name)) IDS.sys.error("reserved name");
+                        if (root.fnames.ContainsKey(par.name)) IDS.root.sys.error("reserved name");
                         var0 = root.findadd_var(par.name);
-                        if (var0.ind < IDS.v_res) IDS.sys.error("reserved var");
+                        if (var0.ind < IDS.v_res) IDS.root.sys.error("reserved var");
                         par.next();
                         var0.var = (par.isequnow(Parse.isend) ? null : par.fpars("",false));
                         par.sys.wline(0,par.print(var0));
                     break;
                     case '$':
-                        IDS.flow.patch[flow_level_oper] = 1;
-                        IDS.flow.patch[flow_level_var]= root.find_var_fill(par.name).ind;
+                        flow.patch[flow_level_oper] = 1;
+                        flow.patch[flow_level_var]= root.find_var_fill(par.name).ind;
                         par.next();
                         if (par.isequnow('!'))
                         {
-                            IDS.flow.set_bit(flow_level_flag,0); par.next(); mao = new MAO_dict(par.get_int()); par.next();
+                            flow.set_bit(flow_level_flag,0); par.next(); mao = new MAO_dict(par.get_int()); par.next();
                         }
                         if (par.isequnow('*')) {
-                            IDS.flow.id = d_vals(IDS.flow.get_var_func(flow_level_var)); par.next();
+                            flow.id = d_vals(flow.get_var_func(flow_level_var)); par.next();
                         } else {
-                            IDS.flow.id.Clear();
+                            flow.id.Clear();
                             while (par.isequnow(Parse.isname)) {
                                 val = par.get(Parse.isname); 
                                 if (par.isequnow(',')) par.next();
                                 val0 = root.find_val(val);
-                                if (val0.var.ind == IDS.flow.patch[flow_level_var]) par.sys.error(par.name + " $recursion - look recursion");
-                                if (val0.var.var != null) IDS.flow.id.Add(new Func(val0));
+                                if (val0.var.ind == flow.patch[flow_level_var]) par.sys.error(par.name + " $recursion - look recursion");
+                                if (val0.var.var != null) flow.id.Add(new Func(val0));
                             }
                         }
                         if (par.isequnow('@')) {
-                            IDS.flow.set_bit(flow_level_flag,1); par.next();
-                            if (IDS.flow.is_bit(flow_level_flag,0)) IDS.sys.error("cant @ on !");
+                            flow.set_bit(flow_level_flag,1); par.next();
+                            if (flow.is_bit(flow_level_flag,0)) IDS.root.sys.error("cant @ on !");
                         }
-                        if (par.isequnow('$')) {IDS.flow.set_bit(flow_level_flag,2); par.next();}
+                        if (par.isequnow('$')) {flow.set_bit(flow_level_flag,2); par.next();}
                     break;
 
                     case '|':
@@ -5724,13 +5899,14 @@ namespace shard0
                         par.sys.wline(0,par.print(var0));
                     break;
                     case '[':
+                        flow.patch[flow_level_oper] = 2;
                         par.next();
-                        List<Fdim> fdim = new List<Fdim>();
-                        List<Fdo> fdo = new List<Fdo>();
+                        fdim.Clear();
+                        fdo.Clear();
                         do {
-                            if (! par.isequnow(Parse.isabc)) IDS.sys.error("calc: wrong");
+                            if (! par.isequnow(Parse.isabc)) IDS.root.sys.error("calc: wrong");
                             var0 = root.find_var(par.get(Parse.isname));
-                            foreach (Fdim fd in fdim) if (fd.var.ind == var0.ind) IDS.sys.error("calc: double");
+                            foreach (Fdim fd in fdim) if (fd.var.ind == var0.ind) IDS.root.sys.error("calc: double");
                             switch (par.now) 
                             {
                                 case '[':
@@ -5742,7 +5918,7 @@ namespace shard0
                                     fdim.Add(new Fdim(var0,par.calc()));
                                     break;
                                 default:
-                                    IDS.sys.error("calc: wrong");
+                                    IDS.root.sys.error("calc: wrong");
                                     break;
                             }
                             if (par.now == ']') break;
@@ -5752,9 +5928,9 @@ namespace shard0
                         while(par.more()) {
                             if (par.isequnow(Parse.isabc)) {
                                 val0 = root.find_val(par.get(Parse.isname));
-                                if (! par.isequnow('"')) IDS.sys.error("wrong do");
+                                if (! par.isequnow('"')) IDS.root.sys.error("wrong do");
                                 String[] sp = str_proc(par.get("\""));
-                                if (sp.Length != 3) IDS.sys.error("wrong do");
+                                if (sp.Length != 3) IDS.root.sys.error("wrong do");
                                 int _a = -1, _b = 0;
                                 if (sp[1] == "i") _a = 0; else {
                                     String[] _sp = sp[1].Split(spl);
@@ -5777,27 +5953,27 @@ namespace shard0
                                         par.next(); _fy = par.get_int();
                                         par.next(); _sy = par.get_int();
                                         par.next();
-                                        if ((_sx < 4) || (_sy < 4) || (_fx + _sx >= IDS.sx)  || (_fy + _sy >= IDS.sy)) IDS.sys.error("draw: wrong");
+                                        if ((_sx < 4) || (_sy < 4) || (_fx + _sx >= IDS.root.pic.Width)  || (_fy + _sy >= IDS.root.pic.Height)) IDS.root.sys.error("draw: wrong");
                                     } else {
-                                        _fx = 0; _sx = IDS.sx-1; _fy = 0; _sy = IDS.sy-1;
+                                        _fx = 0; _sx = IDS.root.pic.Width-1; _fy = 0; _sy = IDS.root.pic.Height-1;
                                     }
                                     val0 = root.find_val(par.get(Parse.isname));
                                     Ftoint ftx = d_toint(fdim,val0,_fx,_sx);
-                                    if (! par.isequnow(',')) IDS.sys.error("draw:wrong"); par.next();
+                                    if (! par.isequnow(',')) IDS.root.sys.error("draw:wrong"); par.next();
                                     val1 = root.find_val(par.get(Parse.isname));
                                     Ftoint fty = d_toint(fdim,val1,_fy,_sy);
                                     Fdo _fd = new Fdo(val0,ftx,val1,fty,0,0,0);
-                                    if (! par.isequnow(',')) IDS.sys.error("draw:wrong"); par.next();
+                                    if (! par.isequnow(',')) IDS.root.sys.error("draw:wrong"); par.next();
                                     if (par.isequnow(Parse.isnum)) _fd.ir = par.get_int(); else {
                                         _fd.r = root.find_val(par.get(Parse.isname));
                                         _fd.tr = d_toint(fdim,_fd.r,0,255);
                                     }
-                                    if (! par.isequnow(',')) IDS.sys.error("draw:wrong"); par.next();
+                                    if (! par.isequnow(',')) IDS.root.sys.error("draw:wrong"); par.next();
                                     if (par.isequnow(Parse.isnum)) _fd.ig = par.get_int(); else {
                                         _fd.g = root.find_val(par.get(Parse.isname));
                                         _fd.tg = d_toint(fdim,_fd.g,0,255);
                                     }
-                                    if (! par.isequnow(',')) IDS.sys.error("draw:wrong"); par.next();
+                                    if (! par.isequnow(',')) IDS.root.sys.error("draw:wrong"); par.next();
                                     if (par.isequnow(Parse.isnum)) _fd.ib = par.get_int(); else {
                                         _fd.b = root.find_val(par.get(Parse.isname));
                                         _fd.tb = d_toint(fdim,_fd.b,0,255);
@@ -5807,15 +5983,7 @@ namespace shard0
                             }
                             if (par.isequnow(',')) par.next();
                         }
-                        bool w;
-                        do {
-                            root.uncalc(); foreach (Fdim fd in fdim) fd.var.set_now(fd.now);
-                            foreach(Fdo fd in fdo) fd.doit();
-                            w = false;
-                            foreach (Fdim fd in fdim) {
-                                if (w = fd.next()) break;
-                            }
-                        } while (w);
+
 //                        m0.Set(1); m0.Set(2); m0.rp = true;
                         break;
                 }
@@ -5823,12 +5991,14 @@ namespace shard0
 
                 
             } while(par.bnext());
-            IDS.flow.select(flow_level_oper,oper);
+            IDS.root.flow.select(flow_level_oper,oper);
 
 
             par.sys.wline(0,"finished, vars = " + (root.var.Count()).ToString());
-            bm1.Save(par.sys.nout + ".png");
+            par.sys.flag = "#ok";
             par.sys.finish();
+        }
+        static void none() {
         }
     }
 }
