@@ -251,10 +251,10 @@ namespace shard0
             while (i != 0) {i >>= 1; i0++;}
             return i0;
         }
-        public IDS(Fileio f, Parse p, Flow fl)
+        public IDS(Fileio f, Parse p)
         {
             int i,sx=0,sy=0,exp=0; string parm;
-            sys = f; par = p; flow = fl; stat_uncalc = 1; stat_calc = 2;
+            sys = f; par = p; stat_uncalc = 1; stat_calc = 2;
             fnames = new SortedDictionary<string,int>();
             var = new SortedDictionary<string,Vars>();
             IDS.ln = new SortedDictionary<Num,Num>();
@@ -280,7 +280,7 @@ namespace shard0
                 Int32.TryParse(parms[5],out time) && Int32.TryParse(parms[6],out n_step) && Int32.TryParse(parms[7],out steps))) sys.error("wrong parms");
             if ((sx < 100) || (sx > 2000) || (sy < 100) || (sy > 2000) || (sqr_steps < 4) || (sqr_steps > 11) || 
                 (exp < 11) || (exp > 6666) || (digit10 < 11) || (digit10 > 2000) ||
-                (time < 6) || (time > 20)) sys.error("wrong head");
+                (time < 6)) sys.error("wrong head");
             if (File.Exists(sys.name + ".png")) {
                 Bitmap tb = new Bitmap(par.sys.name + ".png");
                 pic = new Bitmap(tb);
@@ -350,6 +350,7 @@ namespace shard0
             }
             root = this;
             if (sys.flag == "") {
+                flow = new Flow(11,time);
                 par.init();
             } else {
                 load(sys.name + ".bin");
@@ -1281,6 +1282,10 @@ namespace shard0
         public BigInteger toint()
         {
             return (i.sign == 0 ? r.toint() : mod().toint());
+        }
+        public double todouble()
+        {
+            return (i.sign == 0 ? r.todouble() : mod().todouble());
         }
 
     }
@@ -2527,140 +2532,99 @@ namespace shard0
     }
     public class Matrix: IComparable {
         public Func[,] data;
-        public int x,y;
-        public Matrix(int _x, int _y) {
-            x=_x; y=_y;
-            if ((x == 0) || (y == 0)) IDS.root.sys.error("matr: 0 size");
-            data = new Func[x,y];
+        public int y,x;
+        public Matrix(int _y, int _x) {
+            y=_y; x=_x;
+            if ((y == 0) || (x == 0)) IDS.root.sys.error("matr: 0 size");
+            data = new Func[y,x];
         }
         public Matrix(Matrix m) {
-            x = m.x; y = m.y;
-            data = new Func[x,y];
-            int ix,iy;
-            ix = 0; while (ix < x) {
-                iy = 0; while (iy < y) {
-                    data[ix,iy] = new Func(m.data[ix,iy]);
-                    iy++;
+            y = m.y; x = m.x;
+            data = new Func[y,x];
+            int ix,iy = 0; while (iy < y) {
+                ix = 0; while (ix < x) {
+                    data[iy,ix] = new Func(m.data[iy,ix]);
+                    ix++;
                 }
-                ix++;
+                iy++;
             }
         }
-        public Matrix(Matrix m, int _x) {
-            x = m.x-1; y = m.y-1;
-            data = new Func[x,y];
-            int ix,iy;
-            ix = 0; while (ix < x) {
-                iy = 0; while (iy < y) {
-                    data[ix,iy] = new Func(m.data[(ix < _x ? ix : ix+1),iy+1]);
-                    iy++;
+        public Matrix(Matrix m, int _y) {
+            y = m.y-1; x = m.x-1;
+            data = new Func[y,x];
+            int ix,iy = 0; while (iy < y) {
+                ix = 0; while (ix < x) {
+                    data[iy,ix] = new Func(m.data[(iy < _y ? iy : iy+1),ix+1]);
+                    ix++;
                 }
-                ix++;
+                iy++;
             }
         }
         public Matrix(List<List<Func>> tm)
         {
-            x = tm.Count; y = tm[0].Count;
+            y = tm.Count; x = tm[0].Count;
             if ((x == 0) || (y == 0)) IDS.root.sys.error("matr: 0 size");
-            data = new Func[x,y];
-            int ix,iy;
-            ix = 0; while (ix < x) {
-                iy = 0; while (iy < y) {
-                    data[ix,iy] = tm[ix][iy];
-                    iy++;
+            data = new Func[y,x];
+            int ix,iy = 0; while (iy < y) {
+                ix = 0; while (ix < x) {
+                    data[iy,ix] = tm[iy][ix];
+                    ix++;
                 }
-                ix++;
+                iy++;
             }
         }
         public static Matrix load(BinaryReader file)
         {
             Matrix ret = new Matrix(file.ReadInt32(),file.ReadInt32());
-            int ix,iy;
-            ix = 0; while (ix < ret.x) {
-                iy = 0; while (iy < ret.y) {
-                    ret.data[ix,iy] = Func.load(file);
-                    iy++;
+            int ix,iy = 0; while (iy < ret.y) {
+                ix = 0; while (iy < ret.x) {
+                    ret.data[iy,ix] = Func.load(file);
+                    ix++;
                 }
-                ix++;
+                iy++;
             }
             return ret;
         }
         public void save(BinaryWriter file)
         {
-            file.Write((Int32)x);
             file.Write((Int32)y);
-            int ix,iy;
-            ix = 0; while (ix < x) {
-                iy = 0; while (iy < y) {
-                    data[ix,iy].save(file);
-                    iy++;
-                }
-                ix++;
-            }
+            file.Write((Int32)x);
+            foreach (Func _f in data) _f.save(file);
         }
         public void add(Func m) {
-            int ix,iy;
-            ix = 0; while (ix < x) {
-                iy = 0; while (iy < y) {
-                    data[ix,iy].add(m);
-                    iy++;
-                }
-                ix++;
-            }
+            foreach (Func _f in data) _f.add(m);
         }
         public void mul(Func m) {
-            int ix,iy;
-            ix = 0; while (ix < x) {
-                iy = 0; while (iy < y) {
-                    data[ix,iy].mul(m);
-                    iy++;
-                }
-                ix++;
-            }
+            foreach (Func _f in data) _f.mul(m);
         }
         public void mul(Complex m) {
-            int ix,iy;
-            ix = 0; while (ix < x) {
-                iy = 0; while (iy < y) {
-                    data[ix,iy].mul(m);
-                    iy++;
-                }
-                ix++;
-            }
+            foreach (Func _f in data) _f.mul(m);
         }
         public void common(Func m) {
-            int ix,iy;
-            ix = 0; while (ix < x) {
-                iy = 0; while (iy < y) {
-                    data[ix,iy].common(m);
-                    iy++;
-                }
-                ix++;
-            }
+            foreach (Func _f in data) _f.common(m);
         }
         public void add(Matrix m) {
-            if ((x != m.x) || (y != m.y)) IDS.root.sys.error("matr: wrong add");
-            int ix,iy; 
-            ix = 0; while (ix < x) {
-                iy = 0; while (iy < m.y) {
-                    data[ix,iy].add(m.data[ix,iy]);
-                    iy++;
+            if ((y != m.y) || (x != m.x)) IDS.root.sys.error("matr: wrong add");
+            int ix,iy = 0; while (iy < y) {
+                ix = 0; while (ix < m.x) {
+                    data[iy,ix].add(m.data[iy,ix]);
+                    ix++;
                 }
-                ix++;
+                iy++;
             }
         }
         public void mul(Matrix m) {
             if (y != m.x) IDS.root.sys.error("matr: wrong mul");
-            int ix,iy,n; 
-            Func[,] res = new Func[x,m.y];
+            Func[,] res = new Func[y,m.x];
             Func tmp;
-            ix = 0; while (ix < x) {
-                iy = 0; while (iy < m.y) {
-                    res[ix,iy] = new Func(data[ix,0]);
-                    res[ix,iy].mul(m.data[0,iy]);
-                    n = 1; while (n < y) {
-                        tmp = new Func(data[ix,n]);
-                        tmp.mul(m.data[n,iy]);
-                        res[ix,iy].add(tmp);
+            int n,ix,iy = 0; while (iy < y) {
+                ix = 0; while (ix < m.x) {
+                    res[iy,ix] = new Func(data[iy,0]);
+                    res[iy,ix].mul(m.data[0,ix]);
+                    n = 1; while (n < x) {
+                        tmp = new Func(data[iy,n]);
+                        tmp.mul(m.data[n,ix]);
+                        res[iy,ix].add(tmp);
                         n++;
                     }
                     iy++;
@@ -2669,57 +2633,22 @@ namespace shard0
             }
         }
         public void neg() {
-            int ix,iy;
-            ix = 0; while (ix < x) {
-                iy = 0; while (iy < y) {
-                    data[ix,iy].neg();
-                    iy++;
-                }
-                ix++;
-            }
+            foreach (Func _f in data) _f.neg();
         }
         public bool expand(Func val, Exps_f exu, Exps_f exd)
         {
             bool ret = false;
-            int ix,iy;
-            ix = 0; while (ix < x) {
-                iy = 0; while (iy < y) {
-                    ret = data[ix,iy].expand(val,exu,exd) || ret;
-                    iy++;
-                }
-                ix++;
-            }
+            foreach (Func _f in data) ret = _f.expand(val,exu,exd) || ret;
             return ret;
         }
         public void expand() {
-            int ix,iy;
-            ix = 0; while (ix < x) {
-                iy = 0; while (iy < y) {
-                    data[ix,iy].expand();
-                    iy++;
-                }
-                ix++;
-            }
+            foreach (Func _f in data) _f.expand();
         }
         public void deeper(int d) {
-            int ix,iy;
-            ix = 0; while (ix < x) {
-                iy = 0; while (iy < y) {
-                    data[ix,iy].deeper(d);
-                    iy++;
-                }
-                ix++;
-            }
+            foreach (Func _f in data) _f.deeper(d);
         }
         public void findvals(One o) {
-            int ix,iy;
-            ix = 0; while (ix < x) {
-                iy = 0; while (iy < y) {
-                    data[ix,iy].findvals(o);
-                    iy++;
-                }
-                ix++;
-            }
+            foreach (Func _f in data) _f.findvals(o);
         }
         static public Func<Matrix, Many>[] _det = {
               (Matrix t) => {return new Many();},
@@ -2750,39 +2679,25 @@ namespace shard0
             return Matrix._det[x < 4 ? x : 3](this);
         }
         public void replace(Vals v, Func f) {
-            int ix,iy;
-            ix = 0; while (ix < x) {
-                iy = 0; while (iy < y) {
-                    data[ix,iy].replace(v,f);
-                    iy++;
-                }
-                ix++;
-            }
+            foreach (Func _f in data) _f.replace(v,f);
         }
         public void simple() {
-            int ix,iy;
-            ix = 0; while (ix < x) {
-                iy = 0; while (iy < y) {
-                    data[ix,iy].simple();
-                    iy++;
-                }
-                ix++;
-            }
+            foreach (Func _f in data) _f.simple();
         }
         public int CompareTo(object obj) {
             if (obj == null) return data[0,0].CompareTo(null);
             Matrix m = obj as Matrix;
-            int mx = (x > m.x ? x : m.x);
             int my = (y > m.y ? y : m.y);
+            int mx = (x > m.x ? x : m.x);
             int ret, ix, iy;
-            ix = 0; while (ix < mx) {
-                iy = 0; while (iy < my) {
-                    if ((ix < x) && (iy < y)) ret= data[x,y].CompareTo(((ix < m.x) && (iy < m.y)) ? m.data[x,y] : null);
-                    else ret = -m.data[x,y].CompareTo(((ix < x) && (iy < y)) ? data[x,y] : null);
+            iy = 0; while (iy < my) {
+                ix = 0; while (ix < mx) {
+                    if ((iy < y) && (ix < x)) ret= data[y,x].CompareTo(((iy < m.y) && (ix < m.x)) ? m.data[y,x] : null);
+                    else ret = -m.data[y,x].CompareTo(((iy < y) && (ix < x)) ? data[y,x] : null);
                     if (ret != 0) return ret;
-                    iy++;
+                    ix++;
                 }
-                ix++;
+                iy++;
             }
             return 0;
         }
@@ -4717,7 +4632,7 @@ namespace shard0
             if (r == null) { has = false; r = ""; }
             return r;
         }
-        public void finish()
+        public void finish(bool thr)
         {
             StreamWriter fout;
             fin.Close();
@@ -4736,8 +4651,9 @@ namespace shard0
                 File.Delete(name + ".flg");
                 File.Delete(name + ".bin");
             }
-            throw new FinishException();
+            if (thr) throw new FinishException();
         }
+        public void finish() {finish(true);}
         public void error(string e)
         {
             wline(0,"");
@@ -4852,6 +4768,8 @@ namespace shard0
             return Math.Min(i0,i1);
         }
         public void init() {
+            macro.Add("#sx(",new Mbody(0,IDS.root.pic.Height.ToString()));
+            macro.Add("#sy(",new Mbody(0,IDS.root.pic.Width.ToString()));
             string _now = "";
             bool inside = false;
             while (sys.has) if (lnext() && (val.Length > 0)) 
@@ -5471,52 +5389,75 @@ namespace shard0
             return r;
         }
     }
-    public class Ftoint
+    public class Fborder
     {
-        Complex nfr, ndiv;
-        int ifr, isiz;
-        Ftoint() {
-        }
-        public Ftoint(Complex _nfr, Complex _n, int _ifr, int _i, bool siz)
+        public double n0, ns;
+        public double max,min;
+        public Fborder(Complex _nfr, Complex _n)
         {
-            nfr = new Complex(_nfr); ifr = _ifr;
-            if (siz) {
-                ndiv = new Complex(_n); isiz = _i;
-            } else {
-                ndiv = Complex.sub(_n,_nfr); isiz = _i - _ifr;
-            }
-            ndiv.div();
+            n0 = (_nfr == null ? double.NaN : _nfr.todouble());
+            ns = (_n == null ? double.NaN : 1/_n.todouble());
+            max = double.NegativeInfinity; min = double.PositiveInfinity;
         }
 
-        public static void save(BinaryWriter file, Ftoint f) {
+        public static void save(BinaryWriter file, Fborder f) {
             if (f == null) file.Write(false); else {
-                file.Write(true);
-                f.nfr.save(file);
-                f.ndiv.save(file);
-                file.Write((Int32)f.ifr);
-                file.Write((Int32)f.isiz);
+                file.Write(f.n0);
+                file.Write(f.ns);
+                file.Write(f.min);
+                file.Write(f.max);
             }
         }
-        public static Ftoint load(BinaryReader file) {
-            Ftoint ret = null;
+        public static Fborder load(BinaryReader file) {
+            Fborder ret = null;
             if (file.ReadBoolean()) {
-                ret = new Ftoint();
-                ret.nfr = Complex.load(file);
-                ret.ndiv = Complex.load(file);
-                ret.ifr = file.ReadInt32();
-                ret.isiz = file.ReadInt32();
+                ret = new Fborder(null,null);
+                ret.n0 = file.ReadDouble();
+                ret.ns = file.ReadDouble();
+                ret.min = file.ReadDouble();
+                ret.max = file.ReadDouble();
             }
             return ret;
         }
 
-        public int get(Complex n)
+        public double get(Complex n)
         {
-            Complex t = Complex.sub(n,nfr);
-            if (ndiv.sign() != t.sign()) return ifr;
-            t.mul(ndiv);
-            if (! t.great(new Complex(1))) return ifr + isiz;
-            t.mul(new Complex(isiz));
-            return ifr + (int)(t.toint());
+           double t = n.todouble();
+           if (min > t) min = t;
+           if (max < t) max = t;
+           return t;
+        }
+        public int get(Complex n,int s)
+        {
+            double ret = get(n);
+            return (int)((ret - n0) * ns * ((double)s - 0.00000000001));
+        }
+//        Func<Fborder,double,double>[] _re = {
+//           (Fborder t, double d) => {}
+        public void reauto(double[] d) {
+            double t, s = ns, n = n0;
+            if (double.IsNaN(n0)) n =  min;
+            if (double.IsNaN(ns)) s = 1/(max-n);
+            int i = 0; while (i < d.Length) {
+                if (! double.IsNaN(d[i])) {
+                    t = (d[i]-n)*s;
+                    d[i] = (t < 0 ? 0 : (t > 1 ? 1 : t));
+                }
+                i++;
+            }
+        }
+        public void reauto(double[,] d) {
+            double t, s = ns, n = n0;
+            if (double.IsNaN(n0)) n =  min;
+            if (double.IsNaN(ns)) s = 1/(max-n);
+            int my = d.GetLength(0), y = 0, mx = d.GetLength(1), x = 0; while (y < my) {
+                x = 0; while (x < mx) {
+                    t = (d[y,x]-n)*s;
+                    d[y,x] = (t < 0 ? 0 : (t > 1 ? 1 : t));
+                    x++;
+                }
+                y++;
+            }
         }
     }
     public class Fdo
@@ -5524,19 +5465,36 @@ namespace shard0
         int type,parm;
         string sb = "",sa = "";
         public Vals x,y,r,g,b;
-        public Ftoint tx,ty,tr,tg,tb;
-        public int ir,ig,ib;
+        public Fborder tx,ty,tr,tg,tb;
+        public int x0,y0,xs,ys;
+        public double[] y1;
+        public double[,] r2,g2,b2;
         Fdo() {
         }
         public Fdo(int p, string b, string a, Vals v, int i0, int i1)
         {
-            type = 0; parm = p; sb = b; sa=a;  x = v; ir = i0; ig = i1;
+            type = 0; parm = p; sb = b; sa=a;  x = v;
+            x0 = i0; xs = i1;
         }
-        public Fdo(Vals _x, Ftoint _tx, Vals _y, Ftoint _ty, int _ir, int _ig, int _ib)
+        public Fdo(Vals _x, Fborder _tx, int _x0, int _xs, Vals _y, Fborder _ty, int _y0, int _ys, Vals _r, Fborder _tr, Vals _g, Fborder _tg, Vals _b, Fborder _tb)
+        {
+            type = 2;
+            x = _x; tx = _tx; y = _y; ty = _ty;
+            x0 = _x0; xs = _xs; y0 = _y0; ys = _ys;
+            r = _r; tr = _tr;
+            g = _g; tg = _tg;
+            b = _b; tb = _tb;
+            r2 = new double[ys,xs]; 
+            g2 = new double[ys,xs]; 
+            b2 = new double[ys,xs];
+        }
+        public Fdo(Vals _x, Fborder _tx, int _x0, int _xs, Vals _y, Fborder _ty, int _y0, int _ys)
         {
             type = 1;
             x = _x; tx = _tx; y = _y; ty = _ty;
-            r = null; g = null; b = null; tr = null; tg = null; tb = null; ir = _ir; ig = _ig; ib = _ib;
+            x0 = _x0; xs = _xs; y0 = _y0; ys = _ys;
+            y1 = new double[_xs]; 
+            int i = 0; while(i < _xs) y1[i++] = double.NaN;
         }
         public void save(BinaryWriter file) {
             file.Write((Int32)type); file.Write((Int32)parm);
@@ -5546,14 +5504,24 @@ namespace shard0
             Vals.save(file,r);
             Vals.save(file,g);
             Vals.save(file,b);
-            Ftoint.save(file,tx);
-            Ftoint.save(file,ty);
-            Ftoint.save(file,tr);
-            Ftoint.save(file,tg);
-            Ftoint.save(file,tb);
-            file.Write((Int32)ir); 
-            file.Write((Int32)ig);
-            file.Write((Int32)ib);
+            Fborder.save(file,tx);
+            Fborder.save(file,ty);
+            Fborder.save(file,tr);
+            Fborder.save(file,tg);
+            Fborder.save(file,tb);
+            file.Write((Int32)x0);
+            file.Write((Int32)y0);
+            file.Write((Int32)xs);
+            file.Write((Int32)ys);
+            if (type == 1) {
+                file.Write((Int32)(y1.Length));
+                foreach (double _d in y1) file.Write(_d);
+            }
+            if (type == 2) {
+                foreach (double _d in r2) file.Write(_d);
+                foreach (double _d in g2) file.Write(_d);
+                foreach (double _d in b2) file.Write(_d);
+            }
         }
         public static Fdo load(BinaryReader file) {
             Fdo ret = new Fdo();
@@ -5564,33 +5532,94 @@ namespace shard0
             ret.r = Vals.load(file);
             ret.g = Vals.load(file);
             ret.b = Vals.load(file);
-            ret.tx = Ftoint.load(file);
-            ret.ty = Ftoint.load(file);
-            ret.tr = Ftoint.load(file);
-            ret.tg = Ftoint.load(file);
-            ret.tb = Ftoint.load(file);
-            ret.ir = file.ReadInt32();
-            ret.ig = file.ReadInt32();
-            ret.ib = file.ReadInt32();
+            ret.tx = Fborder.load(file);
+            ret.ty = Fborder.load(file);
+            ret.tr = Fborder.load(file);
+            ret.tg = Fborder.load(file);
+            ret.tb = Fborder.load(file);
+            ret.x0 = file.ReadInt32();
+            ret.y0 = file.ReadInt32();
+            ret.xs = file.ReadInt32();
+            ret.ys = file.ReadInt32();
+            if (ret.type == 1) {
+                ret.y1 = new double[file.ReadInt32()];
+                int i = 0; while (i < ret.xs) ret.y1[i++] = file.ReadDouble();
+            }
+            Action<double[,]> _dd = (double[,] _d) => {
+                int _x, _y = 0; while (_y < ret.ys) {
+                    _x = 0; while (_x < ret.xs) {
+                        _d[_y,_x] = file.ReadDouble();
+                        _x++;
+                    }
+                    _y++;
+                }
+            };
+            if (ret.type == 2) {
+                ret.r2 = new double[ret.ys,ret.xs];
+                ret.g2 = new double[ret.ys,ret.xs];
+                ret.b2 = new double[ret.ys,ret.xs];
+                _dd(ret.r2);
+                _dd(ret.g2);
+                _dd(ret.b2);
+            }
             return ret;
         }
         public void doit()
         {
+            int _x,_y;
             switch(type) {
                 case 0: //print x"str" to #parm
-                    IDS.root.sys.wstr(parm,sb + (x == null ? "" : (ir < 0 ? IDS.root.par.print(x.get_val(),0) : (ir == 0 ? x.get_val().toint().ToString().Trim() : IDS.root.par.print(x.get_val(),ir,ig)))) + sa);
+                    IDS.root.sys.wstr(parm,sb + (x == null ? "" : (x0 < 0 ? IDS.root.par.print(x.get_val(),0) : (x0 == 0 ? x.get_val().toint().ToString().Trim() : IDS.root.par.print(x.get_val(),x0,xs)))) + sa);
                     break;
                 case 1:
-                    int _x = tx.get(x.get_val());
-                    int _y = ty.get(y.get_val());
-                    IDS.root.pic.SetPixel(_x,_y, Color.FromArgb(
-                        (r == null ? ir : tr.get(r.get_val())),
-                        (g == null ? ig : tg.get(g.get_val())),
-                        (b == null ? ib : tr.get(b.get_val()))));
+                    _x = tx.get(x.get_val(),y1.Length);
+                    y1[_x] = ty.get(y.get_val());
                     break;
                 case 2:
+                    _x = tx.get(x.get_val(),xs);
+                    _y = ty.get(y.get_val(),ys);
+                    if (r != null) r2[_y,_x] = tr.get(r.get_val());
+                    if (g != null) g2[_y,_x] = tg.get(g.get_val());
+                    if (b != null) b2[_y,_x] = tb.get(b.get_val());
                     break;
                 case 3:
+                    break;
+            }
+        }
+        public void finish() {
+            switch(type) {
+                case 0: //print x"str" to #parm
+                    break;
+                case 1:
+                    ty.reauto(y1);
+                    Graphics _g = Graphics.FromImage(IDS.root.pic);
+                    Pen _p = new Pen(Color.White);
+                    int px = -1, py = -1, _y;
+                    int i = 0; while (i < y1.Length) {
+                        if (! double.IsNaN(y1[i])) {
+                            _y = (int)(ys - 1 - y1[i] * ys);
+                            if (px > -1) _g.DrawLine(_p, px,py,i+x0,_y+y0);
+                            px = i+x0; py = _y+y0;
+                        }
+                        i++;
+                    }
+                    _g.Dispose();
+                    break;
+                case 2:
+                    if (r != null) tr.reauto(r2);
+                    if (g != null) tg.reauto(g2);
+                    if (b != null) tb.reauto(b2);
+                    int ix, iy = 0; while (iy < ys) {
+                        ix = 0; while (ix < xs) {
+                            IDS.root.pic.SetPixel(ix+x0,iy+y0, Color.FromArgb(
+                                (r == null ? 0 : (int)(r2[iy,ix]*255)),
+                                (g == null ? 0 : (int)(g2[iy,ix]*255)),
+                                (b == null ? 0 : (int)(b2[iy,ix]*255))));
+                            ix++;
+                        }
+                        iy++;
+                    }
+
                     break;
             }
         }
@@ -5689,20 +5718,20 @@ namespace shard0
                 Vals.inds = new Vals[100];
                 Vars.inds = new Vars[100];
                 Fileio _f = new Fileio(args[0]);
-                root = new IDS(_f,new Parse(_f),new Flow(11,5));
+                root = new IDS(_f,new Parse(_f));
                 doit();
             } catch (FinishException fe) {
                 return 0;
             } catch (OutOfMemoryException e) {
                 root.par.sys.wline(0,"Position " + IDS.root.par.pos.ToString() + ": " + ((IDS.now_func != null) ? IDS.root.par.print(IDS.now_func,true) + " " : "") + "fatal: memory out");
                 root.par.sys.flag = "#error:fatal:memory out";
-                root.par.sys.finish();
+                root.par.sys.finish(false);
                 return -1;
-            } catch (Exception ee) {
+/*            } catch (Exception ee) {
                 root.par.sys.wline(0,"Position " + IDS.root.par.pos.ToString() + ": " + ((IDS.now_func != null) ? IDS.root.par.print(IDS.now_func,true) + " " : "") + "fatal: " + ee.ToString());
                 root.par.sys.flag = "#error:fatal:" + ee.ToString();
-                root.par.sys.finish();
-                return -1;
+                root.par.sys.finish(false);
+                return -1;*/
             }
             return 0;
         }
@@ -5713,11 +5742,15 @@ namespace shard0
                 str = s; val = v; nout = o;
             }
         };
-        static Ftoint d_toint(List<Fdim> fdim, Vals v, int fr, int sz) {
-            if (IDS.root.par.isequnow('{')) return new Ftoint(IDS.root.par.calc(),IDS.root.par.calc(),fr,fr+sz,false);
-            else {
-                foreach (Fdim fd in fdim) if ((fd.var == v.var) && (fd.step.sign() != 0)) return new Ftoint(fd.from, fd.to,fr,fr+sz,false);
+        static Fborder border(List<Fdim> fdim, Vals v) {
+            if (IDS.root.par.isequnow(',')) {
+                foreach (Fdim fd in fdim) if ((fd.var == v.var) && (fd.step.sign() != 0)) return new Fborder(fd.from, fd.to);
                 IDS.root.sys.error("draw: no interval");
+            } else {
+                Complex n0 = null, ns = null;
+                if (IDS.root.par.isequnow('{')) n0 = IDS.root.par.calc(); else if (IDS.root.par.isequnow('@')) IDS.root.par.next(); else IDS.root.sys.error("wrong draw");
+                if (IDS.root.par.isequnow('{')) ns = IDS.root.par.calc(); else if (IDS.root.par.isequnow('@')) IDS.root.par.next(); else IDS.root.sys.error("wrong draw");
+                return new Fborder(n0,ns);
             }
             return null;
         }
@@ -5791,7 +5824,7 @@ namespace shard0
                 foreach (Fdo fd in fdo) fd.save(_f);
             };
             Action<Func> expand_revert = (Func _i) => flow.get_var_func(flow_level_var).revert(_i);
-            Action<Func> expand_expand = (Func _i) => {if (flow.is_bit(flow_level_flag,1)) mao.expand(0,mao.val(_i)); else flow.get_var_func(flow_level_var).expand(_i);};
+            Action<Func> expand_expand = (Func _i) => {if (flow.is_bit(flow_level_flag,0)) mao.expand(0,mao.val(_i)); else flow.get_var_func(flow_level_var).expand(_i);};
             Action[] expand = {
             () => {
                 flow.repeat(flow_level_step1,flow.id,expand_revert,save1);
@@ -5820,6 +5853,7 @@ namespace shard0
                   foreach (Fdim fd in fdim) {
                       if (fd.next()) return true;
                   }
+                  foreach(Fdo fd in fdo) fd.finish();
                   return false;
             };
 
@@ -5957,26 +5991,29 @@ namespace shard0
                                     } else {
                                         _fx = 0; _sx = IDS.root.pic.Width-1; _fy = 0; _sy = IDS.root.pic.Height-1;
                                     }
-                                    val0 = root.find_val(par.get(Parse.isname));
-                                    Ftoint ftx = d_toint(fdim,val0,_fx,_sx);
-                                    if (! par.isequnow(',')) IDS.root.sys.error("draw:wrong"); par.next();
-                                    val1 = root.find_val(par.get(Parse.isname));
-                                    Ftoint fty = d_toint(fdim,val1,_fy,_sy);
-                                    Fdo _fd = new Fdo(val0,ftx,val1,fty,0,0,0);
-                                    if (! par.isequnow(',')) IDS.root.sys.error("draw:wrong"); par.next();
-                                    if (par.isequnow(Parse.isnum)) _fd.ir = par.get_int(); else {
-                                        _fd.r = root.find_val(par.get(Parse.isname));
-                                        _fd.tr = d_toint(fdim,_fd.r,0,255);
+                                    Vals[] _tv = new Vals[6];
+                                    Fborder[] _tb = new Fborder[6];
+                                    Fdo _fd = null;
+                                    int _tn = 0;
+                                    while (! par.isequnow(']')) {
+                                        if (_tn > 5) root.sys.error("draw: wrong parm num");
+                                        if (! par.isequnow(',')) {
+                                            _tv[_tn] = root.find_val(par.get(Parse.isname));
+                                            _tb[_tn] = border(fdim,_tv[_tn]);
+                                        }
+                                        if (par.isequnow(',')) par.next();
+                                        _tn++;
                                     }
-                                    if (! par.isequnow(',')) IDS.root.sys.error("draw:wrong"); par.next();
-                                    if (par.isequnow(Parse.isnum)) _fd.ig = par.get_int(); else {
-                                        _fd.g = root.find_val(par.get(Parse.isname));
-                                        _fd.tg = d_toint(fdim,_fd.g,0,255);
-                                    }
-                                    if (! par.isequnow(',')) IDS.root.sys.error("draw:wrong"); par.next();
-                                    if (par.isequnow(Parse.isnum)) _fd.ib = par.get_int(); else {
-                                        _fd.b = root.find_val(par.get(Parse.isname));
-                                        _fd.tb = d_toint(fdim,_fd.b,0,255);
+                                    switch (_tn) {
+                                        case 2:
+                                            _fd = new Fdo(_tv[0],_tb[0],_fx,_sx,_tv[1],_tb[1],_fy,_sy);
+                                            break;
+                                        case 5:
+                                            _fd = new Fdo(_tv[0],_tb[0],_fx,_sx,_tv[1],_tb[1],_fy,_sy,_tv[2],_tb[2],_tv[3],_tb[3],_tv[4],_tb[4]);
+                                            break;
+                                        default:
+                                            root.sys.error("draw: wrong parm num");
+                                            break;
                                     }
                                     par.next(); fdo.Add(_fd);
                                     break;
