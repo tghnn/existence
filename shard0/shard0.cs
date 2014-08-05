@@ -118,7 +118,7 @@ namespace shard0
 
         public static void save(BinaryWriter file, Vals v)
         {
-            file.Write((v == null ? -1 : (Int32)(v.ind)));
+            file.Write((Int32)(v == null ? -1 : v.ind));
         }
         public Exps_n get_exp()
         {
@@ -229,7 +229,7 @@ namespace shard0
         public static Num ln_prec,n_e_full,n_e,n_pi_full,n_pi,n_ln2_full,n_ln2;
         public static IDS root;
         public static BigInteger exp_max;
-        public static int prec2,prec10,digit10,sqr_steps,sqr_exp_bits, v_res, time;
+        public static int prec2,prec10,digit10,sqr_steps,sqr_exp_bits, v_res, time, now_time;
         public static int[] h_to_l2;
         public static BigInteger[] e10,e2;
         public static Num[] sqr2, nums;
@@ -251,6 +251,11 @@ namespace shard0
             while (i != 0) {i >>= 1; i0++;}
             return i0;
         }
+        public string flag() {
+            return pic.Width.ToString() + "," + pic.Height.ToString() + "," + 
+                    digit10.ToString() + "," + sqr_steps.ToString() + "," + exp_max.ToString() + "," +
+                    time.ToString() + "," + n_step.ToString() + "," + steps.ToString() + ",";
+        }
         public IDS(Fileio f, Parse p)
         {
             int i,sx=0,sy=0,exp=0; string parm;
@@ -268,16 +273,20 @@ namespace shard0
             One.zero = new One();
             Func.zero = new Func(new Complex(0));
             if (sys.flag == "") {
-                par.lnext(); parm = par.val + ",0,0";
+                par.lnext(); parm = par.val + ",0,0,";
                 File.Delete(par.sys.name + ".png");
             } else {
                 if ((! File.Exists(sys.name+".bin")) || (! File.Exists(sys.name + ".png"))) sys.error("fatal: save lost");
                 parm = sys.flag;
             }
-            String[] parms = parm.Split(new char[] {','}); if (parms.Length != 8) sys.error("wrong parms");
+            String[] parms = parm.Split(new char[] {','}); if (parms.Length < 8) sys.error("wrong parms");
+            if (parms[8] == "init") sys.error("fatal: init");
+            if (parms[8] == "==") sys.error("fatal: time quant");
             if (! (Int32.TryParse(parms[0],out sx) && Int32.TryParse(parms[1],out sy) &&
                 Int32.TryParse(parms[2],out digit10) && Int32.TryParse(parms[3],out sqr_steps) && Int32.TryParse(parms[4],out exp) &&
                 Int32.TryParse(parms[5],out time) && Int32.TryParse(parms[6],out n_step) && Int32.TryParse(parms[7],out steps))) sys.error("wrong parms");
+            now_time = (parms[8] == "" ? time : time/2);
+            sys.file_flag.WriteLine(parm + (sys.flag == "" ? "init" : "=")); sys.file_flag.Flush();
             if ((sx < 100) || (sx > 2000) || (sy < 100) || (sy > 2000) || (sqr_steps < 4) || (sqr_steps > 11) || 
                 (exp < 11) || (exp > 6666) || (digit10 < 11) || (digit10 > 2000) ||
                 (time < 6)) sys.error("wrong head");
@@ -295,7 +304,7 @@ namespace shard0
             while (i < e10.Count()) {
                 IDS.e10[i] = b; b *= 10; i++;
             }
-            IDS.e2 = new BigInteger[IDS.digit10*4]; b = 1; i = 0;
+            IDS.e2 = new BigInteger[IDS.digit10*4*4]; b = 1; i = 0;
             while (i < e2.Count()) {
                 IDS.e2[i] = b; b *= 2; i++;
             }
@@ -350,8 +359,11 @@ namespace shard0
             }
             root = this;
             if (sys.flag == "") {
-                flow = new Flow(11,time);
+                flow = new Flow(11,now_time);
                 par.init();
+                save(sys.name + ".bin").Close();
+                sys.flag = flag();
+                sys.finish();
             } else {
                 load(sys.name + ".bin");
             }
@@ -360,9 +372,6 @@ namespace shard0
         {
             BinaryWriter file = new BinaryWriter(File.Open(name, FileMode.Create));
             file.Write((Int32)(par.opers));
-            file.Write((Int32)(par.pos));
-            file.Write(par.name);
-            file.Write(par.main_oper);
             file.Write((Int32)(par.body_num));
             file.Write((Int32)(par.body.Count));
             foreach(string s in par.body) file.Write(s);
@@ -384,16 +393,12 @@ namespace shard0
         {
             fload = new BinaryReader(File.Open(name, FileMode.Open));
             par.opers = fload.ReadInt32();
-            par.pos = fload.ReadInt32();
-            par.name = fload.ReadString();
-            par.main_oper = fload.ReadChar();
             par.body_num = fload.ReadInt32();
             int i = 0, cnt =  fload.ReadInt32(); while (i < cnt) {
                 par.body.Add(fload.ReadString());
                 i++;
             }
-            par.val = (par.body_num >= par.body.Count ? "" : par.body[par.body_num]);
-            par.now = (par.now >= par.val.Length ? ';' : par.val[par.pos]);
+            par.body_num--; par.bnext();
             Vars.loads(fload);
             Vals.loads(fload);
             i = 0; cnt = fload.ReadInt32(); while (i < cnt) {
@@ -405,7 +410,7 @@ namespace shard0
                 var.Add(Vars.inds[i].name,Vars.inds[i]);
                 i++;
             }
-            flow = Flow.load(fload,time);
+            flow = Flow.load(fload,now_time);
         }
         int deep(string n)
         {
@@ -733,6 +738,7 @@ namespace shard0
                     else return new Num(sign,_u,_d);
                 }
             } else if (down == 0) IDS.root.sys.error("div0");
+            if (up == 0) down = 1;
             if ((down == 1) && (up < IDS.znums)) return IDS.nums[IDS.znums + (int)(up)*sign];
             else return this;
         }
@@ -829,11 +835,15 @@ namespace shard0
         public void sub(Num a) { add(a, -1); }
         public void prec_this()
         {
-            int lu, ld; int _l, l = IDS.prec2;
+            prec_this(IDS.prec2);
+        }
+        public void prec_this(int l)
+        {
+            int lu, ld; int _l;
             if ((up < 2) || (down < 2)) return;
             lu = Num._l2(up); ld = Num._l2(down);
             if (lu > ld) lu = ld;
-            _l = lu - l; if (_l > 11)
+            _l = lu - l; if (_l > l)
             {
                 BigInteger _d, _au, _ad, _bu, _bd, _cu, _cd; 
                 _d = IDS.e2[_l];
@@ -885,7 +895,7 @@ namespace shard0
                 i0 = IDS.sqr_steps; while(i0-- > 0) _t._sq2_n(tmp,tmp);
                     _sq.up <<= 1; if (_sq.up >= _sq.down) {
                         _sq.up -= _sq.down;
-                        res.mul(tmp);
+                        res.mul(tmp); res.prec_this();
                     }
                     _t.up = tmp.up; _t.down = tmp.down; i1--;
             }
@@ -929,7 +939,7 @@ namespace shard0
                     z.down -= 2;
                     l = Num.add(z,Num.mul(y,l));
                 }
-                r.mul(l); r.simple_this();
+                r.mul(l); r.simple_this(); r.prec_this();
                 r.add(Num.mul(IDS.n_ln2,IDS.nums[IDS.znums + l2]));
                 IDS.ln.Add(new Num(this), new Num(r)); set(r);
             }
@@ -994,7 +1004,9 @@ namespace shard0
         }
         public double todouble()
         {
-            return (double)(sign * up) / (double)(down);
+            Num tmp = new Num(this);
+            tmp.prec_this(300);
+            return (double)(sign * tmp.up) / (double)(tmp.down);
         }
         public int CompareTo(object obj) {
             if (obj == null) return 1;
@@ -1065,11 +1077,27 @@ namespace shard0
             return r;
         }
         public static Complex load(BinaryReader file) {
-            return new Complex(Num.load(file),Num.load(file));
+            if (file.ReadBoolean()) return new Complex(Num.load(file),Num.load(file)); else return null;
+        }
+        public static Complex[] load_a(BinaryReader file) {
+            Complex[] ret = new Complex[file.ReadInt32()];
+            int i = 0; while (i < ret.Length) {
+                ret[i] = Complex.load(file);
+                i++;
+            }
+            return ret;
         }
         public void save(BinaryWriter file) {
+            file.Write(true);
             r.save(file);
             i.save(file);
+        }
+        public static void save(BinaryWriter file, Complex _c) {
+            if (_c == null) file.Write(false); else _c.save(file);
+        }
+        public static void save_a(BinaryWriter file, Complex[] _a) {
+            file.Write((Int32)_a.Length);
+            foreach (Complex c in _a) Complex.save(file,c);
         }
         public Complex(Num _r, Num _i) 
         {
@@ -4583,7 +4611,7 @@ namespace shard0
     public class Fileio//: IDisposable
     {
         StreamReader fin, f611 = null;
-        StreamWriter file_flag;
+        public StreamWriter file_flag;
         public string flag;
         List<string>[] sout;
         public string name,xout;
@@ -4645,6 +4673,7 @@ namespace shard0
                 i++;
             }
             IDS.root.pic.Save(name + ".png");
+            file_flag.BaseStream.Seek(0,SeekOrigin.Begin);
             file_flag.WriteLine(flag);
             file_flag.Close();
             if (flag == "") {
@@ -4661,6 +4690,7 @@ namespace shard0
             wline(0,IDS.root.par.val);
             wline(0,"Position " + IDS.root.par.pos.ToString() + ": " + ((IDS.now_func != null) ? IDS.root.par.print(IDS.now_func,true) + " " : "") + e);
             flag = "#error:" + e;
+            File.Delete(name + ".bin");
             finish();
         }
         public void wline(int n, string s)
@@ -4670,7 +4700,7 @@ namespace shard0
         }
         public void wstr(int n, string s)
         {
-            if (sout[n] == null) sout[n] = new List<string>();
+            if (sout[n] == null) {sout[n] = new List<string>(); sout[n].Add("");}
             if (s == "\\n") sout[n].Add(""); else sout[n][sout[n].Count-1] += s;
         }
     }
@@ -4792,7 +4822,7 @@ namespace shard0
                 }
                 _now += val;
             }
-            body_num = -1;
+            body_num = 0;
             IDS.root.steps = opers;
         }
         string _parm() {
@@ -4854,7 +4884,7 @@ namespace shard0
                 return false;
             }
             while ((pos = val.LastIndexOf("#")) > -1) {
-                sf = val.Substring(0, pos); name = get("(") + "(";
+                sf = val.Substring(0, pos); now = val[++pos]; name = "#" + get(isname) + "(";
                 if (! macro.ContainsKey(name)) sys.error("macro: not found");
                 s0 = macro[name].body.Replace("`\n","");
                 int ploop = -1,floop = 0,tloop = 0;
@@ -5361,7 +5391,7 @@ namespace shard0
         {
             var = v; from = f; now = new Complex(f); step = new Complex(s); to = new Complex(t);
             Complex _t = Complex.sub(to,from);
-            if ((_t.sign() == 0) || (_t.sign() != step.sign())) IDS.root.sys.error("fcalc: wrong direction");
+            if ((_t.sign() == 0) || (_t.r.sign != step.r.sign) || (_t.i.sign != step.i.sign)) IDS.root.sys.error("fcalc: wrong direction");
         }
         public void save(BinaryWriter file) {
             file.Write((Int32)var.ind);
@@ -5384,121 +5414,269 @@ namespace shard0
             bool r = false;
             if (step.sign() != 0) {
                 now = Complex.add(now,step);
-                if (to.great(now)) now.set(from); else r = true;
+                if (to.r.great(now.r) || to.i.great(now.i)) now.set(from); else r = true;
             }
             return r;
         }
     }
     public class Fborder
     {
-        public double n0, ns;
-        public double max,min;
-        public Fborder(Complex _nfr, Complex _n)
+        public Complex from, to, siz0;
+        public Complex max,min;
+        public int scale;
+        public Fborder(Complex _nfr, Complex _n, int sc)
         {
-            n0 = (_nfr == null ? double.NaN : _nfr.todouble());
-            ns = (_n == null ? double.NaN : 1/_n.todouble());
-            max = double.NegativeInfinity; min = double.PositiveInfinity;
+            from = _nfr; to = _n;
+            max = null; min = null; siz0 = null;
+            scale = sc;
+            if ((from != null) && (to != null)) {
+                siz0 = Complex.sub(to,from);
+                siz0.r.div(); siz0.i.div();
+            }
         }
 
         public static void save(BinaryWriter file, Fborder f) {
             if (f == null) file.Write(false); else {
-                file.Write(f.n0);
-                file.Write(f.ns);
-                file.Write(f.min);
-                file.Write(f.max);
+                file.Write(true);
+                Complex.save(file,f.from);
+                Complex.save(file,f.to);
+                Complex.save(file,f.min);
+                Complex.save(file,f.max);
+                file.Write((Int32)f.scale);
             }
         }
         public static Fborder load(BinaryReader file) {
             Fborder ret = null;
             if (file.ReadBoolean()) {
-                ret = new Fborder(null,null);
-                ret.n0 = file.ReadDouble();
-                ret.ns = file.ReadDouble();
-                ret.min = file.ReadDouble();
-                ret.max = file.ReadDouble();
+                ret = new Fborder(Complex.load(file),Complex.load(file),0);
+                ret.min = Complex.load(file);
+                ret.max = Complex.load(file);
+                ret.scale = file.ReadInt32();
             }
             return ret;
         }
 
-        public double get(Complex n)
+        public Complex get(Complex _n)
         {
-           double t = n.todouble();
-           if (min > t) min = t;
-           if (max < t) max = t;
-           return t;
+            Complex ret = new Complex(_n);
+            if (max == null) max = new Complex(ret); else {
+                if (max.r.great(ret.r)) max.r = ret.r;
+                if (max.i.great(ret.i)) max.i = ret.i;
+            }
+            if (min == null) min = new Complex(ret); else {
+                if (ret.r.great(min.r)) min.r = ret.r;
+                if (ret.i.great(min.i)) min.i = ret.i;
+            }
+            return ret;
         }
-        public int get(Complex n,int s)
-        {
-            double ret = get(n);
-            return (int)((ret - n0) * ns * ((double)s - 0.00000000001));
+        public Complex getnow(Complex c) {
+            Complex ret = Complex.sub(c,from);
+            if (ret.r.sign < 0) ret.r = IDS.nums[IDS.znums];
+            if (ret.i.sign < 0) ret.i = IDS.nums[IDS.znums];
+            ret.r = Num.mul(ret.r,siz0.r);
+            ret.i = Num.mul(ret.i,siz0.i);
+            if (ret.r.up > ret.r.down) ret.r = IDS.nums[IDS.znums+1];
+            if (ret.i.up > ret.i.down) ret.i = IDS.nums[IDS.znums+1];
+            return ret;
         }
-//        Func<Fborder,double,double>[] _re = {
-//           (Fborder t, double d) => {}
-        public void reauto(double[] d) {
-            double t, s = ns, n = n0;
-            if (double.IsNaN(n0)) n =  min;
-            if (double.IsNaN(ns)) s = 1/(max-n);
-            int i = 0; while (i < d.Length) {
-                if (! double.IsNaN(d[i])) {
-                    t = (d[i]-n)*s;
-                    d[i] = (t < 0 ? 0 : (t > 1 ? 1 : t));
+        static Func<double,double>[] _sc = {
+            (double _t) => {double _tm = 1-_t, _t3 = _tm*_tm*_tm; return 1-_t3*_t3*_t3;},
+            (double _t) => {double _tm = 1-_t, _t3 = _tm*_tm*_tm; return 1-_t3*_t3*_tm*_tm;},
+            (double _t) => {double _tm = 1-_t, _t3 = _tm*_tm*_tm; return 1-_t3*_t3*_tm;},
+            (double _t) => {double _tm = 1-_t, _t2 = _tm*_tm; return 1-_t2*_t2*_t2;},
+            (double _t) => {double _tm = 1-_t, _t2 = _tm*_tm; return 1-_t2*_t2*_tm;},
+            (double _t) => {double _tm = 1-_t, _t2 = _tm*_tm; return 1-_t2*_t2;},
+            (double _t) => {double _tm = 1-_t; return 1-_tm*_tm*_tm;},
+            (double _t) => {double _tm = 1-_t; return 1-_tm*_tm;},
+            (double _t) => {return _t;},
+            (double _t) => {return 1;},
+            (double _t) => {return _t;},
+            (double _t) => {return _t*_t;},
+            (double _t) => {return _t*_t*_t;},
+            (double _t) => {double _t2 = _t*_t; return _t2*_t2;},
+            (double _t) => {double _t2 = _t*_t; return _t2*_t2*_t;},
+            (double _t) => {double _t2 = _t*_t; return _t2*_t2*_t2;},
+            (double _t) => {double _t3 = _t*_t*_t; return _t3*_t3*_t;},
+            (double _t) => {double _t3 = _t*_t*_t; return _t3*_t3*_t*_t;},
+            (double _t) => {double _t3 = _t*_t*_t; return _t3*_t3*_t3;}
+        };
+        public void reborder(Complex[] _c) {
+            if (from == null) from = min;
+            if (to == null) to = max;
+            Complex siz = Complex.sub(to,from); siz.div();
+
+            int i = 0; while (i < _c.Length) {
+                if (_c[i] != null) {
+                    _c[i].sub(from); 
+                    if (_c[i].r.sign < 0) _c[i].r = IDS.nums[IDS.znums];
+                    if (_c[i].i.sign < 0) _c[i].i = IDS.nums[IDS.znums];
+                    _c[i].mul(siz);
+                    if (_c[i].r.up > _c[i].r.down) _c[i].r = IDS.nums[IDS.znums+1];
+                    if (_c[i].i.up > _c[i].i.down) _c[i].i = IDS.nums[IDS.znums+1];
                 }
                 i++;
             }
         }
-        public void reauto(double[,] d) {
-            double t, s = ns, n = n0;
-            if (double.IsNaN(n0)) n =  min;
-            if (double.IsNaN(ns)) s = 1/(max-n);
-            int my = d.GetLength(0), y = 0, mx = d.GetLength(1), x = 0; while (y < my) {
-                x = 0; while (x < mx) {
-                    t = (d[y,x]-n)*s;
-                    d[y,x] = (t < 0 ? 0 : (t > 1 ? 1 : t));
-                    x++;
-                }
-                y++;
+        public double[] rdouble(Complex[] _c) {
+            double[] ret = new double[_c.Length];
+            int i = 0; while (i < _c.Length) {
+                ret[i] = (_c[i] == null ? double.NaN : _sc[scale](_c[i].r.todouble()));
+                i++;
             }
+            return ret;
+        }
+        public double[] idouble(Complex[] _c) {
+            double[] ret = new double[_c.Length];
+            int i = 0; while (i < _c.Length) {
+                ret[i] = (_c[i] == null ? double.NaN : _sc[scale](_c[i].r.todouble()));
+                i++;
+            }
+            return ret;
         }
     }
     public class Fdo
     {
-        int type,parm;
+        public int type,parm;
+        public int x0,y0,xs,ys;
+        public Fdo(int _t, int _p, int _x0, int _y0, int _xs, int _ys) {
+            type = _t; parm = _p; x0 = _x0; y0 = _y0; xs = _xs; ys = _ys;
+        }
+        public virtual void save(BinaryWriter file) {}
+        public void _save(BinaryWriter file) {
+            file.Write((Int32)type); file.Write((Int32)(parm));
+            file.Write((Int32)x0);
+            file.Write((Int32)y0);
+            file.Write((Int32)xs);
+            file.Write((Int32)ys);
+        }
+        public static Fdo load(BinaryReader file) {
+            int _t,_p,_x0,_y0,_xs,_ys;
+            _t = file.ReadInt32(); _p = file.ReadInt32();
+            _x0 = file.ReadInt32();
+            _y0 = file.ReadInt32();
+            _xs = file.ReadInt32();
+            _ys = file.ReadInt32();
+            switch (_t) {
+                case 0:
+                    Fdo0 r0 = new Fdo0(_t,_p,_x0,_y0,_xs,_ys);
+                    r0._load(file); return r0;
+                case 1:
+                    Fdo1 r1 = new Fdo1(_t,_p,_x0,_y0,_xs,_ys);
+                    r1._load(file); return r1;
+                case 2:
+                    Fdo2 r2 = new Fdo2(_t,_p,_x0,_y0,_xs,_ys);
+                    r2._load(file); return r2;
+            }
+            return null;
+        }
+        public virtual void doit() {}
+        public virtual void finish() {}
+    }
+    public class Fdo0 : Fdo
+    {
         string sb = "",sa = "";
+        public Vals x;
+        public Fdo0(int _t, int _p, int _x0, int _y0, int _xs, int _ys) : base(_t,_p,_x0,_y0,_xs,_ys) {}
+        public Fdo0(int p, string b, string a, Vals v, int i0, int i1) : base(0,p,i0,0,i1,0) 
+        {
+            sb = b; sa=a;  x = v;
+        }
+        public override void save(BinaryWriter file) {
+            base._save(file);
+            file.Write(sb); file.Write(sa);
+            Vals.save(file,x);
+        }
+        public void _load(BinaryReader file) {
+            sb = file.ReadString(); sa = file.ReadString();
+            x = Vals.load(file);
+        }
+        public override void doit()
+        {
+            //print x"str" to #parm
+            IDS.root.sys.wstr(parm,sb + (x == null ? "" : (x0 < 0 ? IDS.root.par.print(x.get_val(),0) : (x0 == 0 ? x.get_val().toint().ToString().Trim() : IDS.root.par.print(x.get_val(),x0,xs)))) + sa);
+        }
+    }
+    public class Fdo1 : Fdo
+    {
+        public Vals x,y;
+        public Fborder tx,ty;
+        public Complex[] y1;
+        public Complex min,max;
+        public Fdo1(int _t, int _p, int _x0, int _y0, int _xs, int _ys) : base(_t,_p,_x0,_y0,_xs,_ys) {}
+        public Fdo1(int _p, int _x0, int _y0, int _xs, int _ys, Vals _x, Fborder _tx, Vals _y, Fborder _ty) : base(1,_p,_x0,_y0,_xs,_ys) 
+        {
+            x = _x; tx = _tx; y = _y; ty = _ty;
+            y1 = new Complex[_xs]; 
+        }
+        public override void save(BinaryWriter file) {
+            base._save(file);
+            Vals.save(file,x);
+            Vals.save(file,y);
+            Fborder.save(file,tx);
+            Fborder.save(file,ty);
+            Complex.save_a(file,y1);
+        }
+        public void _load(BinaryReader file) {
+            x = Vals.load(file);
+            y = Vals.load(file);
+            tx = Fborder.load(file);
+            ty = Fborder.load(file);
+            y1 = Complex.load_a(file);
+        }
+        public override void doit()
+        {
+            int _x;
+            _x = (int)(tx.getnow(x.get_val()).r.todouble() * ((double)y1.Length - 0.000000000001));
+            y1[_x] = ty.get(y.get_val());
+        }
+        public override void finish() {
+            ty.reborder(y1);
+            Graphics _g = Graphics.FromImage(IDS.root.pic);
+            Pen _p = new Pen(Color.White);
+            int i, px = -1, py = -1, _y, _x;
+            double[] _r = ty.rdouble(y1);
+            if (parm == 0) {
+                i = 0; while (i < y1.Length) {
+                    if (! double.IsNaN(_r[i])) {
+                        _y = (int)(ys - 1 - _r[i] * ys);
+                        if (px > -1) _g.DrawLine(_p, px,py,i+x0,_y+y0);
+                        px = i+x0; py = _y+y0;
+                    }
+                    i++;
+                }
+            } else {
+                double[] _i = ty.idouble(y1);
+                i = 0; while (i < y1.Length) {
+                    if (! double.IsNaN(_r[i])) {
+                        _y = (int)(ys - 1 - _r[i] * ys);
+                        _x = (int)(_i[i] * xs);
+                        if (px > -1) _g.DrawLine(_p, px,py,_x+x0,_y+y0);
+                        px = _x+x0; py = _y+y0;
+                    }
+                    i++;
+                }
+            }
+            _g.Dispose();
+        }
+    }
+    public class Fdo2: Fdo
+    {
         public Vals x,y,r,g,b;
         public Fborder tx,ty,tr,tg,tb;
-        public int x0,y0,xs,ys;
-        public double[] y1;
-        public double[,] r2,g2,b2;
-        Fdo() {
-        }
-        public Fdo(int p, string b, string a, Vals v, int i0, int i1)
+        public Complex[] r2,g2,b2;
+        public Fdo2(int _t, int _p, int _x0, int _y0, int _xs, int _ys) : base(_t,_p,_x0,_y0,_xs,_ys) {}
+        public Fdo2(int _x0, int _y0, int _xs, int _ys, Vals _x, Fborder _tx, Vals _y, Fborder _ty, Vals _r, Fborder _tr, Vals _g, Fborder _tg, Vals _b, Fborder _tb) : base(2,0,_x0,_y0,_xs,_ys) 
         {
-            type = 0; parm = p; sb = b; sa=a;  x = v;
-            x0 = i0; xs = i1;
-        }
-        public Fdo(Vals _x, Fborder _tx, int _x0, int _xs, Vals _y, Fborder _ty, int _y0, int _ys, Vals _r, Fborder _tr, Vals _g, Fborder _tg, Vals _b, Fborder _tb)
-        {
-            type = 2;
             x = _x; tx = _tx; y = _y; ty = _ty;
-            x0 = _x0; xs = _xs; y0 = _y0; ys = _ys;
             r = _r; tr = _tr;
             g = _g; tg = _tg;
             b = _b; tb = _tb;
-            r2 = new double[ys,xs]; 
-            g2 = new double[ys,xs]; 
-            b2 = new double[ys,xs];
+            r2 = new Complex[ys*xs]; 
+            g2 = new Complex[ys*xs]; 
+            b2 = new Complex[ys*xs];
         }
-        public Fdo(Vals _x, Fborder _tx, int _x0, int _xs, Vals _y, Fborder _ty, int _y0, int _ys)
-        {
-            type = 1;
-            x = _x; tx = _tx; y = _y; ty = _ty;
-            x0 = _x0; xs = _xs; y0 = _y0; ys = _ys;
-            y1 = new double[_xs]; 
-            int i = 0; while(i < _xs) y1[i++] = double.NaN;
-        }
-        public void save(BinaryWriter file) {
-            file.Write((Int32)type); file.Write((Int32)parm);
-            file.Write(sb); file.Write(sa);
+        public override void save(BinaryWriter file) {
+            base._save(file);
             Vals.save(file,x);
             Vals.save(file,y);
             Vals.save(file,r);
@@ -5509,118 +5687,48 @@ namespace shard0
             Fborder.save(file,tr);
             Fborder.save(file,tg);
             Fborder.save(file,tb);
-            file.Write((Int32)x0);
-            file.Write((Int32)y0);
-            file.Write((Int32)xs);
-            file.Write((Int32)ys);
-            if (type == 1) {
-                file.Write((Int32)(y1.Length));
-                foreach (double _d in y1) file.Write(_d);
-            }
-            if (type == 2) {
-                foreach (double _d in r2) file.Write(_d);
-                foreach (double _d in g2) file.Write(_d);
-                foreach (double _d in b2) file.Write(_d);
-            }
+            Complex.save_a(file,r2);
+            Complex.save_a(file,g2);
+            Complex.save_a(file,b2);
         }
-        public static Fdo load(BinaryReader file) {
-            Fdo ret = new Fdo();
-            ret.type = file.ReadInt32(); ret.parm = file.ReadInt32();
-            ret.sb = file.ReadString(); ret.sa = file.ReadString();
-            ret.x = Vals.load(file);
-            ret.y = Vals.load(file);
-            ret.r = Vals.load(file);
-            ret.g = Vals.load(file);
-            ret.b = Vals.load(file);
-            ret.tx = Fborder.load(file);
-            ret.ty = Fborder.load(file);
-            ret.tr = Fborder.load(file);
-            ret.tg = Fborder.load(file);
-            ret.tb = Fborder.load(file);
-            ret.x0 = file.ReadInt32();
-            ret.y0 = file.ReadInt32();
-            ret.xs = file.ReadInt32();
-            ret.ys = file.ReadInt32();
-            if (ret.type == 1) {
-                ret.y1 = new double[file.ReadInt32()];
-                int i = 0; while (i < ret.xs) ret.y1[i++] = file.ReadDouble();
-            }
-            Action<double[,]> _dd = (double[,] _d) => {
-                int _x, _y = 0; while (_y < ret.ys) {
-                    _x = 0; while (_x < ret.xs) {
-                        _d[_y,_x] = file.ReadDouble();
-                        _x++;
-                    }
-                    _y++;
-                }
-            };
-            if (ret.type == 2) {
-                ret.r2 = new double[ret.ys,ret.xs];
-                ret.g2 = new double[ret.ys,ret.xs];
-                ret.b2 = new double[ret.ys,ret.xs];
-                _dd(ret.r2);
-                _dd(ret.g2);
-                _dd(ret.b2);
-            }
-            return ret;
+        public void _load(BinaryReader file) {
+            x = Vals.load(file);
+            y = Vals.load(file);
+            r = Vals.load(file);
+            g = Vals.load(file);
+            b = Vals.load(file);
+            tx = Fborder.load(file);
+            ty = Fborder.load(file);
+            tr = Fborder.load(file);
+            tg = Fborder.load(file);
+            tb = Fborder.load(file);
+            r2 = Complex.load_a(file);
+            g2 = Complex.load_a(file);
+            b2 = Complex.load_a(file);
         }
-        public void doit()
+        public override void doit()
         {
             int _x,_y;
-            switch(type) {
-                case 0: //print x"str" to #parm
-                    IDS.root.sys.wstr(parm,sb + (x == null ? "" : (x0 < 0 ? IDS.root.par.print(x.get_val(),0) : (x0 == 0 ? x.get_val().toint().ToString().Trim() : IDS.root.par.print(x.get_val(),x0,xs)))) + sa);
-                    break;
-                case 1:
-                    _x = tx.get(x.get_val(),y1.Length);
-                    y1[_x] = ty.get(y.get_val());
-                    break;
-                case 2:
-                    _x = tx.get(x.get_val(),xs);
-                    _y = ty.get(y.get_val(),ys);
-                    if (r != null) r2[_y,_x] = tr.get(r.get_val());
-                    if (g != null) g2[_y,_x] = tg.get(g.get_val());
-                    if (b != null) b2[_y,_x] = tb.get(b.get_val());
-                    break;
-                case 3:
-                    break;
-            }
+            _x = (int)(tx.getnow(x.get_val()).r.todouble() * ((double)xs - 0.000000000001));
+            _y = (int)(ty.getnow(y.get_val()).r.todouble() * ((double)ys - 0.000000000001));
+            if (r != null) r2[_y*xs + _x] = tr.get(r.get_val());
+            if (g != null) g2[_y*xs + _x] = tg.get(g.get_val());
+            if (b != null) b2[_y*xs + _x] = tb.get(b.get_val());
         }
-        public void finish() {
-            switch(type) {
-                case 0: //print x"str" to #parm
-                    break;
-                case 1:
-                    ty.reauto(y1);
-                    Graphics _g = Graphics.FromImage(IDS.root.pic);
-                    Pen _p = new Pen(Color.White);
-                    int px = -1, py = -1, _y;
-                    int i = 0; while (i < y1.Length) {
-                        if (! double.IsNaN(y1[i])) {
-                            _y = (int)(ys - 1 - y1[i] * ys);
-                            if (px > -1) _g.DrawLine(_p, px,py,i+x0,_y+y0);
-                            px = i+x0; py = _y+y0;
-                        }
-                        i++;
-                    }
-                    _g.Dispose();
-                    break;
-                case 2:
-                    if (r != null) tr.reauto(r2);
-                    if (g != null) tg.reauto(g2);
-                    if (b != null) tb.reauto(b2);
-                    int ix, iy = 0; while (iy < ys) {
-                        ix = 0; while (ix < xs) {
-                            IDS.root.pic.SetPixel(ix+x0,iy+y0, Color.FromArgb(
-                                (r == null ? 0 : (int)(r2[iy,ix]*255)),
-                                (g == null ? 0 : (int)(g2[iy,ix]*255)),
-                                (b == null ? 0 : (int)(b2[iy,ix]*255))));
-                            ix++;
-                        }
-                        iy++;
-                    }
-
-                    break;
+        public override void finish() {
+            double[] _r2 = null,_g2 = null,_b2 = null;
+            if (r != null) {tr.reborder(r2); _r2 = tr.rdouble(r2);}
+            if (g != null) {tg.reborder(g2); _g2 = tg.rdouble(g2);}
+            if (b != null) {tb.reborder(b2); _b2 = tb.rdouble(b2);}
+            int a = 0,ix, iy = 0; while (iy < ys) {
+                ix = 0; while (ix < xs) {
+                    IDS.root.pic.SetPixel(ix+x0,iy+y0, Color.FromArgb(
+                        (r == null ? 0 : (int)(_r2[a]*255)),
+                        (g == null ? 0 : (int)(_g2[a]*255)),
+                        (b == null ? 0 : (int)(_b2[a]*255))));
+                    a++; ix++;
+                }
+                iy++;
             }
         }
     }
@@ -5664,9 +5772,7 @@ namespace shard0
             BinaryWriter _f = IDS.root.save(IDS.root.sys.name + ".bin");
             _s(_f);
             _f.Close();
-            IDS.root.sys.flag = IDS.root.pic.Width.ToString() + "," + IDS.root.pic.Height.ToString() + "," + 
-                    IDS.digit10.ToString() + "," + IDS.sqr_steps.ToString() + "," + IDS.exp_max.ToString() + "," +
-                    IDS.time.ToString() + "," + IDS.root.n_step.ToString() + "," + IDS.root.steps.ToString();
+            IDS.root.sys.flag = IDS.root.flag();
         }
         public void select(int level, Action[] sel) {
             if (patch[level] < sel.Length) sel[patch[level]](); else IDS.root.sys.error("flow: select");
@@ -5722,17 +5828,14 @@ namespace shard0
                 doit();
             } catch (FinishException fe) {
                 return 0;
-            } catch (OutOfMemoryException e) {
-                root.par.sys.wline(0,"Position " + IDS.root.par.pos.ToString() + ": " + ((IDS.now_func != null) ? IDS.root.par.print(IDS.now_func,true) + " " : "") + "fatal: memory out");
-                root.par.sys.flag = "#error:fatal:memory out";
-                root.par.sys.finish(false);
-                return -1;
 /*            } catch (Exception ee) {
                 root.par.sys.wline(0,"Position " + IDS.root.par.pos.ToString() + ": " + ((IDS.now_func != null) ? IDS.root.par.print(IDS.now_func,true) + " " : "") + "fatal: " + ee.ToString());
                 root.par.sys.flag = "#error:fatal:" + ee.ToString();
                 root.par.sys.finish(false);
-                return -1;*/
-            }
+                File.Delete(root.sys.name + ".bin");
+                return -1;
+            */}
+            File.Delete(root.sys.name + ".bin");
             return 0;
         }
         struct calc_out {
@@ -5743,14 +5846,24 @@ namespace shard0
             }
         };
         static Fborder border(List<Fdim> fdim, Vals v) {
-            if (IDS.root.par.isequnow(',')) {
-                foreach (Fdim fd in fdim) if ((fd.var == v.var) && (fd.step.sign() != 0)) return new Fborder(fd.from, fd.to);
+            int sc = 10;
+            Parse par = IDS.root.par;
+            if (par.isequnow('<')) {
+                par.next();
+                if (par.isequnow(Parse.isnum)) {sc = 9-(par.now - '0'); par.next();}
+            }
+            if (par.isequnow('>')) {
+                par.next();
+                if (par.isequnow(Parse.isnum)) {sc = 9+(par.now - '0'); par.next();}
+            }
+            if (par.isequnow(',')) {
+                foreach (Fdim fd in fdim) if ((fd.var == v.var) && (fd.step.sign() != 0)) return new Fborder(fd.from, fd.to,sc);
                 IDS.root.sys.error("draw: no interval");
             } else {
                 Complex n0 = null, ns = null;
-                if (IDS.root.par.isequnow('{')) n0 = IDS.root.par.calc(); else if (IDS.root.par.isequnow('@')) IDS.root.par.next(); else IDS.root.sys.error("wrong draw");
-                if (IDS.root.par.isequnow('{')) ns = IDS.root.par.calc(); else if (IDS.root.par.isequnow('@')) IDS.root.par.next(); else IDS.root.sys.error("wrong draw");
-                return new Fborder(n0,ns);
+                if (par.isequnow('{')) n0 = par.calc(); else if (par.isequnow('@')) par.next(); else IDS.root.sys.error("wrong draw");
+                if (par.isequnow('{')) ns = par.calc(); else if (par.isequnow('@')) par.next(); else IDS.root.sys.error("wrong draw");
+                return new Fborder(n0,ns,sc);
             }
             return null;
         }
@@ -5972,11 +6085,11 @@ namespace shard0
                                         Int32.TryParse(_sp[0], out _a); if (_sp[1].Length > 0) Int32.TryParse(_sp[1], out _b); else _b = -1;
                                     }
                                 }
-                                fdo.Add(new Fdo(par.get_int(),sp[0],sp[2],val0,_a,_b));
+                                fdo.Add(new Fdo0(par.get_int(),sp[0],sp[2],val0,_a,_b));
                             } else switch (par.now) {
                                 case '"':
                                     val = par.get("\"");
-                                    fdo.Add(new Fdo(par.get_int(),str_proc(val)[0],"",null,-1,0));
+                                    fdo.Add(new Fdo0(par.get_int(),str_proc(val)[0],"",null,-1,0));
                                     break;
                                 case '[':
                                     int _fx,_sx,_fy,_sy;
@@ -6006,10 +6119,13 @@ namespace shard0
                                     }
                                     switch (_tn) {
                                         case 2:
-                                            _fd = new Fdo(_tv[0],_tb[0],_fx,_sx,_tv[1],_tb[1],_fy,_sy);
+                                            _fd = new Fdo1(0, _fx,_fy,_sx,_sy,_tv[0],_tb[0],_tv[1],_tb[1]);
+                                            break;
+                                        case 3:
+                                            _fd = new Fdo1(1, _fx,_fy,_sx,_sy,_tv[0],_tb[0],_tv[1],_tb[1]);
                                             break;
                                         case 5:
-                                            _fd = new Fdo(_tv[0],_tb[0],_fx,_sx,_tv[1],_tb[1],_fy,_sy,_tv[2],_tb[2],_tv[3],_tb[3],_tv[4],_tb[4]);
+                                            _fd = new Fdo2(_fx,_fy,_sx,_sy,_tv[0],_tb[0],_tv[1],_tb[1],_tv[2],_tb[2],_tv[3],_tb[3],_tv[4],_tb[4]);
                                             break;
                                         default:
                                             root.sys.error("draw: wrong parm num");
