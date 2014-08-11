@@ -6019,6 +6019,10 @@ namespace shard0
                     SortedDictionary<One,Many> extra = new SortedDictionary<One,Many>();
                     One from, to;
                     Many2 doit = (Many2)(flow.get_var_func(flow_level_var).data);
+                    string ns = flow.get_var(flow_level_var).name + "_", nn;
+                    foreach(Func _f in flow.id) {
+                        ns += ((Vals)_f.data).var.name + "_";
+                    }
                     foreach (KeyValuePair<One,Complex> m in doit.up.data) {
                         to = new One();
                         from = new One(m.Key);
@@ -6032,7 +6036,7 @@ namespace shard0
                         else extra.Add(to,new Many(from,new Complex(m.Value)));
                     }
                     doit.up.data.Clear();
-                    int vs = 0; string ns = flow.get_var(flow_level_var).name + "_", nn;
+                    int vs = 0; 
                     Vars vr; One ores;
                     foreach(KeyValuePair<One,Many> _res in extra) {
                         nn = ns + vs.ToString();
@@ -6040,8 +6044,6 @@ namespace shard0
                         vr = root.findadd_var(nn);
                         _res.Value.simple();
                         vr.var = new Func(new Many2(_res.Value));
-if (vr.name == "d_6")
-    vr=vr;
                         ores = new One(_res.Key); ores.exps.Add(new Func(vr.vals[0]),new Func(new Complex(1)));
                         doit.up.data.Add(ores,new Complex(1));
                         par.sys.wline(0,par.print(vr));
