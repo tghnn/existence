@@ -4,8 +4,12 @@ t1= 2*a+{1:-1}*b-3*c+d;
 t2= 6*d+c;
 t3= t1^3/t2^4;
 t4= t3^11 + t3^(-6);
+`fast expand on vars list
 t4$!11,t3,t2,t1;
+`standart expand on all vars
 t3$*@;
+`extract b from t3
+t3@b;
 l= ln(d*x0^b+x0)^(ln(d*x0^a+c)^(x0+c));
 l = x0*ln(x0) - x0;
 i0=l; i0$l;

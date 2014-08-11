@@ -4676,8 +4676,7 @@ namespace shard0
             file_flag.BaseStream.Seek(0,SeekOrigin.Begin);
             file_flag.WriteLine(flag);
             file_flag.Close();
-            if (flag == "") {
-                File.Delete(name + ".flg");
+            if (flag[0] == '#') {
                 File.Delete(name + ".bin");
             }
             if (thr) throw new FinishException();
@@ -5913,6 +5912,7 @@ namespace shard0
             Action[] load = {
                 () => {},
                 () => {if (IDS.root.flow.is_bit(flow_level_flag,0)) mao = MAO_dict.load(IDS.root.fload);},
+                () => {},
                 () => {
                     int _i = 0, cnt = IDS.root.fload.ReadInt16();
                     while (_i < cnt) {fdim.Add(Fdim.load(IDS.root.fload)); _i++;}
@@ -5930,7 +5930,8 @@ namespace shard0
             Action<BinaryWriter> save1 = (BinaryWriter _f) => {
                 if (mao != null) mao.save(_f);
             };
-            Action<BinaryWriter> save2 = (BinaryWriter _f) => {
+            Action<BinaryWriter> save2 = (BinaryWriter _f) => {};
+            Action<BinaryWriter> save3 = (BinaryWriter _f) => {
                 _f.Write((Int16)fdim.Count);
                 foreach (Fdim fd in fdim) fd.save(_f);
                 _f.Write((Int16)fdo.Count);
@@ -5960,6 +5961,48 @@ namespace shard0
                         par.sys.wline(0,par.print(flow.patch[flow_level_var]));
             }
             };
+            Func<Num,string> tostr = (Num _n) => {
+                string ret = "";
+                switch (_n.sign) {
+                    case -1:
+                        ret = "n";
+                        break;
+                    case 0:
+                        return "0";
+                    case 1:
+                        ret = "p";
+                        break;
+                }
+                ret += _n.up.ToString();
+                if (_n.down > 1) ret += "_" + _n.down.ToString();
+                return ret;
+            };
+            Func<bool> extract = () => {
+                SortedDictionary<int,int> lout = new SortedDictionary<int,int>();
+                string n0 = Vals.inds[flow.patch[flow_level_step0]].var.name + "_" + Vals.inds[flow.patch[flow_level_var]].var.name + "_", n1;
+                Func extr = new Func(Vals.inds[flow.patch[flow_level_step0]]);
+                One _o = null;
+                Complex pow = null, div = ((Many2)(flow.get_var_func(flow_level_var).data)).down.get_Num(); div.div();
+                Vars va = null;
+                foreach (KeyValuePair<One,Complex> m in ((Many2)(flow.get_var_func(flow_level_var).data)).up.data) {
+                    if (m.Key.exps.ContainsKey(extr)) {
+                        if (m.Key.exps[extr].type != Func.t_num) par.sys.error("@ only numeric exponent");
+                        pow = (Complex)(m.Key.exps[extr].data);
+                        _o = new One(m.Key);
+                        _o.exps.Remove(extr);
+                    } else {_o = m.Key; pow = new Complex(0);}
+                    n1 = n0 + tostr(pow.r);
+                    if (pow.i.sign != 0) n1 += "_" + tostr(pow.i);
+                    va = root.findadd_var(n1);
+                    if (! lout.ContainsKey(va.ind)) lout.Add(va.ind,0);
+                    if (va.var == null) va.var = new Func(new Many2(_o,Complex.mul(m.Value,div)));
+                    else ((Many2)(va.var.data)).up.add(_o,Complex.mul(m.Value,div));
+                }
+                foreach (KeyValuePair<int,int> k in lout) {
+                    par.sys.wline(0,par.print(Vars.inds[k.Key]));
+                }
+                return false;
+            };
             Func<bool> numeric = () => {
                   root.uncalc(); foreach (Fdim fd in fdim) fd.var.set_now(fd.now);
                   foreach(Fdo fd in fdo) fd.doit();
@@ -5975,7 +6018,8 @@ namespace shard0
             Action[] oper = {
             () => {},
             () => flow.repeat(flow_level_step0,expand,save1),
-            () => flow.repeat(numeric,save2)
+            () => flow.repeat(extract,save2),
+            () => flow.repeat(numeric,save3)
             };
 
             do {
@@ -6022,6 +6066,15 @@ namespace shard0
                         if (par.isequnow('$')) {flow.set_bit(flow_level_flag,2); par.next();}
                     break;
 
+                    case '@':
+                        flow.patch[flow_level_oper] = 2;
+                        Vars _v = root.find_var_fill(par.name);
+                        if ((_v.var.type != Func.t_many2) || (((Many2)(_v.var.data)).down.get_Num() == null)) par.sys.error("@ wrong");
+                        flow.patch[flow_level_var]= _v.ind;
+                        par.next();
+                        flow.patch[flow_level_step0]= root.find_val(par.get(Parse.isname)).ind;
+                    break;
+
                     case '|':
                         var0 = root.find_var_fill(par.name);
                         if (var0.var.type != Func.t_matr) par.sys.error("not matr");
@@ -6046,7 +6099,7 @@ namespace shard0
                         par.sys.wline(0,par.print(var0));
                     break;
                     case '[':
-                        flow.patch[flow_level_oper] = 2;
+                        flow.patch[flow_level_oper] = 3;
                         par.next();
                         fdim.Clear();
                         fdo.Clear();
