@@ -2941,7 +2941,9 @@ namespace shard0
                 exu = new Exps_f(new Many(new Func(f_exp)),v.deep);
                 exd = new Exps_f(new Many(new Complex(1)),v.deep);
             }
-            return Func.expand2_func[type](this,fv,exu,exd);
+            bool ret = Func.expand2_func[type](this,fv,exu,exd);
+
+            return ret;
         }
         static public Action<Func>[] expand_func = {
                 (Func t) => {},
@@ -5208,7 +5210,7 @@ namespace shard0
                 first = false;
             } else {
                 ret = (p.r.sign < 0 ? "-" : (first ? "" : "+"));
-                if (noone || ((p.r.down > 1) || (p.r.up > 1))) {ret += print(p.r,false); first = false;} else first = true;
+                if (noone || ((p.r.down > 1) || (p.r.up != 1))) {ret += print(p.r,false); first = false;} else first = true;
             }
             return ret;
         }
@@ -5812,6 +5814,11 @@ namespace shard0
                 }
             } while (rep());
         }
+        public void add_id(Vals _v) {
+            Func f = new Func(_v);
+            foreach (Func _f in id) if (f.CompareTo(_f) == 0) IDS.root.sys.error(_v.get_name() + " duplicate");
+            id.Add(f);
+        }
     }
     public static class Program
     {
@@ -5897,7 +5904,7 @@ namespace shard0
         static char[] spl = {'.'};
         static void doit() {
             Vars var0;
-            Vals val0,val1;
+            Vals val0;
             string val;
             MAO_dict mao = null;
             Parse par = IDS.root.par;
@@ -5930,7 +5937,8 @@ namespace shard0
             Action<BinaryWriter> save1 = (BinaryWriter _f) => {
                 if (mao != null) mao.save(_f);
             };
-            Action<BinaryWriter> save2 = (BinaryWriter _f) => {};
+            Action<BinaryWriter> save2 = (BinaryWriter _f) => {
+            };
             Action<BinaryWriter> save3 = (BinaryWriter _f) => {
                 _f.Write((Int16)fdim.Count);
                 foreach (Fdim fd in fdim) fd.save(_f);
@@ -5938,7 +5946,8 @@ namespace shard0
                 foreach (Fdo fd in fdo) fd.save(_f);
             };
             Action<Func> expand_revert = (Func _i) => flow.get_var_func(flow_level_var).revert(_i);
-            Action<Func> expand_expand = (Func _i) => {if (flow.is_bit(flow_level_flag,0)) mao.expand(0,mao.val(_i)); else flow.get_var_func(flow_level_var).expand(_i);};
+            Action<Func> expand_expand = (Func _i) => {if (flow.is_bit(flow_level_flag,0)) mao.expand(0,mao.val(_i)); else flow.get_var_func(flow_level_var).expand(_i);
+            };
             Action[] expand = {
             () => {
                 flow.repeat(flow_level_step1,flow.id,expand_revert,save1);
@@ -5952,16 +5961,17 @@ namespace shard0
                 if (flow.is_bit(flow_level_flag,1)) Vars.inds[flow.patch[flow_level_var]].var.expand();
             },
             () => {
-                        if (flow.is_bit(flow_level_flag,2) && ((flow.get_var_func(flow_level_var).type == 2) && (((Many2)(flow.get_var_func(flow_level_var).data)).down.type_exp() < 2)))
-                        {
-                            ((Many2)(flow.get_var_func(flow_level_var).data)).down.div();
-                            ((Many2)(flow.get_var_func(flow_level_var).data)).up.mul(((Many2)(flow.get_var_func(flow_level_var).data)).down.data.ElementAt(0).Key,((Many2)(flow.get_var_func(flow_level_var).data)).down.data.ElementAt(0).Value);
-                            ((Many2)(flow.get_var_func(flow_level_var).data)).down = new Many(new Complex(1));
-                        }
-                        par.sys.wline(0,par.print(flow.patch[flow_level_var]));
+                if (flow.is_bit(flow_level_flag,2) && ((flow.get_var_func(flow_level_var).type == 2) && (((Many2)(flow.get_var_func(flow_level_var).data)).down.type_exp() < 2)))
+                {
+                    ((Many2)(flow.get_var_func(flow_level_var).data)).down.div();
+                    ((Many2)(flow.get_var_func(flow_level_var).data)).up.mul(((Many2)(flow.get_var_func(flow_level_var).data)).down.data.ElementAt(0).Key,((Many2)(flow.get_var_func(flow_level_var).data)).down.data.ElementAt(0).Value);
+                    ((Many2)(flow.get_var_func(flow_level_var).data)).down = new Many(new Complex(1));
+                }
+                flow.get_var_func(flow_level_var).simple();
+                par.sys.wline(0,par.print(flow.patch[flow_level_var]));
             }
             };
-            Func<Num,string> tostr = (Num _n) => {
+            Func<Num,string> _tostr = (Num _n) => {
                 string ret = "";
                 switch (_n.sign) {
                     case -1:
@@ -5977,29 +5987,67 @@ namespace shard0
                 if (_n.down > 1) ret += "_" + _n.down.ToString();
                 return ret;
             };
+            Func<Complex,string> tostr = (Complex _n) => {
+                return _tostr(_n.r) + (_n.i.sign == 0 ? "" : "_" + _tostr(_n.i));
+            };
             Func<bool> extract = () => {
-                SortedDictionary<int,int> lout = new SortedDictionary<int,int>();
-                string n0 = Vals.inds[flow.patch[flow_level_step0]].var.name + "_" + Vals.inds[flow.patch[flow_level_var]].var.name + "_", n1;
-                Func extr = new Func(Vals.inds[flow.patch[flow_level_step0]]);
-                One _o = null;
-                Complex pow = null, div = ((Many2)(flow.get_var_func(flow_level_var).data)).down.get_Num(); div.div();
-                Vars va = null;
-                foreach (KeyValuePair<One,Complex> m in ((Many2)(flow.get_var_func(flow_level_var).data)).up.data) {
-                    if (m.Key.exps.ContainsKey(extr)) {
-                        if (m.Key.exps[extr].type != Func.t_num) par.sys.error("@ only numeric exponent");
-                        pow = (Complex)(m.Key.exps[extr].data);
-                        _o = new One(m.Key);
-                        _o.exps.Remove(extr);
-                    } else {_o = m.Key; pow = new Complex(0);}
-                    n1 = n0 + tostr(pow.r);
-                    if (pow.i.sign != 0) n1 += "_" + tostr(pow.i);
-                    va = root.findadd_var(n1);
-                    if (! lout.ContainsKey(va.ind)) lout.Add(va.ind,0);
-                    if (va.var == null) va.var = new Func(new Many2(_o,Complex.mul(m.Value,div)));
-                    else ((Many2)(va.var.data)).up.add(_o,Complex.mul(m.Value,div));
-                }
-                foreach (KeyValuePair<int,int> k in lout) {
-                    par.sys.wline(0,par.print(Vars.inds[k.Key]));
+                if (flow.id.Count == 1) {
+                    SortedDictionary<int,int> lout = new SortedDictionary<int,int>();
+                    Func extr = flow.id[0];
+                    Vals ve = (Vals)(extr.data);
+                    string n0 = ve.var.name + "_" + Vals.inds[flow.patch[flow_level_var]].var.name + "_", n1;
+                    One _o = null;
+                    Complex pow = null, div = ((Many2)(flow.get_var_func(flow_level_var).data)).down.get_Num(); div.div();
+                    Vars va = null;
+                    foreach (KeyValuePair<One,Complex> m in ((Many2)(flow.get_var_func(flow_level_var).data)).up.data) {
+                        if (m.Key.exps.ContainsKey(extr)) {
+                            if (m.Key.exps[extr].type != Func.t_num) par.sys.error("@ only numeric exponent");
+                            pow = (Complex)(m.Key.exps[extr].data);
+                            _o = new One(m.Key);
+                            _o.exps.Remove(extr);
+                        } else {_o = m.Key; pow = new Complex(0);}
+                        n1 = n0 + tostr(pow);
+                        va = root.findadd_var(n1);
+                        if (! lout.ContainsKey(va.ind)) lout.Add(va.ind,0);
+                        if (va.var == null) va.var = new Func(new Many2(_o,Complex.mul(m.Value,div)));
+                        else ((Many2)(va.var.data)).up.add(_o,Complex.mul(m.Value,div));
+                    }
+                    foreach (KeyValuePair<int,int> k in lout) {
+                        par.sys.wline(0,par.print(Vars.inds[k.Key]));
+                    }
+                } else {
+                    SortedDictionary<One,Many> extra = new SortedDictionary<One,Many>();
+                    One from, to;
+                    Many2 doit = (Many2)(flow.get_var_func(flow_level_var).data);
+                    foreach (KeyValuePair<One,Complex> m in doit.up.data) {
+                        to = new One();
+                        from = new One(m.Key);
+                        foreach(Func _f in flow.id) {
+                            if (from.exps.ContainsKey(_f)) {
+                                to.exps.Add(_f,from.exps[_f]);
+                                from.exps.Remove(_f);
+                            }
+                        }
+                        if (extra.ContainsKey(to)) extra[to].add(from,m.Value);
+                        else extra.Add(to,new Many(from,new Complex(m.Value)));
+                    }
+                    doit.up.data.Clear();
+                    int vs = 0; string ns = flow.get_var(flow_level_var).name + "_", nn;
+                    Vars vr; One ores;
+                    foreach(KeyValuePair<One,Many> _res in extra) {
+                        nn = ns + vs.ToString();
+                        if (root.var.ContainsKey(nn)) par.sys.error(nn + " @ already exist");
+                        vr = root.findadd_var(nn);
+                        _res.Value.simple();
+                        vr.var = new Func(new Many2(_res.Value));
+if (vr.name == "d_6")
+    vr=vr;
+                        ores = new One(_res.Key); ores.exps.Add(new Func(vr.vals[0]),new Func(new Complex(1)));
+                        doit.up.data.Add(ores,new Complex(1));
+                        par.sys.wline(0,par.print(vr));
+                        vs++;
+                    }
+                    par.sys.wline(0,par.print(flow.get_var(flow_level_var)));
                 }
                 return false;
             };
@@ -6056,7 +6104,7 @@ namespace shard0
                                 if (par.isequnow(',')) par.next();
                                 val0 = root.find_val(val);
                                 if (val0.var.ind == flow.patch[flow_level_var]) par.sys.error(par.name + " $recursion - look recursion");
-                                if (val0.var.var != null) flow.id.Add(new Func(val0));
+                                if (val0.var.var != null) flow.add_id(val0);
                             }
                         }
                         if (par.isequnow('@')) {
@@ -6072,7 +6120,15 @@ namespace shard0
                         if ((_v.var.type != Func.t_many2) || (((Many2)(_v.var.data)).down.get_Num() == null)) par.sys.error("@ wrong");
                         flow.patch[flow_level_var]= _v.ind;
                         par.next();
-                        flow.patch[flow_level_step0]= root.find_val(par.get(Parse.isname)).ind;
+                        flow.id.Clear();
+                        while (par.isequnow(Parse.isname)) {
+                            val = par.get(Parse.isname); 
+                            if (par.isequnow(',')) par.next();
+                            val0 = root.find_val(val);
+                            if (val0.var.ind == flow.patch[flow_level_var]) par.sys.error(par.name + " @recursion - look recursion");
+                            flow.add_id(val0);
+                        }
+                        if (flow.id.Count < 1) par.sys.error("@ list empty");
                     break;
 
                     case '|':
