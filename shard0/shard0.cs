@@ -194,6 +194,11 @@ namespace shard0
             name = n; stat = _stat; var = null; vals = new Vals[valn + 1];
             set_ind();
         }
+        public Vars(string n, int valn, int _stat, bool isset)
+        {
+            name = n; stat = _stat; var = null; vals = new Vals[valn + 1];
+            if (isset) set_ind();
+        }
         public static int saves(BinaryWriter file)
         {
             int ret = 0;
@@ -210,11 +215,12 @@ namespace shard0
         }
         public static void loads(BinaryReader file)
         {
-            int i = 0, cnt = file.ReadInt32();
-            Vars._ind = 0; Vars tmp;
-            while (i < cnt)
+            int i = 0; 
+            Vars._ind = file.ReadInt32();
+            Array.Resize<Vars>(ref Vars.inds, Vars._ind + 11);
+            while (i < Vars._ind)
             {
-                tmp = new Vars(file.ReadString(), file.ReadInt32(), file.ReadInt32());
+                Vars.inds[i] = new Vars(file.ReadString(), file.ReadInt32(), file.ReadInt32(),false);
                 i++;
             }
         }
@@ -5022,7 +5028,7 @@ namespace shard0
                 }
                 i++;
             }
-            IDS.root.pic.Save(name + ".png");
+            if (IDS.root.pic != null) IDS.root.pic.Save(name + ".png");
             file_flag.BaseStream.Seek(0, SeekOrigin.Begin);
             file_flag.WriteLine(flag);
             file_flag.Close();
@@ -6805,8 +6811,6 @@ namespace shard0
                                 }
                             if (par.isequnow(',')) par.next();
                         }
-
-                        //                        m0.Set(1); m0.Set(2); m0.rp = true;
                         break;
                 }
 
