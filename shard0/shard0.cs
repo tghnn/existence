@@ -404,6 +404,7 @@ namespace shard0
         public BinaryWriter save(string name)
         {
             BinaryWriter file = new BinaryWriter(File.Open(name, FileMode.Create));
+            file.Write(par.flag_out_exptomul);
             file.Write((Int32)(par.opers));
             file.Write((Int32)(par.body_num));
             file.Write((Int32)(par.body.Count));
@@ -427,6 +428,7 @@ namespace shard0
         public void load(string name)
         {
             fload = new BinaryReader(File.Open(name, FileMode.Open));
+            par.flag_out_exptomul = fload.ReadBoolean();
             par.opers = fload.ReadInt32();
             par.body_num = fload.ReadInt32();
             int i = 0, cnt = fload.ReadInt32(); while (i < cnt)
@@ -4958,15 +4960,14 @@ namespace shard0
         public StreamWriter file_flag;
         public string flag;
         List<string>[] sout;
-        public string name, xout;
+        public string name;
         public Boolean has;
         public Fileio(string nin)
         {
-            string iexf, fname;
-            if (!File.Exists(nin)) Environment.Exit(-1);
-            iexf = Path.GetExtension(nin);
-            name = Path.GetFileNameWithoutExtension(nin);
-            xout = ".txt"; fname = name + ".flg"; flag = "";
+            string fname;
+            if (!File.Exists(nin+".sh0")) Environment.Exit(-1);
+            name = nin;
+            fname = name+".flg"; flag = "";
             if (File.Exists(fname))
             {
                 StreamReader _fl = new StreamReader(fname);
@@ -4975,7 +4976,7 @@ namespace shard0
             }
             file_flag = new StreamWriter(fname);
             //            f611 = (File.Exists("611"+iexf) ?  new StreamReader("611"+iexf) : null);
-            fin = new StreamReader(nin);
+            fin = new StreamReader(nin+".sh0");
             sout = new List<string>[40];
             has = true;
         }
@@ -5015,7 +5016,7 @@ namespace shard0
             {
                 if (sout[i] != null)
                 {
-                    fout = new StreamWriter(name + Parse.m_n_to_c[i] + xout, true);
+                    fout = new StreamWriter(name + Parse.m_n_to_c[i] + ".txt", true);
                     foreach (string _s in sout[i]) fout.WriteLine(_s);
                     fout.Close();
                 }
@@ -5124,6 +5125,7 @@ namespace shard0
 //       `
          0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 0, 0,  0, 0, 0, 0};
         //                                           {   |  }  ~ 	
+        public bool flag_out_exptomul = false;
         public string prev, val, name;
         public int pos, opers, body_num;
         public char now, oper, main_oper;
@@ -5677,16 +5679,27 @@ namespace shard0
             {
                 if ((m.Value.type != 1) || (!((Complex)(m.Value.data)).iszero()))
                 {
-                    div = false; one = false;
                     if (m.Value.type == 1)
                     {
                         tmp = (Complex)(m.Value.data);
                         div = ((tmp.i.sign == 0) && (tmp.r.sign < 0));
                         one = (tmp.isint(1) || tmp.isint(-1));
+                        if (flag_out_exptomul && (tmp.i.sign == 0) && (tmp.r.isint()) && (tmp.r.up < 11)) {
+                            if (first) ret += (div ? "1/" : ""); else ret += (div ? "/" : "*");
+                            int i = 1; while(i < tmp.r.up) {
+                                ret += print(m.Key, true) + (div ? "/" : "*");
+                                i++;
+                            }
+                            ret += print(m.Key, true);
+                        } else {
+                            if (first) ret += (div ? "1/" : ""); else ret += (div ? "/" : "*");
+                            if (one) ret += print(m.Key, true);
+                            else ret += print(m.Key, false) + "^" + print_pow(m.Value);
+                        }
+                    } else {
+                        if (! first) ret += "*";
+                        ret += print(m.Key, false) + "^" + print_pow(m.Value);
                     }
-                    if (first) ret += (div ? "1/" : ""); else ret += (div ? "/" : "*");
-                    if (one) ret += print(m.Key, true);
-                    else ret += print(m.Key, false) + "^" + print_pow(m.Value);
                     first = false;
                 }
             }
@@ -5783,7 +5796,7 @@ namespace shard0
         }
         public string print(Vars v)
         {
-            return v.name + " = " + (v.var == null ? "" : print(v.var, false));
+            return v.name + " = " + (v.var == null ? "" : print(v.var, false)) + ";";
         }
         public string print(int v)
         {
@@ -6602,6 +6615,10 @@ namespace shard0
 
                 switch (par.main_oper)
                 {
+                    case '%':
+                        par.next();
+                        if (par.isequnow('^')) par.flag_out_exptomul = ! par.flag_out_exptomul;
+                        break;
                     case '=':
                         if (root.fnames.ContainsKey(par.name)) IDS.root.sys.error("reserved name");
                         var0 = root.findadd_var(par.name);
