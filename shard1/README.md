@@ -1,7 +1,7 @@
 shard1
 ======
 
-0. set object
+0. set object (+)
 1. normal transform to yggdrasil
 2. smothing
 3. extract/folding vertex cloud
