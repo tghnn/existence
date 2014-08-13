@@ -77,7 +77,7 @@ namespace shard0
 
     public class Vals
     {
-        public static int _ind = 0;
+        public static int _ind;
         public static Vals[] inds;
         public Int32 ind;
         public Exps_n val;
@@ -158,7 +158,7 @@ namespace shard0
     }
     public class Vars : IComparable
     {
-        public static int _ind = 0;
+        public static int _ind;
         public static Vars[] inds;
         public int ind;
         public Vals[] vals;
@@ -6328,6 +6328,7 @@ namespace shard0
             if (args.Length < 1) return 0;
             try
             {
+                Vars._ind = 0; Vals._ind = 0;
                 Vals.inds = new Vals[100];
                 Vars.inds = new Vars[100];
                 Fileio _f = new Fileio(args[0]);
