@@ -164,7 +164,7 @@ namespace shard0
         public Vals[] vals;
         public Func var;
         public int stat;
-        public string name;
+        public string name, desc;
         void set_ind()
         {
             ind = Vars._ind++;
@@ -173,7 +173,7 @@ namespace shard0
         }
         public Vars(string n, int valn, Complex vl)
         {
-            name = n; stat = 0; var = null; vals = new Vals[valn + 1];
+            desc = n;  name = n; stat = 0; var = null; vals = new Vals[valn + 1];
             int i = 0; while (i <= valn)
             {
                 vals[i] = new Vals(this, new Exps_n(vl), i); i++;
@@ -182,7 +182,7 @@ namespace shard0
         }
         public Vars(string n, Complex[] vl)
         {
-            name = n; stat = 0; var = null; vals = new Vals[vl.Length + 1];
+            desc = n;  name = n; stat = 0; var = null; vals = new Vals[vl.Length + 1];
             int i = 0; while (i <= vl.Length)
             {
                 vals[i] = new Vals(this, new Exps_n(vl[i]), i); i++;
@@ -191,7 +191,7 @@ namespace shard0
         }
         public Vars(string n, int valn, int _stat)
         {
-            name = n; stat = _stat; var = null; vals = new Vals[valn + 1];
+            desc = n;  name = n; stat = _stat; var = null; vals = new Vals[valn + 1];
             set_ind();
         }
         public Vars(string n, int valn, int _stat, bool isset)
@@ -208,6 +208,7 @@ namespace shard0
                 file.Write(Vars.inds[i].name);
                 file.Write((Int32)(Vars.inds[i].vals.Length - 1));
                 file.Write((Int32)(Vars.inds[i].stat));
+                file.Write(Vars.inds[i].desc);
                 if (Vars.inds[i].var != null) ret++;
                 i++;
             }
@@ -221,6 +222,7 @@ namespace shard0
             while (i < Vars._ind)
             {
                 Vars.inds[i] = new Vars(file.ReadString(), file.ReadInt32(), file.ReadInt32(),false);
+                Vars.inds[i].desc = file.ReadString();
                 i++;
             }
         }
@@ -411,6 +413,7 @@ namespace shard0
         {
             BinaryWriter file = new BinaryWriter(File.Open(name, FileMode.Create));
             file.Write(par.flag_out_exptomul);
+            file.Write(par.flag_out_desc);
             file.Write((Int32)(par.opers));
             file.Write((Int32)(par.body_num));
             file.Write((Int32)(par.body.Count));
@@ -435,6 +438,7 @@ namespace shard0
         {
             fload = new BinaryReader(File.Open(name, FileMode.Open));
             par.flag_out_exptomul = fload.ReadBoolean();
+            par.flag_out_desc = fload.ReadBoolean();
             par.opers = fload.ReadInt32();
             par.body_num = fload.ReadInt32();
             int i = 0, cnt = fload.ReadInt32(); while (i < cnt)
@@ -831,9 +835,13 @@ namespace shard0
         }
         public void extract(Num n)
         {
-            sign = ((sign < 0) && (n.sign < 0) ? -1 : 1);
-            up = BigInteger.GreatestCommonDivisor(up, n.up);
-            down = BigInteger.GreatestCommonDivisor(down, n.down);
+            if (n.sign == 0) set0();
+            else
+            {
+                sign = ((sign < 0) && (n.sign < 0) ? -1 : 1);
+                up = BigInteger.GreatestCommonDivisor(up, n.up);
+                down = BigInteger.GreatestCommonDivisor(down, n.down);
+            }
         }
         public override void div()
         {
@@ -1581,14 +1589,14 @@ namespace shard0
         }
         public Many2 expand(Complex n)
         {
-            Many2 r = null, t; One o = new One();
+            Many2 r = new Many2(1), t; One o = new One();
             foreach (KeyValuePair<Func, Func> m in exps) if ((m.Key.type == Func.t_many2) && (m.Value.type_pow() == 0))
                 {
-                    if (r == null) r = new Many2(1);
-                    t = new Many2((Many2)(m.Key.data)); t.exp(m.Value); r.mul(t);
+                    t = new Many2((Many2)(m.Key.data));
+                    t.exp(m.Value); r.mul(t);
                 }
                 else o.addto(new Func(m.Key), new Func(m.Value));
-            if (r != null) r.mul(o, n);
+            r.mul(o, n);
             return r;
         }
         public bool expand_p0(Func val, Exps_f exu, Exps_f exd)
@@ -2002,18 +2010,17 @@ namespace shard0
 
         public Many expand()
         {
-            Many rt = new Many(new Complex(1)), r = new Many(); Many2 t;
+            Many ret = new Many(new Complex(1)), r = new Many(); Many2 tmp;
             foreach (KeyValuePair<One, Complex> o in data)
             {
-                t = o.Key.expand(o.Value);
-                if (t == null) r.add(o.Key, o.Value);
-                else
-                {
-                    r.mul(t.down); t.up.mul(rt); r.add(t.up); rt.mul(t.down);
-                }
+                tmp = o.Key.expand(o.Value);
+                r.mul(tmp.down); //div to prev
+                tmp.up.mul(ret); //accum div to now
+                r.add(tmp.up); //
+                ret.mul(tmp.down); //accum
             }
             data = r.data;
-            return rt;
+            return ret;
         }
 
         public void expand(Many from, One o, Complex n, Func val)
@@ -2451,12 +2458,21 @@ namespace shard0
         }
         public void exp(Func e)
         {
-            up.exp(e); down.exp(e);
-        }
-
-        public new void exp(int e)
-        {
-            up.exp(e); down.exp(e);
+            if (e.type_pow() < 2)
+            {
+                Func _e = new Func(e);
+                if (((Complex)(_e.data)).r.sign < 0)
+                {
+                    ((Complex)(_e.data)).neg();
+                    up.exp(_e); down.exp(_e);
+                    Many t = up; up = down; down = t;
+                }
+                else
+                {
+                    up.exp(_e); down.exp(_e);
+                }
+            }
+            else { up.exp(e); down.exp(e); }
         }
 
         public void neg()
@@ -2507,39 +2523,35 @@ namespace shard0
         {
             up.simple();
             down.simple();
+
             if ((up.data.Count > 1) || (down.data.Count > 1))
             {
                 KeyValuePair<One, Complex> f_up = up.extract(), f_down = down.extract();
                 if ((f_up.Key.exps.Count + f_down.Key.exps.Count > 0))
                 {
-                    One ou = new One(f_up.Key);
-                    f_up.Key.div(); up.mul(f_up.Key, Complex._r1);
-                    f_down.Key.div(); down.mul(f_down.Key, Complex._r1);
-                    ou.mul(f_down.Key); ou.simple();
-                    if (ou.exps.Count > 0)
-                    {
+                    One ou = new One(f_up.Key); ou.extract(f_down.Key); ou.div();
+                    Complex cu = new Complex(f_up.Value); cu.extract(f_down.Value); cu.div();
+                    up.mul(ou, cu); f_up.Key.mul(ou);
+                    down.mul(ou, cu); f_down.Key.mul(ou);
+/*
                         f_up.Value.div(); up.mul(f_up.Value);
                         f_down.Value.div(); down.mul(f_down.Value);
                         f_up.Value.div(); f_up.Value.mul(f_down.Value);
                         ou.addto(new Func(new Many2(up, down)), new Func(new Complex(1)));
                         down = new Many(new Complex(1));
                         up = new Many(ou, f_up.Value);
-                    }
+                    */
+                    foreach (KeyValuePair<Func, Func> u in f_up.Key.exps) if (u.Value.sign() >= 0) u.Value.set0();
+                    f_up.Value.set(f_up.Key.simple());
+                    foreach (KeyValuePair<Func, Func> d in f_down.Key.exps) if (d.Value.sign() >= 0) d.Value.set0();
+                    f_down.Value.set(f_down.Key.simple());
+                    f_up.Key.div();
+                    down.mul(f_up.Key, Complex._r1);
+                    up.mul(f_up.Key, Complex._r1);
+                    f_down.Key.div();
+                    up.mul(f_down.Key, Complex._r1);
+                    down.mul(f_down.Key, Complex._r1);
                 }
-                /*
-                            foreach(KeyValuePair<Func,Func> u in f_up.Key.exps) if (u.Value.sign() >= 0) u.Value.set0();
-                            f_up.Value.set(f_up.Key.simple());
-
-                            foreach(KeyValuePair<Func,Func> d in f_down.Key.exps) if (d.Value.sign() >= 0) d.Value.set0();
-                            f_down.Value.set(f_down.Key.simple());
-
-                            f_up.Key.div();
-                            up.mul(f_up.Key,f_up.Value);
-                            down.mul(f_up.Key,f_up.Value);
-                            f_down.Key.div();
-                            up.mul(f_down.Key,f_down.Value);
-                            down.mul(f_down.Key,f_down.Value);
-                */
             }
             else
             {
@@ -5131,7 +5143,7 @@ namespace shard0
 //       `
          0, 0, 0, 0,  0, 0, 0, 0,   0, 0, 0, 0,  0, 0, 0, 0};
         //                                           {   |  }  ~ 	
-        public bool flag_out_exptomul = false;
+        public bool flag_out_exptomul, flag_out_desc;
         public string prev, val, name;
         public int pos, opers, body_num;
         public char now, oper, main_oper;
@@ -5149,6 +5161,8 @@ namespace shard0
             stack = new List<List<Deep>>();
             body = new List<string>();
             val = ""; prev = "";
+            flag_out_exptomul = false;
+            flag_out_desc = false;
         }
         public int find2(string s0, string s1)
         {
@@ -5635,7 +5649,7 @@ namespace shard0
             else
             {
                 if (((p.r.sign > -1) || nosign) && (p.r.isint() || nopow)) ret += print(p.r, !nosign);
-                else ret = "{" + print(p.r, true) + "}";
+                else ret = "{" + print(p.r, nopow) + "}";
             }
             return ret;
         }
@@ -5740,7 +5754,7 @@ namespace shard0
             string ret = IDS.root.funcs_name[f.type];
             Action[] p = {
                   () => {
-                      ret += ((Vals)(f.data)).get_name();
+                      ret += (flag_out_desc ? ((Vals)(f.data)).var.desc : ((Vals)(f.data)).get_name());
                   },
                   () => {
                       ret += print((Complex)(f.data), nopow, false);
@@ -5802,7 +5816,7 @@ namespace shard0
         }
         public string print(Vars v)
         {
-            return v.name + " = " + (v.var == null ? "" : print(v.var, false)) + ";";
+            return (flag_out_desc ? v.desc : v.name) + " = " + (v.var == null ? "" : print(v.var, false)) + ";";
         }
         public string print(int v)
         {
@@ -6422,6 +6436,7 @@ namespace shard0
             Vars var0;
             Vals val0;
             string val;
+            bool repeat;
             MAO_dict mao = null;
             Parse par = IDS.root.par;
             Flow flow = IDS.root.flow;
@@ -6612,6 +6627,14 @@ namespace shard0
             () => flow.repeat(numeric,save3)
             };
 
+            char[] c_flag = { '^', 'N', ';' };
+            Action[] a_flag = {
+                () => {par.flag_out_exptomul = ! par.flag_out_exptomul;},
+                () => {par.flag_out_desc = ! par.flag_out_desc;},
+                () => {repeat = false; },
+                () => {repeat = false; }
+                };
+
             do
             {
                 flow.select(flow_level_oper, oper);
@@ -6623,14 +6646,18 @@ namespace shard0
                 switch (par.main_oper)
                 {
                     case '%':
-                        par.next();
-                        if (par.isequnow('^')) par.flag_out_exptomul = ! par.flag_out_exptomul;
+                        do {
+                            par.next();
+                            repeat = true;
+                            par.branchnow(c_flag, a_flag);
+                        } while (repeat);
                         break;
                     case '=':
                         if (root.fnames.ContainsKey(par.name)) IDS.root.sys.error("reserved name");
                         var0 = root.findadd_var(par.name);
                         if (var0.ind < IDS.v_res) IDS.root.sys.error("reserved var");
                         par.next();
+                        if (par.isequnow('"')) var0.desc = par.get("\"");
                         var0.var = (par.isequnow(Parse.isend) ? null : par.fpars("", false));
                         par.sys.wline(0, par.print(var0));
                         break;
