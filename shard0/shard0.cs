@@ -400,12 +400,14 @@ namespace shard0
             {
                 flow = new Flow(11, now_time);
                 par.init();
+                sys.fin.Close();
                 save(sys.name + ".bin").Close();
                 sys.flag = flag();
                 sys.finish();
             }
             else
             {
+                sys.fin.Close();
                 load(sys.name + ".bin");
             }
         }
@@ -4976,7 +4978,7 @@ namespace shard0
 
     public class Fileio//: IDisposable
     {
-        StreamReader fin, f611 = null;
+        public StreamReader fin, f611 = null;
         public StreamWriter file_flag;
         public string flag;
         List<string>[] sout;
@@ -6541,6 +6543,45 @@ namespace shard0
             {
                 return _tostr(_n.r) + (_n.i.sign == 0 ? "" : "_" + _tostr(_n.i));
             };
+            Func<Many, string, int, int> _extr_x = (Many _extr, string ns, int vs) =>
+                {
+                    SortedDictionary<One, Many> extra = new SortedDictionary<One, Many>();
+                    One from, to; string nn;
+                    foreach (KeyValuePair<One, Complex> m in _extr.data)
+                    {
+                        to = new One();
+                        from = new One(m.Key);
+                        foreach (Func _f in flow.id)
+                        {
+                            if (from.exps.ContainsKey(_f))
+                            {
+                                to.exps.Add(_f, from.exps[_f]);
+                                from.exps.Remove(_f);
+                            }
+                        }
+                        if (extra.ContainsKey(to)) extra[to].add(from, m.Value);
+                        else extra.Add(to, new Many(from, new Complex(m.Value)));
+                    }
+                    _extr.data.Clear();
+                    Vars vr; One ores; Complex mul;
+                    foreach (KeyValuePair<One, Many> _res in extra)
+                    {
+                        ores = new One(_res.Key); mul = _res.Value.get_Num();
+                        if (mul == null)
+                        {
+                            nn = ns + vs.ToString();
+                            if (root.var.ContainsKey(nn)) par.sys.error(nn + " @ already exist");
+                            vr = root.findadd_var(nn);
+                            _res.Value.simple();
+                            vr.var = new Func(new Many2(_res.Value));
+                            par.sys.wline(0, par.print(vr));
+                            ores.exps.Add(new Func(vr.vals[0]), new Func(new Complex(1)));
+                            vs++;
+                            _extr.data.Add(ores, new Complex(1));
+                        } else _extr.data.Add(ores, mul);
+                    }
+                    return vs;
+                };
             Func<bool> extract = () =>
             {
                 if (flow.id.Count == 1)
@@ -6575,44 +6616,14 @@ namespace shard0
                 }
                 else
                 {
-                    SortedDictionary<One, Many> extra = new SortedDictionary<One, Many>();
-                    One from, to;
                     Many2 doit = (Many2)(flow.get_var_func(flow_level_var).data);
-                    string ns = flow.get_var(flow_level_var).name + "_", nn;
+                    string ns = flow.get_var(flow_level_var).name + "_";
                     foreach (Func _f in flow.id)
                     {
                         ns += ((Vals)_f.data).var.name + "_";
                     }
-                    foreach (KeyValuePair<One, Complex> m in doit.up.data)
-                    {
-                        to = new One();
-                        from = new One(m.Key);
-                        foreach (Func _f in flow.id)
-                        {
-                            if (from.exps.ContainsKey(_f))
-                            {
-                                to.exps.Add(_f, from.exps[_f]);
-                                from.exps.Remove(_f);
-                            }
-                        }
-                        if (extra.ContainsKey(to)) extra[to].add(from, m.Value);
-                        else extra.Add(to, new Many(from, new Complex(m.Value)));
-                    }
-                    doit.up.data.Clear();
-                    int vs = 0;
-                    Vars vr; One ores;
-                    foreach (KeyValuePair<One, Many> _res in extra)
-                    {
-                        nn = ns + vs.ToString();
-                        if (root.var.ContainsKey(nn)) par.sys.error(nn + " @ already exist");
-                        vr = root.findadd_var(nn);
-                        _res.Value.simple();
-                        vr.var = new Func(new Many2(_res.Value));
-                        ores = new One(_res.Key); ores.exps.Add(new Func(vr.vals[0]), new Func(new Complex(1)));
-                        doit.up.data.Add(ores, new Complex(1));
-                        par.sys.wline(0, par.print(vr));
-                        vs++;
-                    }
+                    int vs = _extr_x(doit.up, ns, 0);
+                    _extr_x(doit.down, ns, vs);
                     par.sys.wline(0, par.print(flow.get_var(flow_level_var)));
                 }
                 return false;
@@ -6707,7 +6718,6 @@ namespace shard0
                     case '@':
                         flow.patch[flow_level_oper] = 2;
                         Vars _v = root.find_var_fill(par.name);
-                        if ((_v.var.type != Func.t_many2) || (((Many2)(_v.var.data)).down.get_Num() == null)) par.sys.error("@ wrong");
                         flow.patch[flow_level_var] = _v.ind;
                         par.next();
                         flow.id.Clear();
@@ -6720,6 +6730,7 @@ namespace shard0
                             flow.add_id(val0);
                         }
                         if (flow.id.Count < 1) par.sys.error("@ list empty");
+                        if ((_v.var.type != Func.t_many2) || (flow.id.Count == 1 && (((Many2)(_v.var.data)).down.get_Num() == null))) par.sys.error("@ wrong");
                         break;
 
                     case '|':
