@@ -416,6 +416,7 @@ namespace shard0
             file.Write(par.flag_out_desc);
             file.Write((Int32)(par.opers));
             file.Write((Int32)(par.body_num));
+            foreach (string s in par.out_names) file.Write(s);
             file.Write((Int32)(par.body.Count));
             foreach (string s in par.body) file.Write(s);
             int funcs = Vars.saves(file);
@@ -441,7 +442,8 @@ namespace shard0
             par.flag_out_desc = fload.ReadBoolean();
             par.opers = fload.ReadInt32();
             par.body_num = fload.ReadInt32();
-            int i = 0, cnt = fload.ReadInt32(); while (i < cnt)
+            int cnt, i = 0; while (i < par.out_names.Length) par.out_names[i++] = fload.ReadString();
+            i = 0; cnt = fload.ReadInt32(); while (i < cnt)
             {
                 par.body.Add(fload.ReadString());
                 i++;
@@ -5026,7 +5028,7 @@ namespace shard0
             if (r == null) { has = false; r = ""; }
             return r;
         }
-        public void finish(bool thr)
+        public void finish(bool thr, string[] _nam)
         {
             StreamWriter fout;
             fin.Close();
@@ -5034,7 +5036,7 @@ namespace shard0
             {
                 if (sout[i] != null)
                 {
-                    fout = new StreamWriter(name + Parse.m_n_to_c[i] + ".txt", true);
+                    fout = new StreamWriter(((_nam.Length > i) && (_nam[i] != "")) ? Path.GetDirectoryName(name) + _nam[i] : name + i.ToString().Trim() + ".txt", true);
                     foreach (string _s in sout[i]) fout.WriteLine(_s);
                     fout.Close();
                 }
@@ -5050,7 +5052,7 @@ namespace shard0
             }
             if (thr) throw new FinishException();
         }
-        public void finish() { finish(true); }
+        public void finish() { finish(true,IDS.root.par.out_names); }
         public void error(string e)
         {
             wline(0, "");
@@ -5145,6 +5147,7 @@ namespace shard0
         //                                           {   |  }  ~ 	
         public bool flag_out_exptomul, flag_out_desc;
         public string prev, val, name;
+        public string[] out_names;
         public int pos, opers, body_num;
         public char now, oper, main_oper;
         SortedDictionary<string, Mbody> macro;
@@ -5163,6 +5166,8 @@ namespace shard0
             val = ""; prev = "";
             flag_out_exptomul = false;
             flag_out_desc = false;
+            out_names = new string[42];
+            int i = 0; while (i < out_names.Length) out_names[i++] = "";
         }
         public int find2(string s0, string s1)
         {
@@ -5178,6 +5183,12 @@ namespace shard0
             macro.Add("#sy(", new Mbody(0, IDS.root.pic.Width.ToString()));
             string _now = "";
             bool inside = false;
+            int i;
+            if (lnext() && (val.Length > 0)) while (isequnow(isnum)) {
+                i = get_int(); if (!isequnow(':')) sys.error("out descr: wrong");
+                next(); if (!isequnow(isname)) sys.error("out descr: wrong");
+                out_names[i] = get(","); next(); if (out_names[i].IndexOf("\\") > -1) sys.error("out descr: wrong");
+            }
             while (sys.has) if (lnext() && (val.Length > 0))
                 {
                     pos = 0; while (pos < val.Length)
