@@ -839,7 +839,7 @@ namespace shard0
         }
         public void extract(Num n)
         {
-            if (n.sign == 0) set0();
+            if ((sign == 0) || (n.sign == 0)) set0();
             else
             {
                 sign = ((sign < 0) && (n.sign < 0) ? -1 : 1);
@@ -1148,7 +1148,7 @@ namespace shard0
 
         static public Complex common(Complex n0, Complex n1)
         {
-            return new Complex(Num.common(n0.r, n1.r), Num.common(n0.r, n1.r));
+            return new Complex(Num.common(n0.r, n1.r), Num.common(n0.i, n1.i));
         }
 
         static public Complex neg(Complex a)
@@ -1575,19 +1575,27 @@ namespace shard0
         {
             Func r = null;
             if (exps.Count == 0) r = new Func(n);
-            if ((exps.Count == 1) && (n.CompareTo(Complex._r1) == 0) && exps.ElementAt(0).Value.isconst(1, 0))
-                r = exps.ElementAt(0).Key;
+            if ((exps.Count == 1) && exps.ElementAt(0).Value.isconst(1, 0))  {
+                if (n.CompareTo(Complex._r1) == 0) r = new Func(exps.ElementAt(0).Key);
+                else if (exps.ElementAt(0).Key.type == Func.t_many2)
+                {
+                    Many2 _m = new Many2((Many2)(exps.ElementAt(0).Key.data));
+                    _m.mul(n); r = new Func(_m);
+                }
+            }
             return r;
         }
 
         public void extract(One from) //common multi
         {
             SortedDictionary<Func, Func> r = new SortedDictionary<Func, Func>();
+            Func extr;
             foreach (KeyValuePair<Func, Func> m in exps)
                 if (from.exps.ContainsKey(m.Key))
                 {
-                    m.Value.common(from.exps[m.Key]);
-                    r.Add(m.Key, m.Value);
+                    extr = new Func(m.Value);
+                    extr.common(from.exps[m.Key]);
+                    r.Add(m.Key, extr);
                 }
             exps = r;
         }
@@ -1913,7 +1921,7 @@ namespace shard0
         {
             Func r = null;
             if (data.Count == 0) r = new Func(new Complex(0));
-            if (data.Count == 1) r = data.ElementAt(0).Key.get_Func(data.ElementAt(0).Value);
+            if (data.Count == 1) r = data.ElementAt(0).Key.get_Func(new Complex(data.ElementAt(0).Value));
             return r;
         }
         public Complex get_Num()
@@ -2146,8 +2154,8 @@ namespace shard0
                     {
                         ro.extract(m.Key);
                         rn.extract(m.Value);
-                        if (ro.exps.Count < 1) new KeyValuePair<One, Complex>(ro, new Complex(0));
-                        if (rn.iszero()) new KeyValuePair<One, Complex>(new One(), rn);
+                        if (ro.exps.Count < 1) return new KeyValuePair<One, Complex>(new One(), new Complex(1));
+                        if (rn.iszero()) return new KeyValuePair<One, Complex>(new One(), new Complex(1));
                     }
                 }
                 return new KeyValuePair<One, Complex>(ro, rn);
@@ -2545,6 +2553,7 @@ namespace shard0
                                             down = new Many(new Complex(1));
                                             up = new Many(ou, f_up.Value);
                                         */
+
                     foreach (KeyValuePair<Func, Func> u in f_up.Key.exps) if (u.Value.sign() >= 0) u.Value.set0();
                     f_up.Value.set(f_up.Key.simple());
                     foreach (KeyValuePair<Func, Func> d in f_down.Key.exps) if (d.Value.sign() >= 0) d.Value.set0();
@@ -5903,7 +5912,8 @@ namespace shard0
         public Complex from, to, siz0;
         public Complex max, min;
         public int scale;
-        public Fborder(Complex _nfr, Complex _n, int sc)
+        public bool imag = false;
+        public Fborder(Complex _nfr, Complex _n, int sc, bool _im)
         {
             from = _nfr; to = _n;
             max = null; min = null; siz0 = null;
@@ -5913,6 +5923,7 @@ namespace shard0
                 siz0 = Complex.sub(to, from);
                 siz0.r.div(); siz0.i.div();
             }
+            imag = _im;
         }
 
         public static void save(BinaryWriter file, Fborder f)
@@ -5926,6 +5937,7 @@ namespace shard0
                 Complex.save(file, f.min);
                 Complex.save(file, f.max);
                 file.Write((Int32)f.scale);
+                file.Write(f.imag);
             }
         }
         public static Fborder load(BinaryReader file)
@@ -5933,17 +5945,18 @@ namespace shard0
             Fborder ret = null;
             if (file.ReadBoolean())
             {
-                ret = new Fborder(Complex.load(file), Complex.load(file), 0);
+                ret = new Fborder(Complex.load(file), Complex.load(file), 0, false);
                 ret.min = Complex.load(file);
                 ret.max = Complex.load(file);
                 ret.scale = file.ReadInt32();
+                ret.imag = file.ReadBoolean();
             }
             return ret;
         }
 
         public Complex get(Complex _n)
         {
-            Complex ret = new Complex(_n);
+            Complex ret = (imag ? new Complex(_n.i,_n.r) : new Complex(_n));
             if (max == null) max = new Complex(ret);
             else
             {
@@ -6003,10 +6016,12 @@ namespace shard0
                     _c[i].sub(from);
                     if (_c[i].r.sign < 0) _c[i].r = IDS.nums[IDS.znums];
                     if (_c[i].i.sign < 0) _c[i].i = IDS.nums[IDS.znums];
-                    _c[i].mul(siz);
+                    _c[i].r = Num.mul(_c[i].r, siz.r);
+                    _c[i].i = Num.mul(_c[i].i, siz.i);
                     if (_c[i].r.up > _c[i].r.down) _c[i].r = IDS.nums[IDS.znums + 1];
                     if (_c[i].i.up > _c[i].i.down) _c[i].i = IDS.nums[IDS.znums + 1];
                 }
+                else _c[i] = new Complex(from);
                 i++;
             }
         }
@@ -6402,6 +6417,7 @@ namespace shard0
         static Fborder border(List<Fdim> fdim, Vals v)
         {
             int sc = 10;
+            bool imag = false;
             Parse par = IDS.root.par;
             if (par.isequnow('<'))
             {
@@ -6413,9 +6429,10 @@ namespace shard0
                 par.next();
                 if (par.isequnow(Parse.isnum)) { sc = 9 + (par.now - '0'); par.next(); }
             }
+            if (par.isequnow('%')) { imag = true; par.next(); }
             if (par.isequnow(','))
             {
-                foreach (Fdim fd in fdim) if ((fd.var == v.var) && (fd.step.sign() != 0)) return new Fborder(fd.from, fd.to, sc);
+                foreach (Fdim fd in fdim) if ((fd.var == v.var) && (fd.step.sign() != 0)) return new Fborder(fd.from, fd.to, sc, imag);
                 IDS.root.sys.error("draw: no interval");
             }
             else
@@ -6423,7 +6440,7 @@ namespace shard0
                 Complex n0 = null, ns = null;
                 if (par.isequnow('{')) n0 = par.calc(); else if (par.isequnow('@')) par.next(); else IDS.root.sys.error("wrong draw");
                 if (par.isequnow('{')) ns = par.calc(); else if (par.isequnow('@')) par.next(); else IDS.root.sys.error("wrong draw");
-                return new Fborder(n0, ns, sc);
+                return new Fborder(n0, ns, sc, imag);
             }
             return null;
         }

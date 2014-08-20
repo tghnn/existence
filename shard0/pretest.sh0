@@ -9,6 +9,7 @@ t5= t1^6;
 `fast expand on vars list
 t4$!11,t3,t2,t1;
 `standart expand on all vars
+ttt={1:-2}*{0:1};
 t3$*@;
 t5$*@;
 `extract b from t5 (t5 persistent)
@@ -55,6 +56,7 @@ br2=xba^2+yba^2;
 br=-br2^(1/4);
 cr2=xca^2+yca^2;
 cr=0.1-cr2^2;
-[xa[{0}{1/300}{1}],ya[{0}{1/300}{1}]][[10,300,10,300]xa,ya,br@@,,cr{0}@][[310,270,310,270]xa,ya,br@@,,cr{0.0}@];
+imag=xa*{4:1}+ya*{-1:4};
+[xa[{0}{1/300}{1}],ya[{0}{1/300}{1}]][[330,300,330,300]xa,ya,imag@@,,imag%@@][[10,300,10,300]xa,ya,br@@,,cr{0}@];
 la=e^(xa*10);
 [xa[{0}{1/#sx()}{1}],ya{0.3}][xa,cr@@][xa,br@@][xa,la<4@@]la"la = %6.6%"1,"\n"1,[xa,la@@];
