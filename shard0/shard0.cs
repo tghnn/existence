@@ -173,7 +173,7 @@ namespace shard0
         }
         public Vars(string n, int valn, Complex vl)
         {
-            desc = n;  name = n; stat = 0; var = null; vals = new Vals[valn + 1];
+            desc = n; name = n; stat = 0; var = null; vals = new Vals[valn + 1];
             int i = 0; while (i <= valn)
             {
                 vals[i] = new Vals(this, new Exps_n(vl), i); i++;
@@ -182,7 +182,7 @@ namespace shard0
         }
         public Vars(string n, Complex[] vl)
         {
-            desc = n;  name = n; stat = 0; var = null; vals = new Vals[vl.Length + 1];
+            desc = n; name = n; stat = 0; var = null; vals = new Vals[vl.Length + 1];
             int i = 0; while (i <= vl.Length)
             {
                 vals[i] = new Vals(this, new Exps_n(vl[i]), i); i++;
@@ -191,7 +191,7 @@ namespace shard0
         }
         public Vars(string n, int valn, int _stat)
         {
-            desc = n;  name = n; stat = _stat; var = null; vals = new Vals[valn + 1];
+            desc = n; name = n; stat = _stat; var = null; vals = new Vals[valn + 1];
             set_ind();
         }
         public Vars(string n, int valn, int _stat, bool isset)
@@ -216,12 +216,12 @@ namespace shard0
         }
         public static void loads(BinaryReader file)
         {
-            int i = 0; 
+            int i = 0;
             Vars._ind = file.ReadInt32();
             Array.Resize<Vars>(ref Vars.inds, Vars._ind + 11);
             while (i < Vars._ind)
             {
-                Vars.inds[i] = new Vars(file.ReadString(), file.ReadInt32(), file.ReadInt32(),false);
+                Vars.inds[i] = new Vars(file.ReadString(), file.ReadInt32(), file.ReadInt32(), false);
                 Vars.inds[i].desc = file.ReadString();
                 i++;
             }
@@ -2537,14 +2537,14 @@ namespace shard0
                     Complex cu = new Complex(f_up.Value); cu.extract(f_down.Value); cu.div();
                     up.mul(ou, cu); f_up.Key.mul(ou);
                     down.mul(ou, cu); f_down.Key.mul(ou);
-/*
-                        f_up.Value.div(); up.mul(f_up.Value);
-                        f_down.Value.div(); down.mul(f_down.Value);
-                        f_up.Value.div(); f_up.Value.mul(f_down.Value);
-                        ou.addto(new Func(new Many2(up, down)), new Func(new Complex(1)));
-                        down = new Many(new Complex(1));
-                        up = new Many(ou, f_up.Value);
-                    */
+                    /*
+                                            f_up.Value.div(); up.mul(f_up.Value);
+                                            f_down.Value.div(); down.mul(f_down.Value);
+                                            f_up.Value.div(); f_up.Value.mul(f_down.Value);
+                                            ou.addto(new Func(new Many2(up, down)), new Func(new Complex(1)));
+                                            down = new Many(new Complex(1));
+                                            up = new Many(ou, f_up.Value);
+                                        */
                     foreach (KeyValuePair<Func, Func> u in f_up.Key.exps) if (u.Value.sign() >= 0) u.Value.set0();
                     f_up.Value.set(f_up.Key.simple());
                     foreach (KeyValuePair<Func, Func> d in f_down.Key.exps) if (d.Value.sign() >= 0) d.Value.set0();
@@ -4987,9 +4987,9 @@ namespace shard0
         public Fileio(string nin)
         {
             string fname;
-            if (!File.Exists(nin+".sh0")) Environment.Exit(-1);
+            if (!File.Exists(nin + ".sh0")) Environment.Exit(-1);
             name = nin;
-            fname = name+".flg"; flag = "";
+            fname = name + ".flg"; flag = "";
             if (File.Exists(fname))
             {
                 StreamReader _fl = new StreamReader(fname);
@@ -4998,7 +4998,7 @@ namespace shard0
             }
             file_flag = new StreamWriter(fname);
             //            f611 = (File.Exists("611"+iexf) ?  new StreamReader("611"+iexf) : null);
-            fin = new StreamReader(nin+".sh0");
+            fin = new StreamReader(nin + ".sh0");
             sout = new List<string>[40];
             has = true;
         }
@@ -5054,7 +5054,7 @@ namespace shard0
             }
             if (thr) throw new FinishException();
         }
-        public void finish() { finish(true,IDS.root.par.out_names); }
+        public void finish() { finish(true, IDS.root.par.out_names); }
         public void error(string e)
         {
             wline(0, "");
@@ -5186,11 +5186,12 @@ namespace shard0
             string _now = "";
             bool inside = false;
             int i;
-            if (lnext() && (val.Length > 0)) while (isequnow(isnum)) {
-                i = get_int(); if (!isequnow(':')) sys.error("out descr: wrong");
-                next(); if (!isequnow(isname)) sys.error("out descr: wrong");
-                out_names[i] = get(","); next(); if (out_names[i].IndexOf("\\") > -1) sys.error("out descr: wrong");
-            }
+            if (lnext() && (val.Length > 0)) while (isequnow(isnum))
+                {
+                    i = get_int(); if (!isequnow(':')) sys.error("out descr: wrong");
+                    next(); if (!isequnow(isname)) sys.error("out descr: wrong");
+                    out_names[i] = get(","); next(); if (out_names[i].IndexOf("\\") > -1) sys.error("out descr: wrong");
+                }
             while (sys.has) if (lnext() && (val.Length > 0))
                 {
                     pos = 0; while (pos < val.Length)
@@ -5266,7 +5267,7 @@ namespace shard0
             if ((val.Length == 0) || (val[0] == '`')) return false;
             if (val.Substring(0, 2) == "##")
             {
-                pos = 2; name = "#" + get(isname) + "("; if (!isequnow('#')) sys.error("macro: wrong num");
+                setnow(2); name = "#" + get(isname) + "("; if (!isequnow('(')) sys.error("macro: wrong num");
                 next(); if (!isequnow(isname)) sys.error("macro: wrong num");
                 _np = m_c_to_n[now];
                 string _m = val.Substring(pos + 2);
@@ -5336,8 +5337,9 @@ namespace shard0
             }
             return true;
         }
-        void setnow()
+        void setnow(int _p)
         {
+            pos = _p;
             if (more()) now = val[pos];
             else
             {
@@ -5356,7 +5358,7 @@ namespace shard0
                 if ((deep.Count < 1) || (deep.Last().pair > now) || (now - deep.Last().pair > 2)) sys.error("parse: nonpair");
                 deep.RemoveAt(deep.Count - 1);
             }
-            do { pos++; } while (more() && (val[pos] == ' ')); setnow();
+            do { pos++; } while (more() && (val[pos] == ' ')); setnow(pos);
         }
         public string get(char tst)
         {
@@ -5383,7 +5385,7 @@ namespace shard0
                 if ((!more()) || (delim.IndexOf(val[pos]) > -1))
                 {
                     if (delim.Length == 1) pos++;
-                    setnow(); return ret;
+                    setnow(pos); return ret;
                 }
                 ret += val[pos].ToString(); pos++;
             }
@@ -5582,59 +5584,65 @@ namespace shard0
         {
             char[] lo = { '+', ' ', ' ', ' ' };
             Complex[] ln = { new Complex(0), new Complex(0), new Complex(0), new Complex(0) };
+            Complex r;
             int lp = 0;
             if (isequnow(isnum))
             {
-                Complex r = new Complex(get(isnum));
-                if (isequnow(',')) next();
-                return r;
+                r = new Complex(get(isnum));
             }
-            if (isequnow(ispair)) next();
-            bool isi = false, l = true, li;
-            Action[] fnr = {
+            else
+            {
+                if (!isequnow(ispair)) sys.error("wrong calc/num");
+                next();
+                bool isi = false, l = true, li;
+                Action[] fnr = {
                       () => ln[lp-1].add(ln[lp]),() => ln[lp-1].sub(ln[lp]),
                       () => ln[lp-1].mul(ln[lp]),() => ln[lp-1].div(ln[lp]),
                       () => ln[lp-1].exp(ln[lp]),
                       () => sys.error("noNum in calc")
                      };
-            Action[] fni = {
+                Action[] fni = {
                       () => ln[lp-1].i = Num.add(ln[lp-1].i,ln[lp].i),() => ln[lp-1].i = Num.sub(ln[lp-1].i,ln[lp].i),
                       () => ln[lp-1].i = Num.mul(ln[lp-1].i,ln[lp].i),() => ln[lp-1].i = Num.div(ln[lp-1].i,ln[lp].i),
                       () => ln[lp-1].i = Num.exp(ln[lp-1].i,ln[lp].i),
                       () => sys.error("noNum in calc")
                      };
-            char[] nc = { isopen, isnum };
-            Action[] nf = {
+                char[] nc = { isopen, isnum };
+                Action[] nf = {
                               () => ln[++lp] = calc(),
                               () => ln[++lp] = (isi ? new Complex(0,get(isnum)) : new Complex(get(isnum))),
                               () => sys.error("in calc")
                           };
-            char[] oc = { ':', isoper, isclose, isend };
-            Action[] of = {
+                char[] oc = { ':', isoper, isclose, isend };
+                Action[] of = {
                               () => {li = false; next();},
                               () => {lo[lp] = now; next();},
                               () => {l = false; next();},
                               () => {l = false;},
                               () => sys.error("in calc")
                           };
-            while (l)
-            {
-                if (ln[0].i.sign != 0) sys.error("wrong complex in calc");
-                lo[0] = '+';
-                if ((now == '+') || (now == '-')) { lo[0] = now; next(); }
-                li = true;
-                while (li && l)
+                while (l)
                 {
-                    branchnow(nc, nf);
-                    branchnow(oc, of);
-                    while ((lp > 0) && (m_c_prior[lo[lp - 1]] >= m_c_prior[lo[lp]]))
+                    if (ln[0].i.sign != 0) sys.error("wrong complex in calc");
+                    lo[0] = '+';
+                    if ((now == '+') || (now == '-')) { lo[0] = now; next(); }
+                    li = true;
+                    while (li && l)
                     {
-                        branch(lo[lp - 1], "+-*/^", (isi ? fni : fnr)); lo[lp - 1] = lo[lp]; lp--;
+                        branchnow(nc, nf);
+                        branchnow(oc, of);
+                        while ((lp > 0) && (m_c_prior[lo[lp - 1]] >= m_c_prior[lo[lp]]))
+                        {
+                            branch(lo[lp - 1], "+-*/^", (isi ? fni : fnr)); lo[lp - 1] = lo[lp]; lp--;
+                        }
                     }
+                    isi = !isi;
                 }
-                isi = !isi;
+                r = ln[0];
             }
-            ln[0].simple(); return ln[0];
+            if (isequnow(',')) next();
+            r.simple();
+            return r;
         }
 
         public string print_mul(Complex p, ref bool first, bool noone)
@@ -5717,20 +5725,26 @@ namespace shard0
                         tmp = (Complex)(m.Value.data);
                         div = ((tmp.i.sign == 0) && (tmp.r.sign < 0));
                         one = (tmp.isint(1) || tmp.isint(-1));
-                        if (flag_out_exptomul && (tmp.i.sign == 0) && (tmp.r.isint()) && (tmp.r.up < 11)) {
+                        if (flag_out_exptomul && (tmp.i.sign == 0) && (tmp.r.isint()) && (tmp.r.up < 11))
+                        {
                             if (first) ret += (div ? "1/" : ""); else ret += (div ? "/" : "*");
-                            int i = 1; while(i < tmp.r.up) {
+                            int i = 1; while (i < tmp.r.up)
+                            {
                                 ret += print(m.Key, true) + (div ? "/" : "*");
                                 i++;
                             }
                             ret += print(m.Key, true);
-                        } else {
+                        }
+                        else
+                        {
                             if (first) ret += (div ? "1/" : ""); else ret += (div ? "/" : "*");
                             if (one) ret += print(m.Key, true);
                             else ret += print(m.Key, false) + "^" + print_pow(m.Value);
                         }
-                    } else {
-                        if (! first) ret += "*";
+                    }
+                    else
+                    {
+                        if (!first) ret += "*";
                         ret += print(m.Key, false) + "^" + print_pow(m.Value);
                     }
                     first = false;
@@ -6578,7 +6592,8 @@ namespace shard0
                             ores.exps.Add(new Func(vr.vals[0]), new Func(new Complex(1)));
                             vs++;
                             _extr.data.Add(ores, new Complex(1));
-                        } else _extr.data.Add(ores, mul);
+                        }
+                        else _extr.data.Add(ores, mul);
                     }
                     return vs;
                 };
@@ -6668,7 +6683,8 @@ namespace shard0
                 switch (par.main_oper)
                 {
                     case '%':
-                        do {
+                        do
+                        {
                             par.next();
                             repeat = true;
                             par.branchnow(c_flag, a_flag);
@@ -6780,8 +6796,8 @@ namespace shard0
                                     IDS.root.sys.error("calc: wrong");
                                     break;
                             }
-                            if (par.now == ']') break;
-                            par.next();
+                            if (par.isequnow(']')) break;
+                            if (par.isequnow(',')) par.next();
                         } while (true);
                         par.next();
                         while (par.more())
@@ -6815,10 +6831,11 @@ namespace shard0
                                         par.next();
                                         if (par.isequnow('['))
                                         {
-                                            par.next(); _fx = par.get_int();
-                                            par.next(); _sx = par.get_int();
-                                            par.next(); _fy = par.get_int();
-                                            par.next(); _sy = par.get_int();
+                                            par.next();
+                                            _fx = (int)(par.calc().toint());
+                                            _sx = (int)(par.calc().toint());
+                                            _fy = (int)(par.calc().toint());
+                                            _sy = (int)(par.calc().toint());
                                             par.next();
                                             if ((_sx < 4) || (_sy < 4) || (_fx + _sx >= IDS.root.pic.Width) || (_fy + _sy >= IDS.root.pic.Height)) IDS.root.sys.error("draw: wrong");
                                         }
