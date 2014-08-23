@@ -264,6 +264,7 @@ namespace shard0
         public Fileio sys;
         public Flow flow;
         public Parse par;
+        public int pic_x, pic_y;
         public System.Drawing.Bitmap pic;
         public int stat_uncalc, stat_calc, n_step, steps;
         public SortedDictionary<string, Vars> var;
@@ -279,14 +280,14 @@ namespace shard0
         }
         public string flag()
         {
-            return pic.Width.ToString() + "," + pic.Height.ToString() + "," +
+            return pic_x.ToString() + "," + pic_y.ToString() + "," +
                     digit10.ToString() + "," + sqr_steps.ToString() + "," + exp_max.ToString() + "," +
                     time.ToString() + "," + n_step.ToString() + "," + steps.ToString() + ",";
         }
         public IDS(Fileio f, Parse p)
         {
-            int i, sx = 0, sy = 0, exp = 0; string parm;
-            sys = f; par = p; stat_uncalc = 1; stat_calc = 2;
+            int i, exp = 0; string parm;
+            sys = f; par = p; stat_uncalc = 1; stat_calc = 2; pic_x = 0; pic_y = 0;
             fnames = new SortedDictionary<string, int>();
             var = new SortedDictionary<string, Vars>();
             IDS.ln = new SortedDictionary<Num, Num>();
@@ -302,35 +303,23 @@ namespace shard0
             if (sys.flag == "")
             {
                 par.lnext(); parm = par.val + ",0,0,";
-                File.Delete(par.sys.name + ".png");
             }
             else
             {
-                if ((!File.Exists(sys.name + ".bin")) || (!File.Exists(sys.name + ".png"))) sys.error("fatal: save lost");
+                if (!File.Exists(sys.name + ".bin")) sys.error("fatal: save lost");
                 parm = sys.flag;
             }
             String[] parms = parm.Split(new char[] { ',' }); if (parms.Length < 8) sys.error("wrong parms");
             if (parms[8] == "init") sys.error("fatal: init");
             if (parms[8] == "==") sys.error("fatal: time quant");
-            if (!(Int32.TryParse(parms[0], out sx) && Int32.TryParse(parms[1], out sy) &&
+            if (!(Int32.TryParse(parms[0], out pic_x) && Int32.TryParse(parms[1], out pic_y) &&
                 Int32.TryParse(parms[2], out digit10) && Int32.TryParse(parms[3], out sqr_steps) && Int32.TryParse(parms[4], out exp) &&
                 Int32.TryParse(parms[5], out time) && Int32.TryParse(parms[6], out n_step) && Int32.TryParse(parms[7], out steps))) sys.error("wrong parms");
             now_time = (parms[8] == "" ? time : time / 2);
             sys.file_flag.WriteLine(parm + (sys.flag == "" ? "init" : "=")); sys.file_flag.Flush();
-            if ((sx < 100) || (sx > 2000) || (sy < 100) || (sy > 2000) || (sqr_steps < 4) || (sqr_steps > 11) ||
+            if ((pic_x < 100) || (pic_x > 2000) || (pic_y < 100) || (pic_y > 2000) || (sqr_steps < 4) || (sqr_steps > 11) ||
                 (exp < 11) || (exp > 6666) || (digit10 < 11) || (digit10 > 2000) ||
                 (time < 6)) sys.error("wrong head");
-            if (File.Exists(sys.name + ".png"))
-            {
-                Bitmap tb = new Bitmap(par.sys.name + ".png");
-                pic = new Bitmap(tb);
-                if ((sx != pic.Width) || (sy != pic.Height)) sys.error("wrong pic");
-            }
-            else
-            {
-                pic = new System.Drawing.Bitmap(sx, sy);
-                for (int i0 = 0; i0 < sx; i0++) for (int i1 = 0; i1 < sy; i1++) pic.SetPixel(i0, i1, Color.FromArgb(0, 0, 0));
-            }
             IDS.exp_max = new BigInteger(exp);
             BigInteger b, c;
             IDS.e10 = new BigInteger[IDS.digit10 + 2]; b = 1; i = 0;
@@ -504,6 +493,24 @@ namespace shard0
             return var[n0];
         }
         public void uncalc() { stat_uncalc += 2; stat_calc += 2; }
+        public void draw()
+        {
+            if (pic == null)
+            {
+                if (File.Exists(sys.name + ".png"))
+                {
+                    Bitmap tb = new Bitmap(par.sys.name + ".png");
+                    pic = new Bitmap(tb);
+                    if ((pic_x != pic.Width) || (pic_y != pic.Height)) sys.error("wrong pic");
+                }
+                else
+                {
+                    pic = new System.Drawing.Bitmap(pic_x, pic_y);
+                    for (int i0 = 0; i0 < pic_x; i0++) for (int i1 = 0; i1 < pic_y; i1++) pic.SetPixel(i0, i1, Color.FromArgb(0, 0, 0));
+                }
+            }
+        }
+
         //          val           var
         //old    uncalc,calc  uncalc,calc
         //uncalc  get           recurs
@@ -5190,8 +5197,8 @@ namespace shard0
         }
         public void init()
         {
-            macro.Add("#sx(", new Mbody(0, IDS.root.pic.Height.ToString()));
-            macro.Add("#sy(", new Mbody(0, IDS.root.pic.Width.ToString()));
+            macro.Add("#sx(", new Mbody(0, IDS.root.pic_x.ToString()));
+            macro.Add("#sy(", new Mbody(0, IDS.root.pic_y.ToString()));
             string _now = "";
             bool inside = false;
             int i;
@@ -6154,6 +6161,7 @@ namespace shard0
         public override void finish()
         {
             ty.reborder(y1);
+            IDS.root.draw();
             Graphics _g = Graphics.FromImage(IDS.root.pic);
             Pen _p = new Pen(Color.White);
             int i, px = -1, py = -1, _y, _x;
@@ -6250,6 +6258,7 @@ namespace shard0
         }
         public override void finish()
         {
+            IDS.root.draw();
             double[] _r2 = null, _g2 = null, _b2 = null;
             if (r != null) { tr.reborder(r2); _r2 = tr.rdouble(r2); }
             if (g != null) { tg.reborder(g2); _g2 = tg.rdouble(g2); }
@@ -6854,11 +6863,11 @@ namespace shard0
                                             _fy = (int)(par.calc().toint());
                                             _sy = (int)(par.calc().toint());
                                             par.next();
-                                            if ((_sx < 4) || (_sy < 4) || (_fx + _sx >= IDS.root.pic.Width) || (_fy + _sy >= IDS.root.pic.Height)) IDS.root.sys.error("draw: wrong");
+                                            if ((_sx < 4) || (_sy < 4) || (_fx + _sx >= IDS.root.pic_x) || (_fy + _sy >= IDS.root.pic_y)) IDS.root.sys.error("draw: wrong");
                                         }
                                         else
                                         {
-                                            _fx = 0; _sx = IDS.root.pic.Width - 1; _fy = 0; _sy = IDS.root.pic.Height - 1;
+                                            _fx = 0; _sx = IDS.root.pic_x - 1; _fy = 0; _sy = IDS.root.pic_y - 1;
                                         }
                                         Vals[] _tv = new Vals[6];
                                         Fborder[] _tb = new Fborder[6];
