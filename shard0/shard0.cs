@@ -1606,11 +1606,12 @@ namespace shard0
                 }
             exps = r;
         }
-        public Many2 expand(Complex n)
+        public Many2 expand(Complex n, ref bool rb)
         {
             Many2 r = new Many2(1), t; One o = new One();
             foreach (KeyValuePair<Func, Func> m in exps) if ((m.Key.type == Func.t_many2) && (m.Value.type_pow() == 0))
                 {
+                    rb = true;
                     t = new Many2((Many2)(m.Key.data));
                     t.exp(m.Value); r.mul(t);
                 }
@@ -2026,13 +2027,34 @@ namespace shard0
         {
             for (int _i = 0; _i < data.Count; _i++) (data[data.ElementAt(_i).Key] = Complex.mul(data.ElementAt(_i).Value, n)).simple();
         }
+        public KeyValuePair<One, Complex> revert() //_any^(-x) -> /_any^(x)
+        {
+            One o = new One(), mul = new One(), tmp, tu, td; Complex c = new Complex(1);
+            Many r = new Many();
+            foreach (KeyValuePair<One, Complex> oc in data)
+            {
+                tmp = new One(oc.Key); tu = new One(); td = new One();
+                foreach (KeyValuePair<Func, Func> ff in tmp.exps)
+                {
+                    if ((ff.Value.type_pow() < 2) && (ff.Value.sign() < 0))
+                    {
+                        ((Complex)(ff.Value.data)).neg();
+                        td.exps.Add(ff.Key, ff.Value);
+                    } else tu.exps.Add(ff.Key, ff.Value);
+                }
 
-        public Many expand()
+                tu.mul(mul); mul.mul(td);
+                r.mul(td, new Complex(1)); r.add(tu,oc.Value);
+            }
+            data = r.data;
+            return new KeyValuePair<One, Complex>(o,c);
+        }
+        public Many expand(ref bool rb)
         {
             Many ret = new Many(new Complex(1)), r = new Many(); Many2 tmp;
             foreach (KeyValuePair<One, Complex> o in data)
             {
-                tmp = o.Key.expand(o.Value);
+                tmp = o.Key.expand(o.Value, ref rb);
                 r.mul(tmp.down); //div to prev
                 tmp.up.mul(ret); //accum div to now
                 r.add(tmp.up); //
@@ -2176,14 +2198,14 @@ namespace shard0
 
         public void deeper(int deep)
         {
-            SortedDictionary<One, Complex> r = new SortedDictionary<One, Complex>();
+            Many r = new Many();
             One o;
             foreach (KeyValuePair<One, Complex> m in data)
             {
                 o = new One(m.Key); o.deeper(deep);
-                r.Add(o, m.Value); //deeper dont remove val from one
+                r.data.Add(o, m.Value); //deeper dont remove val from one
             }
-            data = r;
+            data = r.data;
         }
 
         public void add_toexp(Func val, Func _e)
@@ -2435,7 +2457,13 @@ namespace shard0
             up.add_toexp(val, f);
             down.add_toexp(val, f);
         }
-
+        public void revert() //_any^(-x) -> /_any^(x)
+        {
+            KeyValuePair<One,Complex> tup = down.revert();
+            KeyValuePair<One,Complex> tdown = up.revert();
+            up.mul(tup.Key, tup.Value);
+            down.mul(tdown.Key, tdown.Value);
+        }
         public bool expand(Func val, Exps_f exu, Exps_f exd)
         {
             bool rt0, rt02;
@@ -2458,10 +2486,12 @@ namespace shard0
             if (rt0 || rt02) simple();
             return rt0 || rt02;
         }
-        public void expand()
+        public bool expand()
         {
-            Many tod = up.expand(); Many tou = down.expand();
+            bool ret = false;
+            Many tod = up.expand(ref ret); Many tou = down.expand(ref ret);
             up.mul(tou); down.mul(tod);
+            return ret;
         }
         public void replace(Vals v, Func f)
         {
@@ -2820,9 +2850,11 @@ namespace shard0
             foreach (KeyValuePair<int, Many2> m in data) r = m.Value.expand(val, exu, exd) || r;
             return r;
         }
-        public void expand()
+        public bool expand()
         {
-            foreach (KeyValuePair<int, Many2> m in data) m.Value.expand();
+            bool ret = false;
+            foreach (KeyValuePair<int, Many2> m in data) ret = m.Value.expand() | ret;
+            return ret;
         }
         public void simple()
         {
@@ -2985,9 +3017,11 @@ namespace shard0
             foreach (Func _f in data) ret = _f.expand(val, exu, exd) || ret;
             return ret;
         }
-        public void expand()
+        public bool expand()
         {
-            foreach (Func _f in data) _f.expand();
+            bool ret = false;
+            foreach (Func _f in data) ret = _f.expand() | ret;
+            return ret;
         }
         public void deeper(int d)
         {
@@ -3273,21 +3307,21 @@ namespace shard0
 
             return ret;
         }
-        static public Action<Func>[] expand_func = {
-                (Func t) => {},
-                (Func t) => {},
-                (Func t) => {((Many2)(t.data)).expand();},
-                (Func t) => {((Many2)(t.data)).expand();},
-                (Func t) => {((Many2)(t.data)).expand();},
-                (Func t) => {((Many2)(t.data)).expand();},
-                (Func t) => {((Many2)(t.data)).expand();},
-                (Func t) => {((Row)(t.data)).expand();},
-                (Func t) => {((Matrix)(t.data)).expand();}
+        static public Func<Func,bool>[] expand_func = {
+                (Func t) => {return false;},
+                (Func t) => {return false;},
+                (Func t) => {return ((Many2)(t.data)).expand();},
+                (Func t) => {return ((Many2)(t.data)).expand();},
+                (Func t) => {return ((Many2)(t.data)).expand();},
+                (Func t) => {return ((Many2)(t.data)).expand();},
+                (Func t) => {return ((Many2)(t.data)).expand();},
+                (Func t) => {return ((Row)(t.data)).expand();},
+                (Func t) => {return ((Matrix)(t.data)).expand();}
                 };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void expand()
+        public bool expand()
         {
-            Func.expand_func[type](this);
+            return Func.expand_func[type](this);
         }
         static public Action<Func>[] neg_func = {
                 (Func t) => {
@@ -6548,7 +6582,13 @@ namespace shard0
                 if (flow.is_bit(flow_level_flag,0)) flow.get_var(flow_level_var).var = mao.mao[0].to_func(); else flow.get_var_func(flow_level_var).simple();
             },
             () => {
-                if (flow.is_bit(flow_level_flag,1)) Vars.inds[flow.patch[flow_level_var]].var.expand();
+                if (flow.is_bit(flow_level_flag,1)) {
+                    bool bb = true;
+                    do {
+                        bb = Vars.inds[flow.patch[flow_level_var]].var.expand();
+                        Vars.inds[flow.patch[flow_level_var]].var.simple();
+                    } while (bb);
+                }
             },
             () => {
                 if (flow.is_bit(flow_level_flag,2) && ((flow.get_var_func(flow_level_var).type == 2) && (((Many2)(flow.get_var_func(flow_level_var).data)).down.type_exp() < 2)))
@@ -6625,7 +6665,57 @@ namespace shard0
                 };
             Func<bool> extract = () =>
             {
-                if (flow.id.Count == 1)
+                if (flow.id.Count == 0)
+                {
+                    do
+                    {
+                        ((Many2)(flow.get_var_func(flow_level_var).data)).down = new Many(new Complex(1));
+                        ((Many2)(flow.get_var_func(flow_level_var).data)).expand();
+                        ((Many2)(flow.get_var_func(flow_level_var).data)).simple();
+                        ((Many2)(flow.get_var_func(flow_level_var).data)).revert();
+                    } while (!((Many2)(flow.get_var_func(flow_level_var).data)).down.isint(1, 0));
+                    ((Many2)(flow.get_var_func(flow_level_var).data)).simple();
+                    Many mup = ((Many2)(flow.get_var_func(flow_level_var).data)).up;
+                    Complex e;
+                    bool hasone = false, hasmany = false, hasmore2 = false, hashere;
+                    foreach (KeyValuePair<One, Complex> m in mup.data)
+                    {
+                        hashere = false;
+                        foreach (KeyValuePair<Func, Func> f in m.Key.exps)
+                        {
+                            if (f.Key.type == Func.t_many2)
+                            {
+                                if (f.Value.type != Func.t_num) par.sys.error("too complex exp for @");
+                                e = (Complex)(f.Value.data);
+                                if (!e.i.isint(0)) par.sys.error("too complex exp for @");
+                                if (e.r.down > 1)
+                                {
+                                    if (e.r.down > 2) hasmore2 = true;
+                                    if (!hashere)
+                                    {
+                                        if (hasone) hasmany = true; else hasone = true;
+                                        hashere = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (hasmany && hasmore2) par.sys.error("no, we cant");
+                    if (hasone)
+                    {
+                        if (hasmany) { 
+
+
+
+                        } else {
+                        
+
+
+                        }
+                    }
+                    par.sys.wline(0, par.print(flow.get_var(flow_level_var)));
+                }
+                else if (flow.id.Count == 1)
                 {
                     SortedDictionary<int, int> lout = new SortedDictionary<int, int>();
                     Func extr = flow.id[0];
@@ -6680,8 +6770,6 @@ namespace shard0
                 foreach (Fdo fd in fdo) fd.finish();
                 return false;
             };
-
-
 
             Action[] oper = {
             () => {},
@@ -6763,16 +6851,24 @@ namespace shard0
                         flow.patch[flow_level_var] = _v.ind;
                         par.next();
                         flow.id.Clear();
-                        while (par.isequnow(Parse.isname))
+                        if (par.isequnow('0'))
                         {
-                            val = par.get(Parse.isname);
-                            if (par.isequnow(',')) par.next();
-                            val0 = root.find_val(val);
-                            if (val0.var.ind == flow.patch[flow_level_var]) par.sys.error(par.name + " @recursion - look recursion");
-                            flow.add_id(val0);
+                            par.next();
                         }
-                        if (flow.id.Count < 1) par.sys.error("@ list empty");
-                        if ((_v.var.type != Func.t_many2) || (flow.id.Count == 1 && (((Many2)(_v.var.data)).down.get_Num() == null))) par.sys.error("@ wrong");
+                        else
+                        {
+                            while (par.isequnow(Parse.isname))
+                            {
+                                val = par.get(Parse.isname);
+                                if (par.isequnow(',')) par.next();
+                                val0 = root.find_val(val);
+                                if (val0.var.ind == flow.patch[flow_level_var]) par.sys.error(par.name + " @recursion - look recursion");
+                                flow.add_id(val0);
+                            }
+                            if (flow.id.Count < 1) par.sys.error("@ list empty");
+                            if (flow.id.Count == 1 && (((Many2)(_v.var.data)).down.get_Num() == null)) par.sys.error("@ wrong");
+                        }
+                        if (_v.var.type != Func.t_many2) par.sys.error("@ wrong");
                         break;
 
                     case '|':
