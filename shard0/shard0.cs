@@ -269,7 +269,7 @@ namespace shard0
         public int stat_uncalc, stat_calc, n_step, steps;
         public SortedDictionary<string, Vars> var;
         public Vars v_e, v_pi, v_ln2, v_x, v_n;
-        public string[] funcs_name = { "", "", "", "ln", "fact", "int", "sign", "row", "" };
+        public string[] funcs_name = { "", "", "", "ln", "fact", "int", "sign", "row", "", "" };
         public SortedDictionary<string, int> fnames;
         public Num[] fact;
         static int _l2(int i)
@@ -2200,6 +2200,7 @@ namespace shard0
 
         public void deeper(int deep)
         {
+            if (deep == 0) return;
             Many r = new Many();
             One o;
             foreach (KeyValuePair<One, Complex> m in data)
@@ -2372,10 +2373,15 @@ namespace shard0
         }
         public static Many2 load(BinaryReader file)
         {
-            return new Many2(Many.load(file), Many.load(file)); ;
+            if (file.ReadBoolean()) return new Many2(Many.load(file), Many.load(file)); else return null;
+        }
+        public static void save(BinaryWriter file, Many2 m)
+        {
+            if (m == null) file.Write(false); else m.save(file);
         }
         public void save(BinaryWriter file)
         {
+            file.Write(true);
             up.save(file);
             down.save(file);
         }
@@ -2812,12 +2818,6 @@ namespace shard0
             }
         }
 
-        public void set(Row r)
-        {
-            point = r.point;
-            data.Clear();
-            foreach (KeyValuePair<int, Many2> m in r.data) data.Add(m.Key, new Many2(m.Value));
-        }
         Many2 step(Many2 ind, int exp, Vals val)
         {
             Many2 r = new Many2(ind);
@@ -2869,7 +2869,7 @@ namespace shard0
         }
         public int CompareTo(object obj)
         {
-            if (obj == null) return data.ElementAt(0).Value.CompareTo(null);
+            if (obj == null) return +1;
             Row r = obj as Row; int t = 0;
             if (data.Count != r.data.Count) return (data.Count < r.data.Count ? -1 : +1);
             foreach (KeyValuePair<int, Many2> m in data)
@@ -2882,6 +2882,73 @@ namespace shard0
         public void findvals(One o)
         {
             foreach (KeyValuePair<int, Many2> m in data) m.Value.findvals(o);
+        }
+    }
+    public class Equat : IComparable
+    {
+        public SortedSet<Many> equat, nozero, noneg;
+        public Many2 procnow;
+        public Equat()
+        {
+            equat = new SortedSet<Many>();
+            nozero = new SortedSet<Many>();
+            noneg = new SortedSet<Many>();
+            procnow = null;
+        }
+        public Equat(Equat e)
+        {
+            equat = new SortedSet<Many>();
+            nozero = new SortedSet<Many>();
+            noneg = new SortedSet<Many>();
+            foreach (Many m in e.equat) equat.Add(new Many(m));
+            foreach (Many m in e.nozero) nozero.Add(new Many(m));
+            foreach (Many m in e.noneg) equat.Add(new Many(m));
+            procnow = (e.procnow == null ? null : new Many2(e.procnow));
+        }
+        static void _load(BinaryReader file, SortedSet<Many> to)
+        {
+            int i = 0, cnt = file.ReadInt32();
+            while (i < cnt)
+            {
+                to.Add(Many.load(file));
+                i++;
+            }
+        }
+
+        public static Equat load(BinaryReader file)
+        {
+            Equat ret = new Equat();
+            ret.procnow = Many2.load(file);
+            Equat._load(file, ret.equat);
+            Equat._load(file, ret.nozero);
+            Equat._load(file, ret.noneg);
+            return ret;
+        }
+        public void _save(BinaryWriter file, SortedSet<Many> from)
+        {
+            file.Write((Int32)(from.Count));
+            foreach (Many m in from) m.save(file);
+        }
+        public void save(BinaryWriter file)
+        {
+            Many2.save(file, procnow);
+            _save(file, equat);
+            _save(file, nozero);
+            _save(file, noneg);
+        }
+
+        public int CompareTo(object obj)
+        {
+            if (obj == null) return +1;
+            Equat e = obj as Equat;
+            if (equat.Count != e.equat.Count) return (equat.Count < e.equat.Count ? -1 : +1);
+            int t = 0, i = 0; while (i < equat.Count)
+            {
+                t = equat.ElementAt(i).CompareTo(e.equat.ElementAt(i));
+                if (t != 0) return t;
+                i++;
+            }
+            return t;
         }
     }
     public class Matrix : IComparable
@@ -3093,7 +3160,7 @@ namespace shard0
     }
     public class Func : Power<Func>, IPower, IComparable
     {
-        public const int types = 9, t_val = 0, t_num = 1, t_many2 = 2, t_ln = 3, t_fact = 4, t_int = 5, t_sign = 6, t_row = 7, t_matr = 8;
+        public const int types = 9, t_val = 0, t_num = 1, t_many2 = 2, t_ln = 3, t_fact = 4, t_int = 5, t_sign = 6, t_row = 7, t_matr = 8, t_equ = 9;
         public static Func zero;
         public Object data;
         public int type; //0: &val, 1: &Complex, 2: &many2, 3: ln(Many2), 4: fact(Many2), 5: int(Many2), 6: sign(Many2), 7: row(Row), 8: matrix(func[][])
@@ -3115,7 +3182,8 @@ namespace shard0
               (Func t, BinaryReader f) => t.data = Many2.load(f),
               (Func t, BinaryReader f) => t.data = Many2.load(f),
               (Func t, BinaryReader f) => t.data = Row.load(f),
-              (Func t, BinaryReader f) => t.data = Matrix.load(f)
+              (Func t, BinaryReader f) => t.data = Matrix.load(f),
+              (Func t, BinaryReader f) => t.data = Equat.load(f)
         };
         public static Func load(BinaryReader file)
         {
@@ -3133,7 +3201,8 @@ namespace shard0
               (Func t, BinaryWriter f) => ((Many2)(t.data)).save(f),
               (Func t, BinaryWriter f) => ((Many2)(t.data)).save(f),
               (Func t, BinaryWriter f) => ((Row)(t.data)).save(f),
-              (Func t, BinaryWriter f) => ((Matrix)(t.data)).save(f)
+              (Func t, BinaryWriter f) => ((Matrix)(t.data)).save(f),
+              (Func t, BinaryWriter f) => ((Equat)(t.data)).save(f)
         };
         public void save(BinaryWriter file)
         {
@@ -3166,6 +3235,11 @@ namespace shard0
             type = Func.t_matr; data = m;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Func(Equat m)
+        {
+            type = Func.t_equ; data = m;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Func(Many2 m)
         {
             type = Func.t_many2; data = m;
@@ -3190,7 +3264,8 @@ namespace shard0
               (Func t, Func f) => {t.data = new Many2((Many2)(f.data));},
               (Func t, Func f) => {t.data = new Many2((Many2)(f.data));},
               (Func t, Func f) => {t.data = new Row((Row)(f.data));},
-              (Func t, Func f) => {t.data = new Matrix((Matrix)(f.data));}
+              (Func t, Func f) => {t.data = new Matrix((Matrix)(f.data));},
+              (Func t, Func f) => {t.data = new Equat((Equat)(f.data));}
                          };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override void set(Func f)
@@ -4026,7 +4101,8 @@ namespace shard0
                     }
                 },
                 (Func t) => {((Row)(t.data)).simple();},
-                (Func t) => {((Matrix)(t.data)).simple();}
+                (Func t) => {((Matrix)(t.data)).simple();},
+                (Func t) => {}
                               };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void simple()
@@ -4038,6 +4114,7 @@ namespace shard0
                 (Func t) => {return 1;},
                 (Func t) => {return ((Complex)(t.data)).sign();},
                 (Func t) => {return ((Many2)(t.data)).sign();},
+                (Func t) => {return 1;},
                 (Func t) => {return 1;},
                 (Func t) => {return 1;},
                 (Func t) => {return 1;},
@@ -5240,8 +5317,8 @@ namespace shard0
             int i;
             if (lnext() && (val.Length > 0)) while (isequnow(isnum))
                 {
-                    i = get_int(); if (!isequnow(':')) sys.error("out descr: wrong");
-                    next(); if (!isequnow(isname)) sys.error("out descr: wrong");
+                    i = get_int(); mustnow(':', "out descr: wrong");
+                    if (!isequnow(isname)) sys.error("out descr: wrong");
                     out_names[i] = get(","); next(); if (out_names[i].IndexOf("\\") > -1) sys.error("out descr: wrong");
                 }
             while (sys.has) if (lnext() && (val.Length > 0))
@@ -5319,8 +5396,9 @@ namespace shard0
             if ((val.Length == 0) || (val[0] == '`')) return false;
             if (val.Substring(0, 2) == "##")
             {
-                setnow(2); name = "#" + get(isname) + "("; if (!isequnow('(')) sys.error("macro: wrong num");
-                next(); if (!isequnow(isname)) sys.error("macro: wrong num");
+                setnow(2); name = "#" + get(isname) + "(";
+                mustnow('(', "macro: wrong num");
+                if (!isequnow(isname)) sys.error("macro: wrong num");
                 _np = m_c_to_n[now];
                 string _m = val.Substring(pos + 2);
                 for (i0 = 0; i0 < m_n_to_c.Length; i0++)
@@ -5357,7 +5435,7 @@ namespace shard0
                     if (i1 != deep.Count) sys.error("macro: call nparm");
                     next(); i2++;
                 }
-                if (i2 == 0) next(); if (!isequnow(')')) sys.error("macro:"); next();
+                if (i2 == 0) next(); mustnow(')', "macro:");
                 st = (pos < val.Length ? val.Substring(pos, val.Length - pos) : "");
                 if (ploop < 0) val = sf + s0 + st;
                 else
@@ -5382,12 +5460,9 @@ namespace shard0
         public bool isequnow(char tst) { return isequ(now, tst); }
         public bool isequnow(string tst)
         {
-            int i = 0; while (i < tst.Length)
-            {
-                if (now != tst[i]) return false;
-                next(); i++;
-            }
-            return true;
+            if (val.IndexOf(tst, pos) == pos)
+            { setnow(pos + tst.Length); return true; }
+            return false;
         }
         void setnow(int _p)
         {
@@ -5480,13 +5555,24 @@ namespace shard0
                     if ((vr.var == null) || (vr.var.type != 7)) IDS.root.sys.error("not row");
                     next(); if (!isequnow(isabc)) IDS.root.sys.error("wrong row call");
                     Vals vl = IDS.root.find_val(get(isname));
-                    if (!isequnow(',')) IDS.root.sys.error("wrong row call");
-                    next(); if (!isequnow(isnum)) IDS.root.sys.error("wrong row call");
+                    mustnow(',', "wrong row call");
+                    if (!isequnow(isnum)) IDS.root.sys.error("wrong row call");
                     int st; Int32.TryParse(get(isnum), out st);
                     r = new Func(((Row)(vr.var.data)).prep_calc(vl, st));
                 }
             }
-            else r = new Func(IDS.root.find_val(_n));
+            else
+            {
+                Vals vl = IDS.root.find_val(_n);
+                if (isequnow('$'))
+                {
+                    next();
+                    if (vl.var.var.type != Func.t_many2) IDS.root.sys.error("only many at $");
+                    Many2 m2 = new Many2((Many2)(vl.var.var.data)); m2.deeper(vl.deep);
+                    r = new Func(m2);
+                }
+                else r = new Func(vl);
+            }
             return r;
         }
         public KeyValuePair<One, Complex> opars()
@@ -5548,9 +5634,10 @@ namespace shard0
                 () => {eval = fpars("",true);},
                 () => sys.error("noNum in calc")
                 };
-            char[] oc = { isoper, isclose, isend, ',' };
+            char[] oc = { isoper, isclose, isend, ',', '=' };
             Action[] of = {
                 () => branchnow(ooc,oof),
+                () => {l = false; },
                 () => {l = false; },
                 () => {l = false; },
                 () => {l = false; },
@@ -5574,7 +5661,7 @@ namespace shard0
             Many m = new Many();
             KeyValuePair<One, Complex> on;
             int d = deep.Count;
-            while ((!isequnow(isclose)) && (!isequnow(isend)) && (!isequnow(',')))
+            while ((!isequnow(isclose)) && (!isequnow(isend)) && (!isequnow(',')) && (!isequnow('=')))
             {
                 on = opars(); m.add(on.Key, on.Value);
             }
@@ -5585,25 +5672,45 @@ namespace shard0
         {
             return new Many2(mpars(), new Many(new Complex(1)));
         }
+        public void mustnow(char tst, string err)
+        {
+            if (!isequnow(tst)) IDS.root.sys.error(err); else next();
+        }
+        void e_parse(SortedSet<Many> sm)
+        {
+            Many m;
+            mustnow('[', "parse:equ");
+            while (!isequnow(']'))
+            {
+                m = mpars();
+                if (sm.Contains(m)) sys.error("parse:equ:dup");
+                sm.Add(m);
+                if (isequnow(',')) next();
+            }
+            next();
+        }
         public Func fpars(string _fn, bool _pair)
         {
             int tp, d = deep.Count;
             Func r = null;
             if (!IDS.root.fnames.ContainsKey(_fn)) sys.error("parse: func");
             tp = IDS.root.fnames[_fn];
-            if (_pair) { if (isequnow(ispair)) { if (isequnow('[')) tp = 8; next(); } else sys.error("parse: func"); }
+            if (_pair)
+            {
+                if (isequnow(ispair)) { if (isequnow('[')) tp = 8; next(); } else sys.error("parse: func");
+            }
+            else if (isequnow('=')) tp = 9;
             switch (tp)
             {
                 case 7:
                     r = new Func(new Row());
                     if (!isequnow(isnum)) sys.error("parse:row");
                     ((Row)(r.data)).point = get_int();
-                    if (!isequnow(',')) sys.error("parse:row");
-                    next();
+                    mustnow(',', "parse:row");
                     int i = 0; while (true)
                     {
-                        if (!isequnow('(')) sys.error("parse:row");
-                        next(); ((Row)(r.data)).data.Add(i, m2pars()); next();
+                        mustnow('(', "parse:row");
+                        ((Row)(r.data)).data.Add(i, m2pars()); next();
                         if (!isequnow(',')) break;
                         next(); i++;
                     }
@@ -5612,18 +5719,41 @@ namespace shard0
                     List<List<Func>> tm = new List<List<Func>>();
                     while (!isequnow(']'))
                     {
-                        if (!isequnow('[')) sys.error("parse: matr");
-                        next(); tm.Add(new List<Func>());
+                        mustnow('[', "parse: matr");
+                        tm.Add(new List<Func>());
                         while (!isequnow(']'))
                         {
                             tm.Last().Add(new Func(Func.t_many2, m2pars()));
                             if (isequnow(',')) next();
                         }
                         next();
-                        if (isequnow(',')) next();
                         if (tm.Last().Count != tm[0].Count) sys.error("parse: matr size");
                     }
                     r = new Func(new Matrix(tm));
+                    break;
+                case 9:
+                    Equat eq = new Equat();
+                    next();
+                    mustnow('[', "parse:equ");
+                    while (!isequnow(']'))
+                    {
+                        if (isequnow("0=="))
+                        {
+                            e_parse(eq.equat);
+                        }
+                        else if (isequnow("0<>"))
+                        {
+                            e_parse(eq.nozero);
+                        }
+                        else if (isequnow("0<="))
+                        {
+                            e_parse(eq.noneg);
+                        }
+                        else sys.error("parse:equ");
+                        if (isequnow(',')) next();
+                    }
+                    next();
+                    r = new Func(eq);
                     break;
                 default:
                     r = new Func(tp, m2pars());
@@ -5644,8 +5774,7 @@ namespace shard0
             }
             else
             {
-                if (!isequnow(ispair)) sys.error("wrong calc/num");
-                next();
+                mustnow(ispair, "wrong calc/num");
                 bool isi = false, l = true, li;
                 Action[] fnr = {
                       () => ln[lp-1].add(ln[lp]),() => ln[lp-1].sub(ln[lp]),
@@ -5831,6 +5960,22 @@ namespace shard0
         {
             if (f == null) return "";
             string ret = IDS.root.funcs_name[f.type];
+            Func<SortedSet<Many>, string, bool, bool> p_equ = (SortedSet<Many> sm, string pref, bool f1) =>
+            {
+                if (sm.Count > 0)
+                {
+                    if (f1) ret += ",";
+                    ret += pref + "["; bool f0 = false;
+                    foreach (Many m in sm)
+                    {
+                        if (f0) ret += ",";
+                        ret += print(m);
+                        f0 = true;
+                    }
+                    ret += "]"; f1 = true;
+                }
+                return f1;
+            };
             Action[] p = {
                   () => {
                       ret += (flag_out_desc ? ((Vals)(f.data)).var.desc : ((Vals)(f.data)).get_name());
@@ -5863,7 +6008,15 @@ namespace shard0
                           ix++;
                       }
                       ret += "]";
-                  }
+                  },
+                  () => {
+                      Equat e = ((Equat)f.data); bool f1 = false;
+                      ret += "=[";
+                      f1 = p_equ(e.equat, "0==", f1);
+                      f1 = p_equ(e.nozero, "0<>", f1);
+                      f1 = p_equ(e.noneg, "0<=", f1);
+                      ret += "]";
+                  },
                  };
             p[f.type]();
             return ret;
@@ -5895,7 +6048,7 @@ namespace shard0
         }
         public string print(Vars v)
         {
-            return (flag_out_desc ? v.desc : v.name) + " = " + (v.var == null ? "" : print(v.var, false)) + ";";
+            return (flag_out_desc ? v.desc : v.name) + " =" + (v.var == null ? "" : print(v.var, false)) + ";";
         }
     }
 
@@ -6690,16 +6843,21 @@ namespace shard0
                 };
             Func<bool>[] extract0_0 = {
             () => {
-                        ((Many2)(flow.get_var_func().data)).down = new Many(new Complex(1)); return false;
+                Equat e = (Equat)(flow.get_var_func().data);
+                if (!e.procnow.down.isint(1, 0)) {
+                    if (!e.nozero.Contains(e.procnow.down)) e.nozero.Add(e.procnow.down);
+                    e.procnow.down = new Many(new Complex(1));
+                }
+                return false;
             },
             () => {
-                        return ((Many2)(flow.get_var_func().data)).expand();
+                return ((Equat)(flow.get_var_func().data)).procnow.expand();
             },
             () => {
-                        ((Many2)(flow.get_var_func().data)).simple(); return false;
+                ((Equat)(flow.get_var_func().data)).procnow.simple(); return false;
             },
             () => {
-                        ((Many2)(flow.get_var_func().data)).revert(); return false;
+                ((Equat)(flow.get_var_func().data)).procnow.revert(); return false;
             }
             };
             Func<bool>[] extract0 = {
@@ -6709,13 +6867,14 @@ namespace shard0
             () => {
                       flow.repeat(Flow.level_step1,extract0_0,save2);
                       flow.patch[Flow.level_step1] = 0;
-                      return (!((Many2)(flow.get_var_func().data)).down.isint(1, 0));
+                      return (!((Equat)(flow.get_var_func().data)).procnow.down.isint(1, 0));
             },
             () => {
-                    ((Many2)(flow.get_var_func().data)).simple(); return false;
+                    ((Equat)(flow.get_var_func().data)).procnow.simple(); return false;
             },
             () => {
-                    Many mup = ((Many2)(flow.get_var_func().data)).up;
+                    Equat eq = ((Equat)(flow.get_var_func().data));
+                    Many mup = ((Equat)(flow.get_var_func().data)).procnow.up;
                     Complex n0, n1; BigInteger exp = 1, et;
                     One o0 = null,o1 = null;
                     bool hasmore2 = false, hashere;
@@ -6736,6 +6895,12 @@ namespace shard0
                                     exp *= et;
                                     if (n0.r.down > 2) hasmore2 = true;
                                     hashere = true;
+                                    if (n0.r.down.IsEven)
+                                    {
+                                        Many nz = new Many(((Many2)(f.Key.data)).up);
+                                        nz.mul(((Many2)(f.Key.data)).down); nz.simple();
+                                        if (!eq.noneg.Contains(nz)) eq.noneg.Add(nz);
+                                    }
                                 }
                             }
                         }
@@ -6770,14 +6935,17 @@ namespace shard0
             };
             Func<bool> extract = () =>
             {
-                if (flow.id.Count == 0)
+                if (flow.get_var_func().type == Func.t_equ)
                 {
                     do
                     {
                         flow.repeat(Flow.level_step0, extract0, save2);
                         flow.patch[Flow.level_step0] = 0;
                     } while (flow.is_bit(1));
-                    par.sys.wline(0, "0 == " + par.print(flow.get_var_func(),true));
+                    Equat e = (Equat)(flow.get_var_func().data);
+                    if (!e.equat.Contains(e.procnow.up)) e.equat.Add(e.procnow.up);
+                    e.procnow = null;
+                    par.sys.wline(0, par.print(flow.get_var()));
                 }
                 else if (flow.id.Count == 1)
                 {
@@ -6904,7 +7072,7 @@ namespace shard0
                         if (par.isequnow('@'))
                         {
                             flow.set_bit(1); par.next();
-                            if (flow.is_bit(0)) IDS.root.sys.error("cant @ on !");
+                            if (flow.is_bit(0)) par.sys.error("cant @ on !");
                         }
                         if (par.isequnow('$')) { flow.set_bit(2); par.next(); }
                         break;
@@ -6915,9 +7083,14 @@ namespace shard0
                         flow.patch[Flow.level_var] = _v.ind;
                         par.next();
                         flow.id.Clear();
-                        if (par.isequnow('0'))
+                        if (_v.var.type == Func.t_equ)
                         {
-                            par.next();
+                            Many m0, m1;
+                            m0 = par.mpars();
+                            if (!par.isequnow("==")) par.sys.error("@ equ wrong");
+                            m1 = par.mpars();
+                            m1.neg(); m0.add(m1);
+                            ((Equat)(flow.get_var_func().data)).procnow = new Many2(m0);
                         }
                         else
                         {
@@ -6931,8 +7104,8 @@ namespace shard0
                             }
                             if (flow.id.Count < 1) par.sys.error("@ list empty");
                             if (flow.id.Count == 1 && (((Many2)(_v.var.data)).down.get_Num() == null)) par.sys.error("@ wrong");
+                            if (_v.var.type != Func.t_many2) par.sys.error("@ wrong");
                         }
-                        if (_v.var.type != Func.t_many2) par.sys.error("@ wrong");
                         break;
 
                     case '|':
