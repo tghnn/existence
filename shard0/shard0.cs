@@ -12,6 +12,17 @@ using System.Runtime.Serialization.Formatters.Binary;
 
 namespace shard0
 {
+    public class RetryException : System.Exception
+    {
+        public RetryException()
+        {
+        }
+
+        public RetryException(string message)
+            : base(message)
+        {
+        }
+    }
     public class FinishException : System.Exception
     {
         public FinishException()
@@ -34,26 +45,22 @@ namespace shard0
             data.Add(new Complex(0), new Complex(1));
             data.Add(new Complex(1), v);
         }
-        public void save(BinaryWriter file)
+        public void save()
         {
-            val.save(file);
-            file.Write((Int32)(data.Count - 2));
+            val.save();
+            IDS.sys.save(data.Count - 2);
             foreach (KeyValuePair<Complex, Complex> v in data.Where(v => ((!v.Key.isint(0, 0)) && (!v.Key.isint(1, 0)))))
             {
-                v.Key.save(file);
-                v.Value.save(file);
+                v.Key.save(); v.Value.save();
             }
         }
-        public static Exps_n load(BinaryReader file)
+        public static Exps_n load()
         {
-            Exps_n ret = new Exps_n(Complex.load(file));
-            Complex k, v;
-            int i = 0, cnt = file.ReadInt32();
+            Exps_n ret = new Exps_n(new Complex());
+            int i = 0, cnt = IDS.sys.load_int();
             while (i < cnt)
             {
-                k = Complex.load(file);
-                v = Complex.load(file);
-                ret.data.Add(k, v);
+                ret.data.Add(new Complex(), new Complex());
                 i++;
             }
             return ret;
@@ -89,41 +96,45 @@ namespace shard0
             if (Vals.inds.Length <= ind) Array.Resize<Vals>(ref Vals.inds, Vals.inds.Length + 100);
             Vals.inds[ind] = this;
         }
-        public static void saves(BinaryWriter file)
+        public static void saves()
         {
-            file.Write((Int32)(Vals._ind));
+            IDS.sys.save(Vals._ind);
             int i = 0; while (i < Vals._ind)
             {
-                file.Write((Int32)(Vals.inds[i].var.ind));
-                Vals.inds[i].val.save(file);
-                file.Write((Int16)(Vals.inds[i].deep));
+                IDS.sys.save(Vals.inds[i].var.ind);
+                IDS.sys.save((short)(Vals.inds[i].deep));
+                Vals.inds[i].val.save();
                 i++;
             }
         }
-        public static void loads(BinaryReader file)
+        public static void loads()
         {
-            int i = 0, cnt = file.ReadInt32();
+            int i = 0, cnt = IDS.sys.load_int();
             Vals._ind = 0;
             int[] vnum = new int[Vars._ind];
-            int vr;
+            int vr; short dp;
             while (i < cnt)
             {
-                vr = file.ReadInt32();
-                Vars.inds[vr].vals[vnum[vr]++] = new Vals(Vars.inds[vr], Exps_n.load(file), file.ReadInt16());
+                IDS.sys.load(out vr); IDS.sys.load(out dp);
+                Vars.inds[vr].vals[vnum[vr]++] = new Vals(Vars.inds[vr], Exps_n.load(), dp);
                 i++;
             }
         }
-        public static Vals load(BinaryReader file)
+        public static Vals load()
         {
             Vals ret = null;
-            int n = file.ReadInt32();
+            int n; IDS.sys.load(out n);
             if (n >= 0) ret = Vals.inds[n];
             return ret;
         }
 
-        public static void save(BinaryWriter file, Vals v)
+        public static void save(Vals v)
         {
-            file.Write((Int32)(v == null ? -1 : v.ind));
+            IDS.sys.save(v == null ? -1 : v.ind);
+        }
+        public void save()
+        {
+            IDS.sys.save(ind);
         }
         public Exps_n get_exp()
         {
@@ -131,11 +142,11 @@ namespace shard0
             {
                 if (var.stat == IDS.root.stat_uncalc)
                 {
-                    if (deep == 0) IDS.root.sys.error(var.name + " recursion");
+                    if (deep == 0) IDS.sys.error(var.name + " recursion");
                 }
                 else
                 {
-                    if (var.var == null) IDS.root.sys.error(var.name + " var: non is non");
+                    if (var.var == null) IDS.sys.error(var.name + " var: non is non");
                     var.stat = IDS.root.stat_uncalc;
                     var.set_now(var.var.calc());
                 }
@@ -199,32 +210,37 @@ namespace shard0
             name = n; stat = _stat; var = null; vals = new Vals[valn + 1];
             if (isset) set_ind();
         }
-        public static int saves(BinaryWriter file)
+        public static void saves()
         {
-            int ret = 0;
-            file.Write((Int32)(Vars._ind));
+            IDS.sys.save(Vars._ind);
             int i = 0; while (i < Vars._ind)
             {
-                file.Write(Vars.inds[i].name);
-                file.Write((Int32)(Vars.inds[i].vals.Length - 1));
-                file.Write((Int32)(Vars.inds[i].stat));
-                file.Write(Vars.inds[i].desc);
-                if (Vars.inds[i].var != null) ret++;
+                IDS.sys.save(Vars.inds[i].name);
+                IDS.sys.save(Vars.inds[i].vals.Length - 1);
+                IDS.sys.save(Vars.inds[i].stat);
+                IDS.sys.save(Vars.inds[i].desc);
                 i++;
             }
-            return ret;
         }
-        public static void loads(BinaryReader file)
+        public static void loads()
         {
             int i = 0;
-            Vars._ind = file.ReadInt32();
+            IDS.sys.load(out Vars._ind);
             Array.Resize<Vars>(ref Vars.inds, Vars._ind + 11);
             while (i < Vars._ind)
             {
-                Vars.inds[i] = new Vars(file.ReadString(), file.ReadInt32(), file.ReadInt32(), false);
-                Vars.inds[i].desc = file.ReadString();
+                Vars.inds[i] = new Vars(IDS.sys.load_str(), IDS.sys.load_int(), IDS.sys.load_int(), false);
+                IDS.sys.load(out Vars.inds[i].desc);
                 i++;
             }
+        }
+        public void save()
+        {
+            IDS.sys.save(ind);
+        }
+        public static Vars load()
+        {
+            int i = IDS.sys.load_int(); return (i < 0 ? null : Vars.inds[i]);
         }
         public void set_now(Complex v0)
         {
@@ -259,11 +275,10 @@ namespace shard0
         public static BigInteger[] e10, e2;
         public static Num[] sqr2, nums;
         public static SortedDictionary<Num, Num> ln;
-        public static Func now_func = null;
-        public BinaryReader fload = null;
-        public Fileio sys;
-        public Flow flow;
-        public Parse par;
+        public static Func now_func = null; //?????
+        public static Fileio sys;
+        public static Flow flow;
+        public static Parse par;
         public int pic_x, pic_y;
         public System.Drawing.Bitmap pic;
         public int stat_uncalc, stat_calc, n_step, steps;
@@ -298,7 +313,7 @@ namespace shard0
             Complex._i1 = new Complex(nums[IDS.znums], nums[IDS.znums + 1]);
             Complex._r_1 = new Complex(-1);
             IDS.root = this;
-            One.zero = new One();
+            One.zero = new One(true);
             Func.zero = new Func(new Complex(0));
             if (sys.flag == "")
             {
@@ -389,71 +404,53 @@ namespace shard0
             {
                 flow = new Flow(11, now_time);
                 par.init();
-                sys.fin.Close();
-                save(sys.name + ".bin").Close();
+                save();
                 sys.flag = flag();
                 sys.finish();
             }
-            else
-            {
-                sys.fin.Close();
-                load(sys.name + ".bin");
-            }
+            else load();
+            sys.fin.Close();
         }
-        public BinaryWriter save(string name)
+        public void save()
         {
-            BinaryWriter file = new BinaryWriter(File.Open(name, FileMode.Create));
-            file.Write(par.flag_out_exptomul);
-            file.Write(par.flag_out_desc);
-            file.Write((Int32)(par.opers));
-            file.Write((Int32)(par.body_num));
-            foreach (string s in par.out_names) file.Write(s);
-            file.Write((Int32)(par.body.Count));
-            foreach (string s in par.body) file.Write(s);
-            int funcs = Vars.saves(file);
-            Vals.saves(file);
-            file.Write((Int32)funcs);
-            int i = 0; while (i < Vars._ind)
-            {
-                if (Vars.inds[i].var != null)
-                {
-                    file.Write((Int32)i);
-                    Vars.inds[i].var.save(file);
-                }
-                i++;
-            }
-            flow.save(file);
-            file.Flush();
-            return file;
+            sys.save();
+            sys.save(par.flag_out_exptomul);
+            sys.save(par.flag_out_desc);
+            sys.save(par.opers);
+            sys.save(par.body_num);
+            foreach (string s in par.out_names) sys.save(s);
+            sys.save(par.body.Count);
+            foreach (string s in par.body) sys.save(s);
+            Vars.saves();
+            Vals.saves();
+            int i = 0; while (i < Vars._ind) sys.save(Vars.inds[i++].var);
+            flow.save();
+            sys.sl_flush();
         }
-        public void load(string name)
+        public void load()
         {
-            fload = new BinaryReader(File.Open(name, FileMode.Open));
-            par.flag_out_exptomul = fload.ReadBoolean();
-            par.flag_out_desc = fload.ReadBoolean();
-            par.opers = fload.ReadInt32();
-            par.body_num = fload.ReadInt32();
-            int cnt, i = 0; while (i < par.out_names.Length) par.out_names[i++] = fload.ReadString();
-            i = 0; cnt = fload.ReadInt32(); while (i < cnt)
+            sys.load();
+            sys.load(out par.flag_out_exptomul);
+            sys.load(out par.flag_out_desc);
+            sys.load(out par.opers);
+            sys.load(out par.body_num);
+            int cnt, i = 0; while (i < par.out_names.Length) sys.load(out par.out_names[i++]);
+            i = 0; sys.load(out cnt); while (i < cnt)
             {
-                par.body.Add(fload.ReadString());
+                par.body.Add(sys.load_str());
                 i++;
             }
             par.body_num--; par.bnext();
-            Vars.loads(fload);
-            Vals.loads(fload);
-            i = 0; cnt = fload.ReadInt32(); while (i < cnt)
-            {
-                Vars.inds[fload.ReadInt32()].var = Func.load(fload);
-                i++;
-            }
+            Vars.loads();
+            Vals.loads();
+            i = 0; while (i < Vars._ind) sys.load(out Vars.inds[i++].var);
             var.Clear();
             i = 0; while (i < Vars._ind)
             {
                 var.Add(Vars.inds[i].name, Vars.inds[i]);
                 i++;
             }
-            flow = Flow.load(fload, now_time);
+            flow = Flow.load(now_time);
         }
         int deep(string n)
         {
@@ -522,26 +519,26 @@ namespace shard0
         void exp2();
     }
 
-    public abstract class Power<T> where T : IPower, new()
+    public abstract class Power<T> where T : IPower
     {
+        public abstract T get_copy();
         public abstract void set(T s);
         public abstract void set0();
         public abstract void set1();
-        public abstract void copy(ref T s);
         public abstract void mul(T m);
         public abstract void div();
         public void exp2()
         {
-            T m0 = new T(); copy(ref m0); mul(m0);
+            T m0 = get_copy(); mul(m0);
         }
         public void exp(BigInteger ex)
         {
-            if (ex > IDS.exp_max) IDS.root.sys.error("exp: too");
+            if (ex > IDS.exp_max) IDS.sys.error("exp: too");
             _exp((int)ex);
         }
         public void exp(int ex)
         {
-            if (ex > IDS.exp_max) IDS.root.sys.error("exp: too");
+            if (ex > IDS.exp_max) IDS.sys.error("exp: too");
             _exp(ex);
         }
         public void _exp(int ex)
@@ -551,7 +548,7 @@ namespace shard0
             if (_e == 0) { set1(); return; }
             if (_e > 1)
             {
-                T t = new T(); copy(ref t);
+                T t = get_copy();
                 int i0 = _e - 1; while (i0 > 0)
                 {
                     if ((i0 & 1) != 0) mul(t);
@@ -569,7 +566,7 @@ namespace shard0
             if (_e == 0) { set1(); return; }
             if (_e > 1)
             {
-                T t = new T(); copy(ref t);
+                T t = get_copy();
                 int i0 = _e - 1; while (i0 > 0)
                 {
                     if ((i0 & 1) != 0) mul(t);
@@ -588,54 +585,40 @@ namespace shard0
     public class Num : Power<Num>, IPower, IComparable
     {
         public BigInteger up, down;
-        public int sign;
-        public BigInteger get_sup() { return up * sign; }
         public Num()
         {
-            init(0, 0);
+            set(0, 0, 0);
         }
-        public static Num load(BinaryReader file)
+        public static Num load()
         {
-            Num ret;
-            Int16 cnt = file.ReadInt16();
-            if (cnt < 0)
-            {
-                ret = IDS.nums[-cnt];
-            }
+            Num ret; short cnt;
+            IDS.sys.load(out cnt);
+            if (cnt < 0) ret = IDS.nums[-cnt];
             else
             {
                 ret = new Num();
-                ret.up = new BigInteger(file.ReadBytes(cnt));
-                cnt = file.ReadInt16();
-                ret.down = new BigInteger(file.ReadBytes(cnt));
-                ret.sign = (ret.up > 0 ? 1 : 0);
-                if (ret.up < 0) { ret.up = -ret.up; ret.sign = -1; }
+                ret.up = new BigInteger(IDS.sys.fload.ReadBytes(cnt));
+                short cntd = IDS.sys.load_short();
+                ret.down = new BigInteger(IDS.sys.fload.ReadBytes(cntd));
             }
             return ret;
         }
-        public void save(BinaryWriter file)
+        public void save()
         {
-            if ((down == 1) && (up < IDS.znums))
-            {
-                file.Write((Int16)(-(int)(up) * sign - IDS.znums));
-            }
+            if ((down == 1) && (BigInteger.Abs(up) < IDS.znums)) IDS.sys.save((short)(-(int)(up) - IDS.znums));
             else
             {
-                byte[] tmp = (up * sign).ToByteArray();
-                file.Write((Int16)(tmp.Length));
-                file.Write(tmp);
+                byte[] tmp = up.ToByteArray();
+                IDS.sys.save((short)(tmp.Length));
+                IDS.sys.fsave.Write(tmp);
                 tmp = down.ToByteArray();
-                file.Write((Int16)(tmp.Length));
-                file.Write(tmp);
+                IDS.sys.save((short)(tmp.Length));
+                IDS.sys.fsave.Write(tmp);
             }
         }
         public Num(Num n)
         {
             set(n);
-        }
-        public Num(Num n, int s)
-        {
-            set(n, s);
         }
         static public Num get(int r)
         {
@@ -658,19 +641,19 @@ namespace shard0
         }
         static public Num neg(Num m0)
         {
-            return new Num(-m0.sign, m0.up, m0.down);
+            return new Num(-m0.up, m0.down);
         }
         static public Num _div(Num d0)
         {
-            return new Num(d0.sign, d0.down, d0.up);
+            return new Num(d0.down, d0.up);
         }
         static public Num mul(Num m0, Num m1)
         {
-            return new Num(m0.sign * m1.sign, m0.up * m1.up, m0.down * m1.down);
+            return new Num(m0.up * m1.up, m0.down * m1.down);
         }
         static public Num div(Num d0, Num d1)
         {
-            return new Num(d0.sign * d1.sign, d0.up * d1.down, d0.down * d1.up);
+            return new Num(d0.up * d1.down, d0.down * d1.up);
         }
         static public Num max(Num m0, Num m1)//no new 
         {
@@ -682,8 +665,8 @@ namespace shard0
         }
         static public Num common(Num n0, Num n1)//no new
         {
-            if (n0.sign != n1.sign) return IDS.nums[IDS.znums];
-            if (n0.up * n1.down > n1.up * n0.down) return n1; else return n0;
+            if (n0.up.Sign != n1.up.Sign) return IDS.nums[IDS.znums];
+            if (BigInteger.Abs(n0.up) * n1.down > BigInteger.Abs(n1.up) * n0.down) return n1; else return n0;
 
         }
         static public Num extract(Num n0, Num n1)
@@ -694,9 +677,13 @@ namespace shard0
         {
             set(u);
         }
-        public Num(int s, BigInteger u, BigInteger d)
+        public Num(BigInteger u, BigInteger d)
         {
-            sign = s; up = u; down = d;
+            set(u, d, 1);
+        }
+        public void set(BigInteger u, BigInteger d, int s)
+        {
+            up = BigInteger.Abs(u) * (u.Sign * d.Sign * s); down = (up.IsZero ? 1 : BigInteger.Abs(d));
         }
         public Num(string s)
         {
@@ -704,32 +691,26 @@ namespace shard0
         }
         public void set(int n)
         {
-            init(n, 1);
+            set(n, 1, 1);
         }
-        public override void copy(ref Num n)
+        public override Num get_copy()
         {
-            n.sign = sign;
-            n.up = BigInteger.Abs(up);
-            n.down = BigInteger.Abs(down);
+            return new Num(this);
         }
         public override void set(Num n)
         {
-            sign = n.sign;
-            up = BigInteger.Abs(n.up);
-            down = BigInteger.Abs(n.down);
+            set(n.up, n.down, 1);
         }
         public void set(Num n, int s)
         {
-            sign = n.sign * s;
-            up = BigInteger.Abs(n.up);
-            down = BigInteger.Abs(n.down);
+            set(n.up, n.down, s);
         }
         static char[] pnt = { '.' };
         public void set(string s)
         {
-            if (s.Length > IDS.e10.Length) IDS.root.sys.error("num: too long");
+            if (s.Length > IDS.e10.Length) IDS.sys.error("num: too long");
             string[] ss = s.Split(Num.pnt);
-            if (ss.Length > 2) IDS.root.sys.error("num: parse");
+            if (ss.Length > 2) IDS.sys.error("num: parse");
             if (ss.Length == 2)
             {
                 ss[0] += ss[1];
@@ -737,45 +718,37 @@ namespace shard0
             }
             else down = 1;
             BigInteger.TryParse(ss[0], out up);
-            sign = (up > 0 ? 1 : 0);
         }
 
         public void set(BigInteger _u)
         {
-            if (_u < 0) { sign = -1; up = -_u; } else { sign = (_u == 0 ? 0 : 1); up = _u; }
-            down = 1;
+            set(_u, 1, 1);
         }
         public Num(int a, int b)
         {
-            init(a, b);
+            set(a, b, 1);
         }
         public Num(int a)
         {
-            init(a, 1);
+            set(a, 1, 1);
         }
         public override void set0()
         {
-            init(0, 1);
+            set(0, 1, 1);
         }
         public override void set1()
         {
-            init(1, 1);
-        }
-        void init(int a, int b)
-        {
-            up = BigInteger.Abs(a);
-            down = BigInteger.Abs(b);
-            sign = (a < 0 ? -1 : (a > 0 ? 1 : 0));
+            set(1, 1, 1);
         }
         public void neg()
         {
-            sign *= -1;
+            up = -up;
         }
         public bool great(Num a)
         {
-            if (sign == a.sign)
-                return (a.up * down * sign > up * a.down * sign);
-            else return (a.sign > 0);
+            if (up.Sign == a.up.Sign)
+                return (a.up * down * up.Sign > up * a.down);
+            else return (a.up.Sign > 0);
         }
         public void max(Num a)
         {
@@ -788,7 +761,7 @@ namespace shard0
 
         public bool isint()
         {
-            return (down == 1);
+            return (down.IsOne);
         }
         public static bool isint(Num n, int i)
         {
@@ -796,7 +769,7 @@ namespace shard0
         }
         public bool isint(int n)
         {
-            return (down == 1) && (sign * n >= 0) && (up == BigInteger.Abs(n));
+            return (down.IsOne) && (up == n);
         }
         public Num simple() //immutable
         {
@@ -813,13 +786,13 @@ namespace shard0
                 } while (true);
                 if (t)
                 {
-                    if ((_d == 1) && (_u < IDS.znums)) return IDS.nums[IDS.znums + (int)(_u) * sign];
-                    else return new Num(sign, _u, _d);
+                    if ((_d == 1) && (_u < IDS.znums)) return IDS.nums[IDS.znums + (int)(_u) * up.Sign];
+                    else return new Num(_u * up.Sign, _d);
                 }
             }
-            else if (down == 0) IDS.root.sys.error("div0");
-            if (up == 0) down = 1;
-            if ((down == 1) && (up < IDS.znums)) return IDS.nums[IDS.znums + (int)(up) * sign];
+            else if (down.IsZero) IDS.sys.error("div0");
+            if (up.IsZero) down = 1;
+            if ((down.IsOne) && (BigInteger.Abs(up) < IDS.znums)) return IDS.nums[IDS.znums + (int)(up)];
             else return this;
         }
         public void simple_this()
@@ -835,70 +808,52 @@ namespace shard0
                     down = BigInteger.Divide(down, a);
                 } while (true);
             }
+            if (up.IsZero) down = 1;
         }
         public void common(Num n)
         {
-            if (sign != n.sign) set0();
+            if (up.Sign != n.up.Sign) set0();
             else
             {
-                if (up * n.down > n.up * down) set(n);
+                if (BigInteger.Abs(up) * n.down > BigInteger.Abs(n.up) * down) set(n);
             }
         }
-        public void extract(Num n)
+        public void extract(Num n) //????????
         {
-            if ((sign == 0) || (n.sign == 0)) set0();
-            else
+            if (!n.up.IsZero)
             {
-                sign = ((sign < 0) && (n.sign < 0) ? -1 : 1);
                 up = BigInteger.GreatestCommonDivisor(up, n.up);
-                down = BigInteger.GreatestCommonDivisor(down, n.down);
+                down *= BigInteger.Divide(n.down, BigInteger.GreatestCommonDivisor(down, n.down));
             }
         }
         public override void div()
         {
             BigInteger t = up;
-            up = down; down = t;
+            up = down * up.Sign; down = BigInteger.Abs(t);
         }
         public new void exp2()
         {
-            sign *= sign;
             up *= up;
             down *= down;
         }
 
         public void mul(int a)
         {
-            if (a < 0)
-            {
-                sign = -sign;
-                up *= -a;
-            }
-            else if (a > 0) up *= a;
-            else set0();
+            up *= a;
         }
         public override void mul(Num a)
         {
-            sign *= a.sign;
             up *= a.up;
             down *= a.down;
         }
         public void div(Num a)
         {
-            sign *= a.sign;
-            up *= a.down;
-            down *= a.up;
-        }
-        public void mul(BigInteger u, BigInteger d)
-        {
-            up *= u; down *= d;
+            up *= a.down * a.up.Sign;
+            down *= BigInteger.Abs(a.up);
         }
         public void mul(Num a, int e)
         {
             if (e > 0) mul(a); else div(a);
-        }
-        public void add_up(BigInteger a)
-        {
-            up += a;
         }
         public void add(int a)
         {
@@ -906,21 +861,13 @@ namespace shard0
         }
         public void add(Num a, int s)
         { // 1/6 + 1/15 : (3) : (15/3 + 6/3) / (6 * (15/3))
-            if (sign == 0) set(a, s);
+            if (up.IsZero) set(a, s);
             else
             {
                 BigInteger c = BigInteger.GreatestCommonDivisor(down, a.down);
                 BigInteger d = a.down / c;
-                if (sign * (a.sign * s) < 0)
-                {
-                    up = d * up - (down / c) * a.up;
-                }
-                else
-                {
-                    up = d * up + (down / c) * a.up;
-                }
-                down *= d;
-                if (up < 0) { up = -up; sign = -sign; } else if (up == 0) { sign = 0; down = 1; }
+                up = d * up + (down / c) * a.up * s;
+                if (up.IsZero) down = 1; else down *= d;
             }
         }
         public void add(Num a) { add(a, 1); }
@@ -933,7 +880,7 @@ namespace shard0
         {
             int lu, ld; int _l;
             if ((up < 2) || (down < 2)) return;
-            lu = Num._l2(up); ld = Num._l2(down);
+            lu = Num._l2(BigInteger.Abs(up)); ld = Num._l2(down);
             if (lu > ld) lu = ld;
             _l = lu - l; if (_l > l)
             {
@@ -968,7 +915,7 @@ namespace shard0
         Num sq_exp(Num sq) //up > down
         {
             int i0, i1 = IDS.sqr_exp_bits;
-            if (sq.down.IsEven && (sign < 0)) IDS.root.sys.error("exp: neg sqr");
+            if (sq.down.IsEven && (up.Sign < 0)) IDS.sys.error("exp: neg sqr");
             Num res = new Num(1), _sq = new Num(sq), tmp = new Num(1), _t = new Num(this); // (5/11-1/2)*2 = ((5*2-11)/(11*2))*2
             BigInteger _ud = up / down;
             if (_ud > 3)
@@ -1002,10 +949,10 @@ namespace shard0
         public void exp(Num ex)
         {
             int se; bool dv = (down > up);
-            if ((sign == 0) || isint(1) || ex.isint(1)) return;
-            if (ex.sign == 0) { set1(); return; }
-            Num _e = new Num(ex), r0 = (dv ? new Num(sign, down, up) : new Num(this));
-            se = _e.sign; _e.sign = 1;
+            if ((up.IsZero) || isint(1) || ex.isint(1)) return;
+            if (ex.up.IsZero) { set1(); return; }
+            Num _e = new Num(ex), r0 = (dv ? new Num(down, up) : new Num(this));
+            se = _e.up.Sign; _e.up = BigInteger.Abs(_e.up);
             BigInteger _ei = _e.toint();
             if (_ei > 0)
             {
@@ -1015,12 +962,11 @@ namespace shard0
                 r0.mul(r1.sq_exp(_e));
             }
             else r0 = r0.sq_exp(_e);
-            sign = r0.sign;
-            if (dv ^ (se < 0)) { up = r0.down; down = r0.up; } else { up = r0.up; down = r0.down; }
+            up = r0.up; down = r0.down; if (dv ^ (se < 0)) div();
         }
         public void ln()
         {
-            if (sign < 1) IDS.root.sys.error("ln: not pos");
+            if (up.Sign < 1) IDS.sys.error("ln: not pos");
             bool dv = down > up;
             if (dv) div();
             Num r = null;
@@ -1046,7 +992,7 @@ namespace shard0
                 r.add(Num.mul(IDS.n_ln2, IDS.nums[IDS.znums + l2]));
                 IDS.ln.Add(new Num(this), new Num(r)); set(r);
             }
-            if (dv) sign = -1;
+            if (dv) up = -up;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1062,42 +1008,44 @@ namespace shard0
         //6: +0.0000000000000000000000000000000000000000000000000000070006026538925265359943634345869258627656933747
         //6: +0.0000000000000000000000000000000000000000000000000000995320760599319535732067627950329184983090196596
         //n1 = [(x > n0) n0+n0/i; (n0 > x > n0/2) n0-n0/i; (n0/2 > x) n0/i]
-        public Num uf(Num n)
-        {
-            BigInteger nu, xu, t0, i;
-            xu = up * n.down; nu = n.up * down;
-            if (xu > nu)
-            {
-                //n/(x-n) = i
-                //(nu/nd)/(nd*xu/xd*nd-xd*nu/nd*xd)
-                //(xd*nd*nu/nd)/(nd*xu-xd*nu)
-                //(xd*nu)/(nd*xu-xd*nu)
-                t0 = xu - nu; i = _div(nu, t0);
-                return new Num(1, n.up * i + n.up, n.down * i);
-            }
-            else if (xu * 2 > nu)
-            {
-                //n/(n-x)
-                t0 = nu - xu; i = _div(nu, t0);
-                return new Num(1, n.up * i - n.up, n.down * i);
-            }
-            else
-            {
-                //n/x
-                i = _div(nu, xu);
-                return new Num(1, n.up, n.down * i);
-            }
-        }
+        /*
+                public Num uf(Num n)
+                {
+                    BigInteger nu, xu, t0, i;
+                    xu = up * n.down; nu = n.up * down;
+                    if (xu > nu)
+                    {
+                        //n/(x-n) = i
+                        //(nu/nd)/(nd*xu/xd*nd-xd*nu/nd*xd)
+                        //(xd*nd*nu/nd)/(nd*xu-xd*nu)
+                        //(xd*nu)/(nd*xu-xd*nu)
+                        t0 = xu - nu; i = _div(nu, t0);
+                        return new Num(n.up * i + n.up, n.down * i);
+                    }
+                    else if (xu * 2 > nu)
+                    {
+                        //n/(n-x)
+                        t0 = nu - xu; i = _div(nu, t0);
+                        return new Num(n.up * i - n.up, n.down * i);
+                    }
+                    else
+                    {
+                        //n/x
+                        i = _div(nu, xu);
+                        return new Num(n.up, n.down * i);
+                    }
+                }
 
-        public BigInteger ufu(Num n, Num s)
-        {
-            //d = n-x; i = s/d + 1; s /= i; n1 = n-s;
-            BigInteger dnx, unx, t0, i;
-            dnx = down * n.down; unx = n.up * down - up * n.down;
-            t0 = s.down * unx; i = s.up * dnx / t0 + 1;
-            s.down *= i; n.sub(s);
-            return i;
-        }
+                public BigInteger ufu(Num n, Num s)
+                {
+                    //d = n-x; i = s/d + 1; s /= i; n1 = n-s;
+                    BigInteger dnx, unx, t0, i;
+                    dnx = down * n.down; unx = n.up * down - up * n.down;
+                    t0 = s.down * unx; i = s.up * dnx / t0 + 1;
+                    s.down *= i; n.sub(s);
+                    return i;
+                }
+         */
         public static Num exp(Num ex, Num p)
         {
             Num r = new Num(ex); r.exp(p); return r;
@@ -1109,25 +1057,25 @@ namespace shard0
 
         public BigInteger toint()
         {
-            return sign * up / down;
+            return up / down;
         }
         public double todouble()
         {
             Num tmp = new Num(this);
             tmp.prec_this(300);
-            return (double)(sign * tmp.up) / (double)(tmp.down);
+            return (double)(tmp.up) / (double)(tmp.down);
         }
         public int CompareTo(object obj)
         {
             if (obj == null) return 1;
             Num k = obj as Num;
-            if (sign != k.sign) return (sign < k.sign ? -1 : +1);
+            if (up.Sign != k.up.Sign) return (up.Sign < k.up.Sign ? -1 : +1);
             BigInteger u0 = up * k.down, u1 = k.up * down;
             if (u0 == u1) return 0;
             return (u0 < u1 ? -1 : 1);
         }
     }
-    public class Complex : Power<Complex>, IPower, IComparable
+    public class Complex : Power<Complex>, IPower, ISL, IComparable
     {
         public static Complex _0, _r1, _i1, _r_1;
         public Num r, i;
@@ -1160,23 +1108,23 @@ namespace shard0
 
         static public Complex neg(Complex a)
         {
-            Complex r = new Complex(a); r.neg();
-            return r;
+            Complex ret = new Complex(a); ret.neg();
+            return ret;
         }
         static public Complex add(Complex a0, Complex a1)
         {
-            Complex r = new Complex(a0); r.add(a1);
-            return r;
+            Complex ret = new Complex(a0); ret.add(a1);
+            return ret;
         }
         static public Complex sub(Complex s0, Complex s1)
         {
-            Complex r = new Complex(s0); r.sub(s1);
-            return r;
+            Complex ret = new Complex(s0); ret.sub(s1);
+            return ret;
         }
         static public Complex _div(Complex d0)
         {
-            Complex r = new Complex(d0); r.div();
-            return r;
+            Complex ret = new Complex(d0); ret.div();
+            return ret;
         }
         static public Complex mul(Complex m0, Complex m1)
         {
@@ -1185,37 +1133,17 @@ namespace shard0
         }
         static public Complex div(Complex d0, Complex d1)
         {
-            Complex r = new Complex(d0); r.div(d1);
-            return r;
-        }
-        public static Complex load(BinaryReader file)
-        {
-            if (file.ReadBoolean()) return new Complex(Num.load(file), Num.load(file)); else return null;
-        }
-        public static Complex[] load_a(BinaryReader file)
-        {
-            Complex[] ret = new Complex[file.ReadInt32()];
-            int i = 0; while (i < ret.Length)
-            {
-                ret[i] = Complex.load(file);
-                i++;
-            }
+            Complex ret = new Complex(d0); ret.div(d1);
             return ret;
         }
-        public void save(BinaryWriter file)
+        public Complex()
         {
-            file.Write(true);
-            r.save(file);
-            i.save(file);
+            r = Num.load(); i = Num.load(); s = null;
         }
-        public static void save(BinaryWriter file, Complex _c)
+        public void save()
         {
-            if (_c == null) file.Write(false); else _c.save(file);
-        }
-        public static void save_a(BinaryWriter file, Complex[] _a)
-        {
-            file.Write((Int32)_a.Length);
-            foreach (Complex c in _a) Complex.save(file, c);
+            r.save();
+            i.save();
         }
         public Complex(Num _r, Num _i)
         {
@@ -1247,12 +1175,6 @@ namespace shard0
             i = IDS.nums[IDS.znums];
             s = r;
         }
-        public Complex()
-        {
-            r = IDS.nums[IDS.znums];
-            i = IDS.nums[IDS.znums];
-            s = IDS.nums[IDS.znums];
-        }
         public Complex(Complex _k)
         {
             r = _k.r;
@@ -1277,15 +1199,13 @@ namespace shard0
             i = a.i;
             s = a.s;
         }
-        public override void copy(ref Complex a)
+        public override Complex get_copy()
         {
-            a.r = r;
-            a.i = i;
-            a.s = s;
+            return new Complex(this);
         }
         public int sign()
         {
-            return (r.sign != 0 ? r.sign : i.sign);
+            return (r.up.IsZero ? i.up.Sign : r.up.Sign);
         }
         public void max(Complex a)
         {
@@ -1304,11 +1224,11 @@ namespace shard0
 
         public bool isint()
         {
-            return (i.sign == 0) && r.isint();
+            return (i.up.IsZero) && r.isint();
         }
         public bool isint(int _r)
         {
-            return (i.sign == 0) && r.isint(_r);
+            return (i.up.IsZero) && r.isint(_r);
         }
         public static bool isint(Complex n, int _i)
         {
@@ -1319,11 +1239,15 @@ namespace shard0
         {
             r = Num.neg(r); i = Num.neg(i); if (s != null) s = Num.neg(s);
         }
+        public Complex toneg()
+        {
+            return new Complex(Num.neg(r), Num.neg(i));
+        }
         public Num mod()
         {
             BigInteger id = i.down * i.down, rd = r.down * r.down;
-            Num _r = new Num(1, r.up * r.up * id + i.up * i.up * rd, id * rd);
-            _r.exp(new Num(1, 1, 2));
+            Num _r = new Num(r.up * r.up * id + i.up * i.up * rd, id * rd);
+            _r.exp(new Num(1, 2));
             return _r;
         }
         public void add(Complex a)
@@ -1377,12 +1301,12 @@ namespace shard0
         }
         public void exp(Complex pow)
         {
-            if (pow.i.sign != 0) IDS.root.sys.error("not yet");
+            if (!pow.i.up.IsZero) IDS.sys.error("not yet");
             exp(pow.r);
         }
         public void ln()
         {
-            if (i.sign == 0)
+            if (i.up.IsZero)
             {
                 r = new Num(r); r.ln();
             }
@@ -1397,16 +1321,16 @@ namespace shard0
             if (pow.isint()) exp(pow.toint());
             else
             {
-                if (i.sign == 0) r = Num.exp(r, pow);
+                if (i.up.IsZero) r = Num.exp(r, pow);
                 else
                 {
-                    IDS.root.sys.error("not yet");
+                    IDS.sys.error("not yet");
                 }
             }
         }
         public bool iszero()
         {
-            return (r.sign == 0) && (i.sign == 0);
+            return (r.up.IsZero && i.up.IsZero);
         }
         public bool isequ(Complex a)
         {
@@ -1439,36 +1363,20 @@ namespace shard0
         }
         public BigInteger toint()
         {
-            return (i.sign == 0 ? r.toint() : mod().toint());
+            return (i.up.IsZero ? r.toint() : mod().toint());
         }
         public double todouble()
         {
-            return (i.sign == 0 ? r.todouble() : mod().todouble());
+            return (i.up.IsZero ? r.todouble() : mod().todouble());
         }
 
     }
-    public class Row_simple
-    {
 
-
-        public Row_simple(Many2 p)
-        {
-        }
-        public Complex calc(Complex p)
-        {
-            Complex r = new Complex();
-
-
-
-            return r;
-        }
-    }
-
-    public class One : IComparable
+    public class One : ISL, IComparable
     {
         public static One zero;
         public SortedDictionary<Func, Func> exps;
-        public One()
+        public One(bool _)
         {
             exps = new SortedDictionary<Func, Func>();
         }
@@ -1487,38 +1395,36 @@ namespace shard0
             exps = new SortedDictionary<Func, Func>();
             set(o);
         }
-        public static One load(BinaryReader file)
+        public One()
         {
-            One ret = new One();
-            int i = 0, cnt = file.ReadInt32();
+            exps = new SortedDictionary<Func, Func>();
+            int i = 0, cnt = IDS.sys.load_int();
             while (i < cnt)
             {
-                ret.exps.Add(Func.load(file), Func.load(file));
+                exps.Add(new Func(), new Func());
                 i++;
             }
-            return ret;
         }
-        public void save(BinaryWriter file)
+        public void save()
         {
-            file.Write((Int32)(exps.Count));
-            foreach (KeyValuePair<Func, Func> m in exps)
+            IDS.sys.save(exps.Count);
+            foreach (var m in exps)
             {
-                m.Key.save(file);
-                m.Value.save(file);
+                m.Key.save(); m.Value.save();
             }
         }
         public void set(One o)
         {
             exps.Clear();
-            foreach (KeyValuePair<Func, Func> m in o.exps) exps.Add(new Func(m.Key), new Func(m.Value));
+            foreach (var m in o.exps) exps.Add(new Func(m.Key), new Func(m.Value));
         }
 
         public int CompareTo(object obj)
         {
             if (obj == null) return 1;
             One o = obj as One;
-            SortedDictionary<Func, Func>.Enumerator e0 = exps.GetEnumerator();
-            SortedDictionary<Func, Func>.Enumerator e1 = o.exps.GetEnumerator();
+            var e0 = exps.GetEnumerator();
+            var e1 = o.exps.GetEnumerator();
             bool n0, n1;
             int rk, rv;
             while (true)
@@ -1552,7 +1458,7 @@ namespace shard0
         }
         public void mul(One o)
         {
-            foreach (KeyValuePair<Func, Func> m in o.exps)
+            foreach (var m in o.exps)
             {
                 if (exps.ContainsKey(m.Key))
                 {
@@ -1564,7 +1470,7 @@ namespace shard0
         }
         public void div()
         {
-            foreach (KeyValuePair<Func, Func> m in exps) m.Value.neg();
+            foreach (var m in exps) m.Value.neg();
         }
         public void exp(int e)
         {
@@ -1572,11 +1478,11 @@ namespace shard0
         }
         public void exp(Complex e)
         {
-            foreach (KeyValuePair<Func, Func> f in exps) f.Value.mul(e);
+            foreach (var f in exps) f.Value.mul(e);
         }
         public void exp(Func e)
         {
-            foreach (KeyValuePair<Func, Func> f in exps) f.Value.mul(e);
+            foreach (var f in exps) f.Value.mul(e);
         }
         public Func get_Func(Complex n)
         {
@@ -1596,9 +1502,9 @@ namespace shard0
 
         public void extract(One from) //common multi
         {
-            SortedDictionary<Func, Func> r = new SortedDictionary<Func, Func>();
+            var r = new SortedDictionary<Func, Func>();
             Func extr;
-            foreach (KeyValuePair<Func, Func> m in exps)
+            foreach (var m in exps)
                 if (from.exps.ContainsKey(m.Key))
                 {
                     extr = new Func(m.Value);
@@ -1609,21 +1515,21 @@ namespace shard0
         }
         public Many2 expand(Complex n, ref bool rb)
         {
-            Many2 r = new Many2(1), t; One o = new One();
-            foreach (KeyValuePair<Func, Func> m in exps) if ((m.Key.type == Func.t_many2) && (m.Value.type_pow() == 0))
+            Many2 ret = new Many2(1), t; One o = new One(true);
+            foreach (var m in exps) if ((m.Key.type == Func.t_many2) && (m.Value.type_pow() == 0))
                 {
                     rb = true;
                     t = new Many2((Many2)(m.Key.data));
-                    t.exp(m.Value); r.mul(t);
+                    t.exp(m.Value); ret.mul(t);
                 }
                 else o.addto(new Func(m.Key), new Func(m.Value));
-            r.mul(o, n);
-            return r;
+            ret.mul(o, n);
+            return ret;
         }
         public bool expand_p0(Func val, Exps_f exu, Exps_f exd)
         {
             bool rt = false;
-            foreach (KeyValuePair<Func, Func> m in exps) if (m.Value.CompareTo(val) == 0)
+            foreach (var m in exps) if (m.Value.CompareTo(val) == 0)
                 {
                     rt = true; m.Value.type = Func.t_many2; m.Value.data = new Many2(new Many(exu.mvar), new Many(exd.mvar));
                 }
@@ -1632,15 +1538,15 @@ namespace shard0
         public bool expand_2(Func val, Exps_f exu, Exps_f exd)
         {
             bool fv = false, fk = false;
-            foreach (KeyValuePair<Func, Func> m in exps)
+            foreach (var m in exps)
             {
                 fk = m.Key.expand(val, exu, exd) || fk;
                 fv = m.Value.expand(val, exu, exd) || fv;
             }
             if (fk)
             {
-                One r = new One();
-                foreach (KeyValuePair<Func, Func> m in exps)
+                One r = new One(true);
+                foreach (var m in exps)
                     if ((!m.Value.isconst(0, 0)) && (!m.Key.isconst(1, 0))) r.addto(m.Key, m.Value);
                 exps = r.exps;
             }
@@ -1649,7 +1555,7 @@ namespace shard0
 
         public void replace(Vals v, Func f)
         {
-            foreach (KeyValuePair<Func, Func> ff in exps)
+            foreach (var ff in exps)
             {
                 ff.Key.replace(v, f); ff.Value.replace(v, f);
             }
@@ -1658,8 +1564,8 @@ namespace shard0
         public Complex simple()
         {
             Complex nt, rt = new Complex(1); Func p, e;
-            One r = new One();
-            foreach (KeyValuePair<Func, Func> ff in exps)
+            One r = new One(true);
+            foreach (var ff in exps)
             {
                 ff.Value.simple();
                 if (!ff.Value.isconst(0, 0))
@@ -1691,8 +1597,8 @@ namespace shard0
         }
         public void deeper(int deep)
         {
-            SortedDictionary<Func, Func> r = new SortedDictionary<Func, Func>();
-            foreach (KeyValuePair<Func, Func> ff in exps) r.Add(Func.deeper(ff.Key, deep), Func.deeper(ff.Value, deep));
+            var r = new SortedDictionary<Func, Func>();
+            foreach (var ff in exps) r.Add(Func.deeper(ff.Key, deep), Func.deeper(ff.Value, deep));
             exps = r;
         }
         public Complex calc()
@@ -1703,15 +1609,15 @@ namespace shard0
         }
         public void findvals(One o)
         {
-            foreach (KeyValuePair<Func, Func> f in exps) { f.Key.findvals(o); f.Value.findvals(o); }
+            foreach (var f in exps) { f.Key.findvals(o); f.Value.findvals(o); }
         }
         public Many diff_down(Vals at)
         {
-            Many r = new Many(); One a;
+            Many r = new Many(true); One a;
             List<Func> d = new List<Func>(), p = new List<Func>(), e = new List<Func>();
-            One f_d0 = new One();
+            One f_d0 = new One(true);
             Func t;
-            foreach (KeyValuePair<Func, Func> ff in exps)
+            foreach (var ff in exps)
             {
                 t = ff.Key.diff_down(ff.Value, at);
                 if (t.isconst(0, 0)) f_d0.addto(ff.Key, ff.Value);
@@ -1743,23 +1649,23 @@ namespace shard0
         public Many diff_up(Vals at)
         {
             Many r;
-            One o = new One();
+            One o = new One(true);
             Func fa = new Func(at), ex = new Func(new Complex(0));
-            foreach (KeyValuePair<Func, Func> ff in exps)
+            foreach (var ff in exps)
             {
-                if ((ff.Value.type > Func.t_num) || (ff.Key.type > Func.t_num)) IDS.root.sys.error("S: too complex");
+                if ((ff.Value.type > Func.t_num) || (ff.Key.type > Func.t_num)) IDS.sys.error("S: too complex");
                 if (ff.Value.type == Func.t_val)
                 {
                     if (ff.Value.data == at)
                     {
-                        if (ff.Value.CompareTo(ff.Key) == 0) IDS.root.sys.error("S: x^x");
-                        IDS.root.sys.error("now not implemented");
+                        if (ff.Value.CompareTo(ff.Key) == 0) IDS.sys.error("S: x^x");
+                        IDS.sys.error("now not implemented");
                     }
                     else
                     {
                         if (ff.Key.CompareTo(fa) == 0)
                         {
-                            if (!ex.isconst(0, 0)) IDS.root.sys.error("now not implemented");
+                            if (!ex.isconst(0, 0)) IDS.sys.error("now not implemented");
                             ex.add(ff.Value);
                         }
                         else
@@ -1772,7 +1678,7 @@ namespace shard0
                 {
                     if (ff.Key.CompareTo(fa) == 0)
                     {
-                        if (!ex.isconst(0, 0)) IDS.root.sys.error("now not implemented");
+                        if (!ex.isconst(0, 0)) IDS.sys.error("now not implemented");
                         ex.add(ff.Value);
                     }
                     else
@@ -1795,10 +1701,10 @@ namespace shard0
 
     }
 
-    public class Many : Power<Many>, IPower, IComparable
+    public class Many : Power<Many>, IPower, ISL, IComparable
     {
         public SortedDictionary<One, Complex> data;
-        public Many()
+        public Many(bool _)
         {
             data = new SortedDictionary<One, Complex>();
         }
@@ -1820,60 +1726,59 @@ namespace shard0
         public Many(Complex n)
         {
             data = new SortedDictionary<One, Complex>();
-            data.Add(new One(), n);
+            data.Add(new One(true), n);
         }
         public Many(Many m)
         {
             set(m);
         }
-        public static Many load(BinaryReader file)
+        public Many()
         {
-            Many ret = new Many();
-            int i = 0, cnt = file.ReadInt32();
+            data = new SortedDictionary<One, Complex>();
+            int i = 0, cnt = IDS.sys.load_int();
             while (i < cnt)
             {
-                ret.data.Add(One.load(file), Complex.load(file));
+                data.Add(new One(), new Complex());
                 i++;
             }
-            return ret;
         }
-        public void save(BinaryWriter file)
+        public void save()
         {
-            file.Write((Int32)(data.Count));
-            foreach (KeyValuePair<One, Complex> o in data)
+            IDS.sys.save(data.Count);
+            foreach (var o in data)
             {
-                o.Key.save(file);
-                o.Value.save(file);
+                o.Key.save();
+                o.Value.save();
             }
         }
 
         public static SortedDictionary<One, Complex> copy(SortedDictionary<One, Complex> c)
         {
-            SortedDictionary<One, Complex> r = new SortedDictionary<One, Complex>();
-            foreach (KeyValuePair<One, Complex> o in c) r.Add(new One(o.Key), new Complex(o.Value));
-            return r;
+            var ret = new SortedDictionary<One, Complex>();
+            foreach (var o in c) ret.Add(new One(o.Key), new Complex(o.Value));
+            return ret;
         }
         public override void set(Many s)
         {
             data = Many.copy(s.data);
         }
-        public override void copy(ref Many s)
+        public override Many get_copy()
         {
-            s.set(this);
+            return new Many(this);
         }
         public override void set0()
         {
             data.Clear();
-            data.Add(new One(), new Complex(0));
+            data.Add(new One(true), new Complex(0));
         }
         public override void set1()
         {
             data.Clear();
-            data.Add(new One(), new Complex(1));
+            data.Add(new One(true), new Complex(1));
         }
         public override void div()
         {
-            if (data.Count != 1) IDS.root.sys.error("cant divide many");
+            if (data.Count != 1) IDS.sys.error("cant divide many");
             data[data.ElementAt(0).Key].div();
             data.ElementAt(0).Key.div();
         }
@@ -1881,7 +1786,7 @@ namespace shard0
         public int sign()
         {
             bool p = false, m = false; int cm;
-            foreach (KeyValuePair<One, Complex> o in data)
+            foreach (var o in data)
             {
                 cm = o.Value.CompareTo(Complex._0);
                 if (cm > 0)
@@ -1902,8 +1807,8 @@ namespace shard0
         {
             if (obj == null) { int s = sign(); return (s != 0 ? s : data.ElementAt(0).Value.CompareTo(Complex._0)); }
             Many m = obj as Many;
-            SortedDictionary<One, Complex>.Enumerator o0 = data.GetEnumerator();
-            SortedDictionary<One, Complex>.Enumerator o1 = m.data.GetEnumerator();
+            var o0 = data.GetEnumerator();
+            var o1 = m.data.GetEnumerator();
             bool n0, n1;
             int r;
             while (true)
@@ -1944,7 +1849,7 @@ namespace shard0
         public BigInteger get_mult_for_int()
         {
             BigInteger r = 1, b;
-            foreach (KeyValuePair<One, Complex> on in data)
+            foreach (var on in data)
             {
                 b = BigInteger.GreatestCommonDivisor(r, on.Value.r.down);
                 r *= on.Value.r.down / b;
@@ -1982,18 +1887,18 @@ namespace shard0
         }
         public void add(Many from)
         {
-            foreach (KeyValuePair<One, Complex> o in from.data) add(o.Key, o.Value);
+            foreach (var o in from.data) add(o.Key, o.Value);
         }
         public void sub(Many from)
         {
-            foreach (KeyValuePair<One, Complex> o in from.data) sub(o.Key, o.Value);
+            foreach (var o in from.data) sub(o.Key, o.Value);
         }
 
         public void mul(One o, Complex n)
         {
-            SortedDictionary<One, Complex> r = new SortedDictionary<One, Complex>();
+            var r = new SortedDictionary<One, Complex>();
             One _o; Complex _n;
-            foreach (KeyValuePair<One, Complex> m0 in data)
+            foreach (var m0 in data)
             {
                 _o = new One(m0.Key);
                 _o.mul(o);
@@ -2005,11 +1910,11 @@ namespace shard0
         }
         public override void mul(Many _m)
         {
-            SortedDictionary<One, Complex> r = new SortedDictionary<One, Complex>();
+            var r = new SortedDictionary<One, Complex>();
             One o; Complex n;
-            foreach (KeyValuePair<One, Complex> m0 in data)
+            foreach (var m0 in data)
             {
-                foreach (KeyValuePair<One, Complex> m1 in _m.data)
+                foreach (var m1 in _m.data)
                 {
                     o = new One(m0.Key);
                     o.mul(m1.Key);
@@ -2030,12 +1935,12 @@ namespace shard0
         }
         public KeyValuePair<One, Complex> revert() //_any^(-x) -> /_any^(x)
         {
-            One o = new One(), mul = new One(), tmp, tu, td; Complex c = new Complex(1);
-            Many r = new Many();
-            foreach (KeyValuePair<One, Complex> oc in data)
+            One o = new One(true), mul = new One(true), tmp, tu, td; Complex c = new Complex(1);
+            Many r = new Many(true);
+            foreach (var oc in data)
             {
-                tmp = new One(oc.Key); tu = new One(); td = new One();
-                foreach (KeyValuePair<Func, Func> ff in tmp.exps)
+                tmp = new One(oc.Key); tu = new One(true); td = new One(true);
+                foreach (var ff in tmp.exps)
                 {
                     if ((ff.Value.type_pow() < 2) && (ff.Value.sign() < 0))
                     {
@@ -2053,8 +1958,8 @@ namespace shard0
         }
         public Many expand(ref bool rb)
         {
-            Many ret = new Many(new Complex(1)), r = new Many(); Many2 tmp;
-            foreach (KeyValuePair<One, Complex> o in data)
+            Many ret = new Many(new Complex(1)), r = new Many(true); Many2 tmp;
+            foreach (var o in data)
             {
                 tmp = o.Key.expand(o.Value, ref rb);
                 r.mul(tmp.down); //div to prev
@@ -2070,7 +1975,7 @@ namespace shard0
         {
             One to = new One(o); to.exps[val].set0();
             One _o; Complex _n;
-            foreach (KeyValuePair<One, Complex> on in from.data)
+            foreach (var on in from.data)
             {
                 _o = new One(to); _o.mul(on.Key);
                 _n = Complex.mul(n, on.Value);
@@ -2080,26 +1985,26 @@ namespace shard0
         public bool expand_p0(Func val, Exps_f exu, Exps_f exd)
         {
             bool rt = false;
-            foreach (KeyValuePair<One, Complex> o in data) rt = o.Key.expand_p0(val, exu, exd) || rt;
+            foreach (var o in data) rt = o.Key.expand_p0(val, exu, exd) || rt;
             return rt;
         }
         public bool expand_2(Func val, Exps_f exu, Exps_f exd)
         {
             bool rt = false;
-            foreach (KeyValuePair<One, Complex> o in data) rt = o.Key.expand_2(val, exu, exd) || rt;
+            foreach (var o in data) rt = o.Key.expand_2(val, exu, exd) || rt;
             return rt;
         }
         //e0,e2,p0,p2
         public bool expand_e0(Func val, Exps_f exu, Exps_f exd)
         {
             bool rt = false;
-            SortedDictionary<Func, Many> ml = new SortedDictionary<Func, Many>();
-            Many res = new Many();
+            var ml = new SortedDictionary<Func, Many>();
+            Many res = new Many(true);
             exu.add(this, val, +1); exu.calc();
             exd.add(this, val, -1); exd.calc();
             int type = (exu.type > exd.type ? exu.type : exd.type);
             Func eu, ed, e;
-            foreach (KeyValuePair<One, Complex> o in data)
+            foreach (var o in data)
             {
                 //[+1]/[-1]
                 //[-up] *= [+1]^min*[-1]^max 
@@ -2131,12 +2036,12 @@ namespace shard0
         }
         public void replace(Vals v, Func f)
         {
-            foreach (KeyValuePair<One, Complex> o in data) o.Key.replace(v, f);
+            foreach (var o in data) o.Key.replace(v, f);
         }
 
         public int type_exp()
         {
-            if ((data.Count == 1) && (data.ElementAt(0).Value.i.sign == 0))
+            if ((data.Count == 1) && (data.ElementAt(0).Value.i.up.IsZero))
             {
                 if (data.ElementAt(0).Value.isint()) return 0; else return 1;
             }
@@ -2145,7 +2050,7 @@ namespace shard0
         public void exp(Func e)
         {
             int te = type_exp(), tp = e.type_pow();
-            if (te + tp > 2) IDS.root.sys.error("exp: cant Many to many");
+            if (te + tp > 2) IDS.sys.error("exp: cant Many to many");
             if (te > 1) exp((int)(((Complex)(e.data)).r.up));
             else
             {
@@ -2171,11 +2076,11 @@ namespace shard0
         }
         public KeyValuePair<One, Complex> extract()
         {
-            if (data.Count == 0) return new KeyValuePair<One, Complex>(new One(), new Complex(1));
+            if (data.Count == 0) return new KeyValuePair<One, Complex>(new One(true), new Complex(1));
             else
             {
                 One ro = null; Complex rn = null;
-                foreach (KeyValuePair<One, Complex> m in data)
+                foreach (var m in data)
                 {
                     if (ro == null)
                     {
@@ -2185,8 +2090,8 @@ namespace shard0
                     {
                         ro.extract(m.Key);
                         rn.extract(m.Value);
-                        if (ro.exps.Count < 1) return new KeyValuePair<One, Complex>(new One(), new Complex(1));
-                        if (rn.iszero()) return new KeyValuePair<One, Complex>(new One(), new Complex(1));
+                        if (ro.exps.Count < 1) return new KeyValuePair<One, Complex>(new One(true), new Complex(1));
+                        if (rn.iszero()) return new KeyValuePair<One, Complex>(new One(true), new Complex(1));
                     }
                 }
                 return new KeyValuePair<One, Complex>(ro, rn);
@@ -2201,9 +2106,9 @@ namespace shard0
         public void deeper(int deep)
         {
             if (deep == 0) return;
-            Many r = new Many();
+            Many r = new Many(true);
             One o;
-            foreach (KeyValuePair<One, Complex> m in data)
+            foreach (var m in data)
             {
                 o = new One(m.Key); o.deeper(deep);
                 r.data.Add(o, m.Value); //deeper dont remove val from one
@@ -2213,9 +2118,9 @@ namespace shard0
 
         public void add_toexp(Func val, Func _e)
         {
-            SortedDictionary<One, Complex> r = new SortedDictionary<One, Complex>();
+            var r = new SortedDictionary<One, Complex>();
             One o;
-            foreach (KeyValuePair<One, Complex> m in data)
+            foreach (var m in data)
             {
                 o = new One(m.Key); o.addto(val, _e);
                 if (r.ContainsKey(o)) r[o].add(m.Value); //in r any Num is new
@@ -2227,7 +2132,7 @@ namespace shard0
         public Complex find_minexp(Func val) //_val^(-x) -> /_val^(x)
         {
             Complex _min = new Complex(0), t;
-            foreach (KeyValuePair<One, Complex> o in data)
+            foreach (var o in data)
                 if (o.Key.exps.ContainsKey(val))
                 {
                     t = o.Key.exps[val].get_num_part();
@@ -2252,8 +2157,8 @@ namespace shard0
             }
             if (ch)
             {
-                SortedDictionary<One, Complex> r = new SortedDictionary<One, Complex>();
-                foreach (KeyValuePair<One, Complex> _on in data) if (!_on.Value.iszero()) r.Add(_on.Key, _on.Value);
+                var r = new SortedDictionary<One, Complex>();
+                foreach (var _on in data) if (!_on.Value.iszero()) r.Add(_on.Key, _on.Value);
                 data = r;
             }
         }
@@ -2275,8 +2180,8 @@ namespace shard0
         {
             if (data.Count < 1) return;
             One k; Complex v;
-            SortedDictionary<One, Complex> r = new SortedDictionary<One, Complex>();
-            foreach (KeyValuePair<One, Complex> d in data)
+            var r = new SortedDictionary<One, Complex>();
+            foreach (var d in data)
             {
                 if (!d.Value.iszero())
                 {
@@ -2289,18 +2194,18 @@ namespace shard0
         public Complex calc()
         {
             Complex rt = new Complex(0);
-            foreach (KeyValuePair<One, Complex> o in data) rt.add(Complex.mul(o.Key.calc(), o.Value));
+            foreach (var o in data) rt.add(Complex.mul(o.Key.calc(), o.Value));
             return rt;
         }
         public void findvals(One o)
         {
-            foreach (KeyValuePair<One, Complex> on in data) on.Key.findvals(o);
+            foreach (var on in data) on.Key.findvals(o);
         }
 
         public Many diff_down(Vals at)
         {
             Many m, r = new Many(new Complex(0));
-            foreach (KeyValuePair<One, Complex> on in data)
+            foreach (var on in data)
             {
                 m = on.Key.diff_down(at); m.mul(on.Value);
                 r.add(m);
@@ -2310,21 +2215,38 @@ namespace shard0
         public Many diff_up(Vals at)
         {
             Many m, r = new Many(new Complex(0));
-            foreach (KeyValuePair<One, Complex> on in data)
+            foreach (var on in data)
             {
                 m = on.Key.diff_up(at); m.mul(on.Value);
                 r.add(m);
             }
             return r;
         }
+        public SortedDictionary<Func, Many> to_mults(Func extr, Complex div)
+        {
+            var ret = new SortedDictionary<Func,Many>();
+            One _o; Func pow; div.div();
+            foreach (var m in data)
+            {
+                _o = new One(m.Key);
+                if (_o.exps.ContainsKey(extr))
+                {
+                    pow = _o.exps[extr]; _o.exps.Remove(extr);
+                }
+                else pow = new Func(new Complex(0));
+                if (ret.ContainsKey(pow)) ret[pow].add(_o, Complex.mul(m.Value, div));
+                else ret.Add(pow,new Many(_o, Complex.mul(m.Value, div)));
+            }
+            return ret;
+        }
     }
 
-    public class Many2 : Power<Many2>, IPower, IComparable
+    public class Many2 : Power<Many2>, IPower, ISL, IComparable
     {
         public Many up, down;
-        public Many2()
+        public Many2(bool _)
         {
-            up = new Many(); down = new Many();
+            up = new Many(_); down = new Many(_);
         }
         public Many2(Many u, Many d) //no new 
         {
@@ -2333,83 +2255,78 @@ namespace shard0
         public Many2(Many u) //no new 
         {
             up = u;
-            down = new Many();
-            down.data.Add(new One(), new Complex(1));
+            down = new Many(true);
+            down.data.Add(new One(true), new Complex(1));
         }
         public Many2(One u) //no new 
         {
             up = new Many(u);
-            down = new Many();
-            down.data.Add(new One(), new Complex(1));
+            down = new Many(true);
+            down.data.Add(new One(true), new Complex(1));
         }
         public Many2(Func u) //no new 
         {
             up = new Many(new One(u));
-            down = new Many();
-            down.data.Add(new One(), new Complex(1));
+            down = new Many(true);
+            down.data.Add(new One(true), new Complex(1));
         }
         public Many2(int n)
         {
-            up = new Many(); down = new Many();
-            up.data.Add(new One(), new Complex(n));
-            down.data.Add(new One(), new Complex(1));
+            up = new Many(true); down = new Many(true);
+            up.data.Add(new One(true), new Complex(n));
+            down.data.Add(new One(true), new Complex(1));
         }
         public Many2(Complex n)
         {
-            up = new Many(); down = new Many();
-            up.data.Add(new One(), n);
-            down.data.Add(new One(), new Complex(1));
+            up = new Many(true); down = new Many(true);
+            up.data.Add(new One(true), n);
+            down.data.Add(new One(true), new Complex(1));
         }
         public Many2(One o, Complex n)
         {
-            up = new Many(); down = new Many();
+            up = new Many(true); down = new Many(true);
             up.data.Add(new One(o), new Complex(n));
-            down.data.Add(new One(), new Complex(1));
+            down.data.Add(new One(true), new Complex(1));
         }
 
         public Many2(Many2 m)
         {
             up = new Many(m.up); down = new Many(m.down);
         }
-        public static Many2 load(BinaryReader file)
+        public Many2()
         {
-            if (file.ReadBoolean()) return new Many2(Many.load(file), Many.load(file)); else return null;
+            up = new Many(true); down = new Many(true);
         }
-        public static void save(BinaryWriter file, Many2 m)
+        public void save()
         {
-            if (m == null) file.Write(false); else m.save(file);
-        }
-        public void save(BinaryWriter file)
-        {
-            file.Write(true);
-            up.save(file);
-            down.save(file);
+            up.save();
+            down.save();
         }
 
         public override void set(Many2 s)
         {
             up.set(s.up); down.set(s.down);
         }
-        public override void copy(ref Many2 s)
+        public override Many2 get_copy()
         {
-            s.set(this);
+            return new Many2(this);
         }
         public override void set0()
         {
             up.data.Clear(); down.data.Clear();
-            up.data.Add(new One(), new Complex(0));
-            down.data.Add(new One(), new Complex(1));
+            up.data.Add(new One(true), new Complex(0));
+            down.data.Add(new One(true), new Complex(1));
         }
         public override void set1()
         {
             up.data.Clear(); down.data.Clear();
-            up.data.Add(new One(), new Complex(1));
-            down.data.Add(new One(), new Complex(1));
+            up.data.Add(new One(true), new Complex(1));
+            down.data.Add(new One(true), new Complex(1));
         }
         public override void div()
         {
             Many t;
-            if ((up.data.Count == 1) && (up.data.ElementAt(0).Value.iszero())) IDS.root.sys.error("div0");
+            if ((up.data.Count == 1) && (up.data.ElementAt(0).Value.iszero())) IDS.sys.error("div0");
             t = up; up = down; down = t;
         }
 
@@ -2467,8 +2384,8 @@ namespace shard0
         }
         public void revert() //_any^(-x) -> /_any^(x)
         {
-            KeyValuePair<One, Complex> tup = down.revert();
-            KeyValuePair<One, Complex> tdown = up.revert();
+            var tup = down.revert();
+            var tdown = up.revert();
             up.mul(tup.Key, tup.Value);
             down.mul(tdown.Key, tdown.Value);
         }
@@ -2518,7 +2435,7 @@ namespace shard0
             if (e.type_pow() < 2)
             {
                 Func _e = new Func(e);
-                if (((Complex)(_e.data)).r.sign < 0)
+                if (((Complex)(_e.data)).r.up.Sign < 0)
                 {
                     ((Complex)(_e.data)).neg();
                     up.exp(_e); down.exp(_e);
@@ -2599,9 +2516,9 @@ namespace shard0
                                             up = new Many(ou, f_up.Value);
                                         */
 
-                    foreach (KeyValuePair<Func, Func> u in f_up.Key.exps) if (u.Value.sign() >= 0) u.Value.set0();
+                    foreach (var u in f_up.Key.exps) if (u.Value.sign() >= 0) u.Value.set0();
                     f_up.Value.set(f_up.Key.simple());
-                    foreach (KeyValuePair<Func, Func> d in f_down.Key.exps) if (d.Value.sign() >= 0) d.Value.set0();
+                    foreach (var d in f_down.Key.exps) if (d.Value.sign() >= 0) d.Value.set0();
                     f_down.Value.set(f_down.Key.simple());
                     f_up.Key.div();
                     down.mul(f_up.Key, Complex._r1);
@@ -2634,7 +2551,7 @@ namespace shard0
         public Complex calc()
         {
             Complex d = down.calc();
-            if (d.iszero()) IDS.root.sys.error("div0");
+            if (d.iszero()) IDS.sys.error("div0");
             d.div(); d.mul(up.calc()); d.simple(); return d;
         }
         public void findvals(One o)
@@ -2643,26 +2560,26 @@ namespace shard0
         }
         public bool hasval(Vals a)
         {
-            One t = new One(); findvals(t);
+            One t = new One(true); findvals(t);
             return t.exps.ContainsKey(new Func(a));
         }
 
         public Many2 diff_down(Vals at)
         {
             Many fu = up.diff_down(at), fd = down.diff_down(at);
-            Many2 r = new Many2(new Many(), new Many());
+            var r = new Many2(new Many(true), new Many(true));
             fu.mul(down); fd.mul(up); fu.sub(fd); r.up = fu;
             r.down = new Many(down); r.down.mul(down);
             r.simple(); return r;
         }
         public Many2 diff_up(Vals at)
         {
-            Many _u = new Many(up); Many _d = new Many(down); _d.div(); _u.mul(_d);
-            Many2 r = new Many2(_u.diff_up(at));
+            var _u = new Many(up); var _d = new Many(down); _d.div(); _u.mul(_d);
+            var r = new Many2(_u.diff_up(at));
             r.simple(); return r;
         }
     }
-    public class Exps_f
+    public class Exps_f: ISL
     {
         public Complex max, min;
         int deep;
@@ -2672,13 +2589,44 @@ namespace shard0
         public SortedDictionary<Func, Many> data;
         public Many mvar;
         Func e1;
+        public void save()
+        {
+            IDS.sys.save(max);
+            IDS.sys.save(min);
+            IDS.sys.save(deep);
+            IDS.sys.save(type);
+            IDS.sys.save(mvar);
+            IDS.sys.save(e1);
+            IDS.sys.save(data.Count);
+            foreach (KeyValuePair<Func, Many> fm in data)
+            {
+                fm.Key.save();
+                fm.Value.save();
+            }
+        }
+        public Exps_f()
+        {
+            IDS.sys.load(out max);
+            IDS.sys.load(out min);
+            IDS.sys.load(out deep);
+            IDS.sys.load(out type);
+            IDS.sys.load(out mvar);
+            IDS.sys.load(out e1);
+            int cnt, i = 0; IDS.sys.load(out cnt);
+            data = new SortedDictionary<Func, Many>();
+            while (i < cnt)
+            {
+                data.Add(new Func(), new Many());
+                i++;
+            }
+        }
         public Exps_f(Many m, int _deep)
         {
             min = new Complex(0); max = new Complex(0);
             data = new SortedDictionary<Func, Many>();
             Func e0 = new Func(new Complex(0));
-            data.Add(e0, new Many());
-            data[e0].data.Add(new One(), new Complex(1));
+            data.Add(e0, new Many(true));
+            data[e0].data.Add(new One(true), new Complex(1));
             deep = _deep;
             e1 = new Func(new Complex(1));
             mvar = new Many(m); if (deep > 0) mvar.deeper(deep);
@@ -2687,7 +2635,7 @@ namespace shard0
         }
         void add(Func e)
         {
-            if (!data.ContainsKey(e)) data.Add(e, new Many());
+            if (!data.ContainsKey(e)) data.Add(e, new Many(true));
         }
 
         public void add(Many m, Func val, int updown)
@@ -2697,7 +2645,7 @@ namespace shard0
             Func te;
             if (type > 1)
             {
-                foreach (KeyValuePair<One, Complex> on in m.data)
+                foreach (var on in m.data)
                 {
                     if (on.Key.exps.ContainsKey(val))
                     {
@@ -2722,7 +2670,7 @@ namespace shard0
              [+1]^(-2 - (-2))*[-1]^(+1 - (-2)) (0) (+3)
              [+1]^(+1 - (-2))*[-1]^(+1 - (+1)) (+3) (0)
             */
-            foreach (KeyValuePair<One, Complex> on in m.data)
+            foreach (var on in m.data)
             {
                 if (on.Key.exps.ContainsKey(val))
                 {
@@ -2750,7 +2698,7 @@ namespace shard0
         public void calc()
         {
             Func dl = new Func(new Complex(0));
-            foreach (KeyValuePair<Func, Many> d in data)
+            foreach (var d in data)
             {
                 /*                if (d.Value.data.Count == 0) {
                                     if (d.Key.type == 0) {
@@ -2779,11 +2727,11 @@ namespace shard0
         }
     }
 
-    public class Row : IComparable
+    public class Row : ISL, IComparable
     {
         public int point;
         public SortedDictionary<int, Many2> data;
-        public Row()
+        public Row(bool _)
         {
             point = 0;
             data = new SortedDictionary<int, Many2>();
@@ -2792,29 +2740,28 @@ namespace shard0
         {
             point = r.point;
             data = new SortedDictionary<int, Many2>();
-            foreach (KeyValuePair<int, Many2> m in r.data) data.Add(m.Key, new Many2(m.Value));
+            foreach (var m in r.data) data.Add(m.Key, new Many2(m.Value));
         }
 
-        public static Row load(BinaryReader file)
+        public Row()
         {
-            Row ret = new Row();
-            ret.point = file.ReadInt32();
-            int i = 0, cnt = file.ReadInt32();
+            data = new SortedDictionary<int, Many2>();
+            IDS.sys.load(out point);
+            int i = 0, cnt = IDS.sys.load_int();
             while (i < cnt)
             {
-                ret.data.Add(file.ReadInt32(), Many2.load(file));
+                data.Add(IDS.sys.load_int(), new Many2());
                 i++;
             }
-            return ret;
         }
-        public void save(BinaryWriter file)
+        public void save()
         {
-            file.Write((Int32)(point));
-            file.Write((Int32)(data.Count));
-            foreach (KeyValuePair<int, Many2> m in data)
+            IDS.sys.save(point);
+            IDS.sys.save(data.Count);
+            foreach (var m in data)
             {
-                file.Write((Int32)(m.Key));
-                m.Value.save(file);
+                IDS.sys.save(m.Key);
+                m.Value.save();
             }
         }
 
@@ -2829,7 +2776,7 @@ namespace shard0
         public Many2 prep_calc(Vals val, int steps)
         {
             int len = data.Count - point;
-            if (len < 1) IDS.root.sys.error("row: empty");
+            if (len < 1) IDS.sys.error("row: empty");
             Many2 calc = new Many2(new Complex(0)), t;
             int i0 = 0; while (i0 < point) { calc.add(step(data[i0], i0, val)); i0++; }
             int e = point, i1 = 0; while (i1 < steps)
@@ -2849,30 +2796,30 @@ namespace shard0
         public bool expand(Func val, Exps_f exu, Exps_f exd)
         {
             bool r = false;
-            foreach (KeyValuePair<int, Many2> m in data) r = m.Value.expand(val, exu, exd) || r;
+            foreach (var m in data) r = m.Value.expand(val, exu, exd) || r;
             return r;
         }
         public bool expand()
         {
             bool ret = false;
-            foreach (KeyValuePair<int, Many2> m in data) ret = m.Value.expand() | ret;
+            foreach (var m in data) ret = m.Value.expand() | ret;
             return ret;
         }
         public void simple()
         {
-            foreach (KeyValuePair<int, Many2> m in data) m.Value.simple();
+            foreach (var m in data) m.Value.simple();
         }
 
         public void deeper(int d)
         {
-            foreach (KeyValuePair<int, Many2> m in data) m.Value.deeper(d);
+            foreach (var m in data) m.Value.deeper(d);
         }
         public int CompareTo(object obj)
         {
             if (obj == null) return +1;
             Row r = obj as Row; int t = 0;
             if (data.Count != r.data.Count) return (data.Count < r.data.Count ? -1 : +1);
-            foreach (KeyValuePair<int, Many2> m in data)
+            foreach (var m in data)
             {
                 t = m.Value.CompareTo(r.data[m.Key]);
                 if (t != 0) return t;
@@ -2881,84 +2828,530 @@ namespace shard0
         }
         public void findvals(One o)
         {
-            foreach (KeyValuePair<int, Many2> m in data) m.Value.findvals(o);
+            foreach (var m in data) m.Value.findvals(o);
         }
     }
-    public class Equat : IComparable
+    public interface ISL
     {
-        public SortedSet<Many> equat, nozero, noneg;
-        public Many2 procnow;
-        public Equat()
+        void save();
+    }
+    public class Ordered<T> : IComparable where T : IComparable
+    {
+        public T entity;
+        public int index;
+        public Ordered(T _e, int _i)
         {
-            equat = new SortedSet<Many>();
-            nozero = new SortedSet<Many>();
-            noneg = new SortedSet<Many>();
-            procnow = null;
+            entity = _e; index = _i;
         }
-        public Equat(Equat e)
+        public int CompareTo(object obj)
         {
-            equat = new SortedSet<Many>();
-            nozero = new SortedSet<Many>();
-            noneg = new SortedSet<Many>();
-            foreach (Many m in e.equat) equat.Add(new Many(m));
-            foreach (Many m in e.nozero) nozero.Add(new Many(m));
-            foreach (Many m in e.noneg) equat.Add(new Many(m));
-            procnow = (e.procnow == null ? null : new Many2(e.procnow));
+            if (obj == null) return 1;
+            Ordered<T> o = obj as Ordered<T>;
+            int r = entity.CompareTo(o.entity);
+            if ((r == 0) && (index >= 0) && (o.index >= 0)) r = Math.Sign(index - o.index);
+            return r;
         }
-        static void _load(BinaryReader file, SortedSet<Many> to)
+    }
+    public class Order<T> : ISL where T : ISL, IComparable, new()
+    {
+        public bool uniq;
+        public T[] entity;
+        public SortedSet<Ordered<T>> order;
+        public int now;
+        public Order(int max, bool u)
         {
-            int i = 0, cnt = file.ReadInt32();
-            while (i < cnt)
+            entity = new T[max];
+            order = null;
+            now = 0;
+            uniq = u;
+        }
+        public Order(Order<T> o)
+        {
+            uniq = o.uniq;
+            entity = new T[o.entity.Length];
+            now = o.now;
+            int i = 0; while (i < now) entity[i] = o.entity[i++];
+            if (o.order == null) order = null; else set();
+        }
+        public Order()
+        {
+            IDS.sys.load(out uniq);
+            entity = new T[IDS.sys.load_int()];
+            IDS.sys.load(out now);
+            int i = 0; while (i < now) IDS.sys.load(out entity[i++]);
+            if (IDS.sys.load_bool()) set();
+        }
+        public void save()
+        {
+            IDS.sys.save(uniq);
+            IDS.sys.save(entity.Length);
+            IDS.sys.save(now);
+            int i = 0; while (i < now) IDS.sys.save(entity[i++]);
+            IDS.sys.save(order != null);
+        }
+        public void add(T e)
+        {
+            if ((e == null) || (!uniq) || (! entity.Contains(e)))
             {
-                to.Add(Many.load(file));
+                if (now >= entity.Length) Array.Resize<T>(ref entity, now * 2);
+                entity[now++] = e;
+            }
+        }
+        public void set()
+        {
+            Array.Resize<T>(ref entity, now);
+            order = new SortedSet<Ordered<T>>();
+            int i = 0; while (i < now)
+            {
+                if (entity[i] != null) order.Add(new Ordered<T>(entity[i], i));
                 i++;
             }
         }
-
-        public static Equat load(BinaryReader file)
+        public int index_of(T e)
         {
-            Equat ret = new Equat();
-            ret.procnow = Many2.load(file);
-            Equat._load(file, ret.equat);
-            Equat._load(file, ret.nozero);
-            Equat._load(file, ret.noneg);
+            Ordered<T> ret = order.FirstOrDefault(ent => ent.CompareTo(new Ordered<T>(e, -1)) == 0);
+            return (ret == null ? -1 : ret.index);
+        }
+        public int index_first()
+        {
+            return order.First().index;
+        }
+    }
+    public class Equ_unknown : ISL, IComparable
+    {
+        public int val;
+        public Equ_unknown(int v)
+        {
+            val = v;
+        }
+        public Equ_unknown()
+        {
+            IDS.sys.load(out val);
+        }
+        public void save()
+        {
+            IDS.sys.save(val);
+        }
+        public Equ_unknown set(Func f)
+        {
+            val = ((Vals)f.data).ind;
+            return this;
+        }
+        public int CompareTo(object obj)
+        {
+            if (obj == null) return 1;
+            Equ_unknown e = obj as Equ_unknown;
+            return (val == e.val ? 0 : (val < e.val ? -1 : +1));
+        }
+    }
+    public class Equ_exp : ISL
+    {
+        public Num common, min, max;
+        public Equ_exp(bool _)
+        {
+            common = null; min = null; max = null;
+        }
+        public Equ_exp()
+        {
+            IDS.sys.load(out common);
+            IDS.sys.load(out min);
+            IDS.sys.load(out max);
+        }
+        public void save()
+        {
+            IDS.sys.save(common);
+            IDS.sys.save(min);
+            IDS.sys.save(max);
+        }
+        public void add(Num exp, int one_ind)
+        {
+            if (one_ind == 0)
+            {
+                common = new Num(exp);
+                min = new Num(exp);
+                max = new Num(exp);
+            }
+            else
+            {
+                if (common == null)
+                {
+                    common = new Num(0);
+                    min = new Num(0);
+                    max = new Num(0);
+                }
+                common.extract(exp);
+                min.min(exp);
+                max.max(exp);
+            }
+        }
+        public void finish()
+        {
+            if (common == null)
+            {
+                common = new Num(1);
+                min = new Num(0);
+                max = new Num(0);
+            }
+            else
+            {
+                min.div(common); max.div(common);
+                if (max.up.Sign <= 0)
+                {
+                    max.neg(); min.neg(); common.neg();
+                    Num tmp = min; min = max; max = tmp;
+                }
+                common.simple_this();
+                min.simple_this();
+                max.simple_this();
+            }
+        }
+        public Complex proc(Complex e)
+        {
+            var ret = Num.div(e.r, common);
+            ret.sub(min);
+            return new Complex(ret);
+        }
+    }
+    public class Equ_equ : ISL, IComparable
+    {
+        public Many equ;
+        public Equ_exp[] exp;
+        public Equ_equ(Many m, Equ_step step)
+        {
+            int num = step.unknown.now;
+            exp = new Equ_exp[num];
+            int i = 0; while (i < num) exp[i++] = new Equ_exp(true);
+
+            One o;
+            var etmp = new Equ_unknown(0);
+            int v, i_cnt = 0;
+            bool has = false;
+            foreach (var oc in m.data)
+            {
+                foreach (var ff in oc.Key.exps)
+                {
+                    if ((ff.Key.type == Func.t_val) && ((v = step.unknown.index_of(etmp.set(ff.Key))) >= 0))
+                    {
+                        if (ff.Value.type_pow() > 1) IDS.sys.error("too complex exp @");
+                        has = true;
+                        exp[v].add(((Complex)(ff.Value.data)).r, i_cnt);
+                    }
+                }
+                i_cnt++;
+            }
+            if (!has) return;
+            foreach (Equ_exp e in exp) e.finish();
+            equ = new Many(true);
+            Func tfunc; Complex tzero = new Complex(0);
+            foreach (var oc in m.data)
+            {
+                o = new One(true);
+                i = 0; while (i < num)
+                {
+                    tfunc = new Func(Vals.inds[step.unknown.entity[i].val]);
+                    o.exps.Add(tfunc, new Func(exp[i].proc(oc.Key.exps.ContainsKey(tfunc) ? (Complex)(oc.Key.exps[tfunc].data) : tzero)));
+                    i++;
+                }
+                foreach (var ff in oc.Key.exps)
+                {
+                    if ((ff.Key.type != Func.t_val) || (step.unknown.index_of(etmp.set(ff.Key)) < 0))
+                        o.exps.Add(new Func(ff.Key), new Func(ff.Value));
+                }
+                equ.data.Add(o, new Complex(oc.Value));
+            }
+            equ.simple();
+        }
+        public Equ_equ()
+        {
+            IDS.sys.load(out equ);
+            IDS.sys.load(out exp);
+        }
+        public void save()
+        {
+            IDS.sys.save(equ);
+            IDS.sys.save(exp);
+        }
+        public string print(Equ_step step)
+        {
+            string ret = "";
+            if (equ != null)
+            {
+                ret += "[" + IDS.par.print(exp,(Equ_exp ee, int i) => {return Vals.inds[step.unknown.entity[i].val].get_name() + "^{" + IDS.par.print(ee.common, true) + "}:{" + IDS.par.print(ee.min, true) + "}<{" + IDS.par.print(ee.max, true) + "}";}) + "]:" + IDS.par.print(equ);
+            }
             return ret;
         }
-        public void _save(BinaryWriter file, SortedSet<Many> from)
+
+        public int CompareTo(object obj)
         {
-            file.Write((Int32)(from.Count));
-            foreach (Many m in from) m.save(file);
+            if (obj == null) return 1;
+            Equ_equ e = obj as Equ_equ;
+
+
+
+            return (0);
         }
-        public void save(BinaryWriter file)
+    }
+    public class Equ_metr : ISL, IComparable
+    {
+        public int exp;
+        public Equ_metr(int e)
+        { exp = e; }
+        public Equ_metr()
         {
-            Many2.save(file, procnow);
-            _save(file, equat);
-            _save(file, nozero);
-            _save(file, noneg);
+            IDS.sys.load(out exp);
         }
+        public void save()
+        {
+            IDS.sys.save(exp);
+        }
+        public int CompareTo(object obj)
+        {
+            if (obj == null) return 1;
+            Equ_metr e = obj as Equ_metr;
+            return (e.exp == exp ? 0 : (exp < e.exp ? -1 : 1)); ;
+        }
+    }
+    public class Equ_step : ISL
+    {
+        public Order<Equ_unknown> unknown;
+        public Order<Equ_equ> syst;
+        public Order<Equ_metr> metr;
+        public Order<Many2> sol;
+        public int i_metr, i_sol;
+        public Equ_step(int n_u, int n_s)
+        {
+            unknown = new Order<Equ_unknown>(n_u,true);
+            syst = new Order<Equ_equ>(n_s,true);
+            metr = new Order<Equ_metr>(n_u * n_u,false);
+            sol = null;
+            i_metr = -1; i_sol = -1;
+        }
+        public Equ_step(Equ_step e)
+        {
+            unknown = new Order<Equ_unknown>(e.unknown);
+            syst = new Order<Equ_equ>(e.syst);
+            metr = new Order<Equ_metr>(e.metr);
+            sol = new Order<Many2>(e.sol);
+            i_metr = e.i_metr; i_sol = e.i_sol;
+        }
+        public void prepare()
+        {
+            i_sol = 0;
+            int m = metr.order.ElementAt(i_metr).index, un = m / unknown.now, ss = m % unknown.now, i;
+            switch (metr.order.ElementAt(i_metr).entity.exp)
+            {
+                case 1:
+                    sol = new Order<Many2>(1, false);
+
+
+
+                    break;
+            }
+        }
+        public Equ_step next_step()
+        {
+            var ret = new Equ_step(unknown.now-1,syst.now-1);
+            int m = metr.order.ElementAt(i_metr).index, un = m / unknown.now, ss = m % unknown.now, i;
+            i = 0; while (i < unknown.now)
+            {
+                if (i != un) ret.unknown.add(unknown.entity[i]);
+                i++;
+            }
+            ret.unknown.set();
+            Vals v = Vals.inds[unknown.entity[un].val];
+            Exps_f exu, exd;
+            exu = new Exps_f(sol.entity[ss].up, v.deep);
+            exd = new Exps_f(sol.entity[ss].down, v.deep);
+            Many2 mt; Func fv = new Func(v);
+            i = 0; while (i < syst.now)
+            {
+                if (i != ss)
+                {
+                    mt = new Many2(new Many(syst.entity[i].equ));
+                    mt.expand(fv, exu, exd);
+                    ret.syst.add(new Equ_equ(mt.up, ret));
+                }
+                i++;
+            }
+            return ret;
+        }
+        public Equ_step()
+        {
+            IDS.sys.load(out unknown);
+            IDS.sys.load(out syst);
+            IDS.sys.load(out metr);
+            IDS.sys.load(out sol);
+            IDS.sys.load(out i_metr);
+            IDS.sys.load(out i_sol);
+        }
+        public void save()
+        {
+            IDS.sys.save(unknown);
+            IDS.sys.save(syst);
+            IDS.sys.save(metr);
+            IDS.sys.save(sol);
+            IDS.sys.save(i_metr);
+            IDS.sys.save(i_sol);
+        }
+        public void prepare_un(Equat root)
+        {
+            unknown.set();
+            Equ_equ et;
+            foreach(var m in root.equat.entity)
+            {
+                et = new Equ_equ(m, this);
+                if (et.equ != null) syst.add(et);
+            }
+            syst.set();
+            if (syst.now < unknown.now) IDS.sys.error("equat: not enough");
+            int i0 = 0;  foreach (var eu in unknown.entity)
+            {
+                foreach (var ee in syst.entity)
+                {
+                    metr.add(new Equ_metr((int)(Num.sub(ee.exp[i0].max, ee.exp[i0].min).toint())));
+                }
+                i0++;
+            }
+            metr.set();
+        }
+        public string print()
+        {
+            return "[" + IDS.par.print(syst.entity,(Equ_equ ee) => {return ee.print(this);}) + "][" + IDS.par.print(metr, (Ordered<Equ_metr> em) => { return Vals.inds[unknown.entity[em.index / unknown.now].val].get_name() + "(" + (em.index % unknown.now).ToString() + ")"; })+"]";
+        }
+
+    }
+
+    public class Equat : ISL, IComparable
+    {
+        public Order<Many> equat, nozero, noneg;
+        public Many2 procnow;
+        public Equ_step[] step;
+        public Equat(int num)
+        {
+            equat = new Order<Many>(num,true);
+            nozero = new Order<Many>(num,true);
+            noneg = new Order<Many>(num,true);
+            step = null;
+        }
+        public Equat(Equat e)
+        {
+            equat = new Order<Many>(e.equat);
+            nozero = new Order<Many>(e.nozero);
+            noneg = new Order<Many>(e.noneg);
+            step = null; if (e.step != null)
+            {
+                step = new Equ_step[e.step.Length];
+                int i = 0; while (i < e.step.Length) step[i] = new Equ_step(e.step[i++]);
+            }
+            procnow = (e.procnow == null ? null : new Many2(e.procnow));
+        }
+
+        public Equat()
+        {
+            IDS.sys.load(out procnow);
+            IDS.sys.load(out equat);
+            IDS.sys.load(out nozero);
+            IDS.sys.load(out noneg);
+            IDS.sys.load(out step);
+        }
+        public void save()
+        {
+            IDS.sys.save(procnow);
+            IDS.sys.save(equat);
+            IDS.sys.save(nozero);
+            IDS.sys.save(noneg);
+            IDS.sys.save(step);
+        }
+
+        public static bool prepare(Many mup, Equat root)
+        {
+            bool ret = false;
+            Complex n0, n1; Num exp = new Num(1), e0;
+            One o0 = null, o1 = null;
+            bool hasmore2 = false, hashere;
+            foreach (var m in mup.data)
+            {
+                hashere = false;
+                foreach (var f in m.Key.exps)
+                {
+                    if (f.Key.type == Func.t_many2)
+                    {
+                        if (f.Value.type_pow() > 1) IDS.sys.error("too complex exp for @");
+                        e0 = ((Complex)(f.Value.data)).r;
+                        if (e0.down > 1)
+                        {
+                            exp.extract(e0);
+                            if (e0.down > 2) hasmore2 = true;
+                            hashere = true;
+                            if (e0.down.IsEven)
+                            {
+                                Many nz = new Many(((Many2)(f.Key.data)).up);
+                                nz.mul(((Many2)(f.Key.data)).down); nz.simple();
+                                if (root != null) root.noneg.add(nz);
+                            }
+                        }
+                    }
+                }
+                if (hashere)
+                {
+                    if (o0 == null) o0 = m.Key; else if (o1 == null) o1 = m.Key; else IDS.sys.error("no, we cant");
+                }
+            }
+            if (o0 != null)
+            {
+                ret = true;
+                if (o1 == null)
+                {
+                    n0 = mup.data[o0]; mup.data.Remove(o0);
+                    n0.neg(); n0.exp(exp); o0.exp((int)exp.down);
+                    mup.exp(exp.down);
+                    n0.neg(); mup.add(o0, n0);
+                }
+                else
+                {
+                    if (hasmore2) IDS.sys.error("no, we cant");
+                    n0 = mup.data[o0]; mup.data.Remove(o0);
+                    n1 = mup.data[o1]; mup.data.Remove(o1);
+                    Complex n01 = new Complex(n0); n01.mul(n1);
+                    One o01 = new One(o0); o01.mul(o1);
+                    n0.exp(2); o0.exp(2); n1.exp(2); o1.exp(2);
+                    mup.exp(2);
+                    n0.neg(); mup.add(o0, n0);
+                    n1.neg(); mup.add(o1, n1);
+                    n01.neg(); mup.add(o01, n01);
+                }
+            }
+            return ret;
+        }
+
+
 
         public int CompareTo(object obj)
         {
             if (obj == null) return +1;
             Equat e = obj as Equat;
-            if (equat.Count != e.equat.Count) return (equat.Count < e.equat.Count ? -1 : +1);
-            int t = 0, i = 0; while (i < equat.Count)
+            if (equat.now != e.equat.now) return (equat.now < e.equat.now ? -1 : +1);
+            int t = 0, i = 0; while (i < equat.now)
             {
-                t = equat.ElementAt(i).CompareTo(e.equat.ElementAt(i));
+                t = equat.entity[i].CompareTo(e.equat.entity[i]);
                 if (t != 0) return t;
                 i++;
             }
             return t;
         }
     }
-    public class Matrix : IComparable
+    public class Matrix : ISL, IComparable
     {
         public Func[,] data;
-        public int y, x;
-        public Matrix(int _y, int _x)
+        public short y, x;
+        public Matrix(short _y, short _x)
+        {
+            init(_y, _x);
+        }
+        void init(short _y, short _x)
         {
             y = _y; x = _x;
-            if ((y == 0) || (x == 0)) IDS.root.sys.error("matr: 0 size");
+            if ((y == 0) || (x == 0)) IDS.sys.error("matr: 0 size");
             data = new Func[y, x];
         }
         public Matrix(Matrix m)
@@ -2977,9 +3370,9 @@ namespace shard0
         }
         public Matrix(Matrix m, int _y)
         {
-            y = m.y - 1; x = m.x - 1;
+            y = (short)(m.y - 1); x = (short)(m.x - 1);
             data = new Func[y, x];
-            int ix, iy = 0; while (iy < y)
+            short ix, iy = 0; while (iy < y)
             {
                 ix = 0; while (ix < x)
                 {
@@ -2991,8 +3384,8 @@ namespace shard0
         }
         public Matrix(List<List<Func>> tm)
         {
-            y = tm.Count; x = tm[0].Count;
-            if ((x == 0) || (y == 0)) IDS.root.sys.error("matr: 0 size");
+            y = (short)(tm.Count); x = (short)(tm[0].Count);
+            if ((x == 0) || (y == 0)) IDS.sys.error("matr: 0 size");
             data = new Func[y, x];
             int ix, iy = 0; while (iy < y)
             {
@@ -3004,45 +3397,43 @@ namespace shard0
                 iy++;
             }
         }
-        public static Matrix load(BinaryReader file)
+        public Matrix()
         {
-            Matrix ret = new Matrix(file.ReadInt32(), file.ReadInt32());
-            int ix, iy = 0; while (iy < ret.y)
+            init(IDS.sys.load_short(), IDS.sys.load_short());
+            short ix, iy = 0; while (iy < y)
             {
-                ix = 0; while (iy < ret.x)
+                ix = 0; while (iy < x)
                 {
-                    ret.data[iy, ix] = Func.load(file);
+                    IDS.sys.load(out data[iy, ix]);
                     ix++;
                 }
                 iy++;
             }
-            return ret;
         }
-        public void save(BinaryWriter file)
+        public void save()
         {
-            file.Write((Int32)y);
-            file.Write((Int32)x);
-            foreach (Func _f in data) _f.save(file);
+            IDS.sys.save(y); IDS.sys.save(x);
+            foreach (var _f in data) IDS.sys.save(_f);
         }
         public void add(Func m)
         {
-            foreach (Func _f in data) _f.add(m);
+            foreach (var _f in data) _f.add(m);
         }
         public void mul(Func m)
         {
-            foreach (Func _f in data) _f.mul(m);
+            foreach (var _f in data) _f.mul(m);
         }
         public void mul(Complex m)
         {
-            foreach (Func _f in data) _f.mul(m);
+            foreach (var _f in data) _f.mul(m);
         }
         public void common(Func m)
         {
-            foreach (Func _f in data) _f.common(m);
+            foreach (var _f in data) _f.common(m);
         }
         public void add(Matrix m)
         {
-            if ((y != m.y) || (x != m.x)) IDS.root.sys.error("matr: wrong add");
+            if ((y != m.y) || (x != m.x)) IDS.sys.error("matr: wrong add");
             int ix, iy = 0; while (iy < y)
             {
                 ix = 0; while (ix < m.x)
@@ -3055,8 +3446,8 @@ namespace shard0
         }
         public void mul(Matrix m)
         {
-            if (y != m.x) IDS.root.sys.error("matr: wrong mul");
-            Func[,] res = new Func[y, m.x];
+            if (y != m.x) IDS.sys.error("matr: wrong mul");
+            var res = new Func[y, m.x];
             Func tmp;
             int n, ix, iy = 0; while (iy < y)
             {
@@ -3078,30 +3469,30 @@ namespace shard0
         }
         public void neg()
         {
-            foreach (Func _f in data) _f.neg();
+            foreach (var _f in data) _f.neg();
         }
         public bool expand(Func val, Exps_f exu, Exps_f exd)
         {
             bool ret = false;
-            foreach (Func _f in data) ret = _f.expand(val, exu, exd) || ret;
+            foreach (var _f in data) ret = _f.expand(val, exu, exd) || ret;
             return ret;
         }
         public bool expand()
         {
             bool ret = false;
-            foreach (Func _f in data) ret = _f.expand() | ret;
+            foreach (var _f in data) ret = _f.expand() | ret;
             return ret;
         }
         public void deeper(int d)
         {
-            foreach (Func _f in data) _f.deeper(d);
+            foreach (var _f in data) _f.deeper(d);
         }
         public void findvals(One o)
         {
-            foreach (Func _f in data) _f.findvals(o);
+            foreach (var _f in data) _f.findvals(o);
         }
         static public Func<Matrix, Many>[] _det = {
-              (Matrix t) => {return new Many();},
+              (Matrix t) => {return new Many(true);},
               (Matrix t) => {return new Many(new One(new Func(t.data[0,0])));},
               (Matrix t) => {
                   One _o = new One(new Func(t.data[1,0]));
@@ -3113,7 +3504,7 @@ namespace shard0
                   return ret;
               },
               (Matrix t) => {
-                  Many ret = new Many(), tmp;
+                  Many ret = new Many(true), tmp;
                   int i = 0; while (i < t.x) {
                       tmp = new Matrix(t,i).det();
                       tmp.mul(new One(new Func(t.data[i,0])),new Complex((i & 1) == 0 ? 1 : -1));
@@ -3126,7 +3517,7 @@ namespace shard0
 
         public Many det()
         {
-            if (x != y) IDS.root.sys.error("matr: wrong det");
+            if (x != y) IDS.sys.error("matr: wrong det");
             return Matrix._det[x < 4 ? x : 3](this);
         }
         public void replace(Vals v, Func f)
@@ -3158,56 +3549,46 @@ namespace shard0
             return 0;
         }
     }
-    public class Func : Power<Func>, IPower, IComparable
+    public class Func : Power<Func>, IPower, ISL, IComparable
     {
-        public const int types = 9, t_val = 0, t_num = 1, t_many2 = 2, t_ln = 3, t_fact = 4, t_int = 5, t_sign = 6, t_row = 7, t_matr = 8, t_equ = 9;
+        public const short types = 9, t_val = 0, t_num = 1, t_many2 = 2, t_ln = 3, t_fact = 4, t_int = 5, t_sign = 6, t_row = 7, t_matr = 8, t_equ = 9;
         public static Func zero;
         public Object data;
-        public int type; //0: &val, 1: &Complex, 2: &many2, 3: ln(Many2), 4: fact(Many2), 5: int(Many2), 6: sign(Many2), 7: row(Row), 8: matrix(func[][])
+        public short type; //0: &val, 1: &Complex, 2: &many2, 3: ln(Many2), 4: fact(Many2), 5: int(Many2), 6: sign(Many2), 7: row(Row), 8: matrix(func[][])
+        static public Action<Func>[] load_func = {
+              (Func t) => t.data = Vals.load(),
+              (Func t) => t.data = new Complex(),
+              (Func t) => t.data = new Many2(),
+
+              (Func t) => t.data = new Many2(),
+              (Func t) => t.data = new Many2(),
+              (Func t) => t.data = new Many2(),
+              (Func t) => t.data = new Many2(),
+              (Func t) => t.data = new Row(),
+              (Func t) => t.data = new Matrix(),
+              (Func t) => t.data = new Equat()
+        };
         public Func()
         {
-            type = -1; data = null;
+            IDS.sys.load(out type);
+            Func.load_func[type](this);
         }
-        public Func(BinaryReader file)
-        {
-            load(file);
-        }
-        static public Action<Func, BinaryReader>[] load_func = {
-              (Func t, BinaryReader f) => t.data = Vals.inds[f.ReadInt32()],
-              (Func t, BinaryReader f) => t.data = Complex.load(f),
-              (Func t, BinaryReader f) => t.data = Many2.load(f),
-
-              (Func t, BinaryReader f) => t.data = Many2.load(f),
-              (Func t, BinaryReader f) => t.data = Many2.load(f),
-              (Func t, BinaryReader f) => t.data = Many2.load(f),
-              (Func t, BinaryReader f) => t.data = Many2.load(f),
-              (Func t, BinaryReader f) => t.data = Row.load(f),
-              (Func t, BinaryReader f) => t.data = Matrix.load(f),
-              (Func t, BinaryReader f) => t.data = Equat.load(f)
+        static public Action<Func>[] save_func = {
+              (Func t) => ((Vals)(t.data)).save(),
+              (Func t) => ((Complex)(t.data)).save(),
+              (Func t) => ((Many2)(t.data)).save(),
+              (Func t) => ((Many2)(t.data)).save(),
+              (Func t) => ((Many2)(t.data)).save(),
+              (Func t) => ((Many2)(t.data)).save(),
+              (Func t) => ((Many2)(t.data)).save(),
+              (Func t) => ((Row)(t.data)).save(),
+              (Func t) => ((Matrix)(t.data)).save(),
+              (Func t) => ((Equat)(t.data)).save()
         };
-        public static Func load(BinaryReader file)
+        public void save()
         {
-            Func ret = new Func();
-            ret.type = file.ReadByte();
-            Func.load_func[ret.type](ret, file);
-            return ret;
-        }
-        static public Action<Func, BinaryWriter>[] save_func = {
-              (Func t, BinaryWriter f) => f.Write(((Vals)(t.data)).ind),
-              (Func t, BinaryWriter f) => ((Complex)(t.data)).save(f),
-              (Func t, BinaryWriter f) => ((Many2)(t.data)).save(f),
-              (Func t, BinaryWriter f) => ((Many2)(t.data)).save(f),
-              (Func t, BinaryWriter f) => ((Many2)(t.data)).save(f),
-              (Func t, BinaryWriter f) => ((Many2)(t.data)).save(f),
-              (Func t, BinaryWriter f) => ((Many2)(t.data)).save(f),
-              (Func t, BinaryWriter f) => ((Row)(t.data)).save(f),
-              (Func t, BinaryWriter f) => ((Matrix)(t.data)).save(f),
-              (Func t, BinaryWriter f) => ((Equat)(t.data)).save(f)
-        };
-        public void save(BinaryWriter file)
-        {
-            file.Write((byte)type);
-            Func.save_func[type](this, file);
+            IDS.sys.save(type);
+            Func.save_func[type](this);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Func(Vals v)
@@ -3245,7 +3626,7 @@ namespace shard0
             type = Func.t_many2; data = m;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Func(int t, Many2 m)
+        public Func(short t, Many2 m)
         {
             type = t; data = m;
         }
@@ -3273,9 +3654,9 @@ namespace shard0
             Func.set_func[f.type](this, f);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public override void copy(ref Func f)
+        public override Func get_copy()
         {
-            Func.set_func[type](f, this);
+            return new Func(this);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override void set0()
@@ -3307,7 +3688,7 @@ namespace shard0
         public bool isconst(int r, int i) { return (type == Func.t_num ? ((Complex)data).isint(r, i) : false); }
         static public Func<Func, int>[] type_pow_func = {
                 (Func t) => {return 2;},
-                (Func t) => {return (((Complex)(t.data)).i.sign == 0 ? (((Complex)(t.data)).isint() ? 0 : 1) : 2);},
+                (Func t) => {return (((Complex)(t.data)).i.up.IsZero ? (((Complex)(t.data)).isint() ? 0 : 1) : 2);},
                 (Func t) => {return 2;},
                 (Func t) => {return 2;},
                 (Func t) => {return 2;},
@@ -3366,23 +3747,18 @@ namespace shard0
         public bool expand(Func fv)
         {
             if (fv.type != Func.t_val) return false;
-            Vals v = (Vals)(fv.data);
-            Func f_exp = v.var.var;
+            Func f_exp = ((Vals)(fv.data)).var.var;
             if ((f_exp == null) || (f_exp.type == Func.t_num)) return false;
+            return expand(fv,(f_exp.type == Func.t_many2 ? (Many2)(f_exp.data) : new Many2(new Many(new Func(f_exp)),new Many(new Complex(1)))));
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool expand(Func fv, Many2 m)
+        {
+            Vals v = (Vals)(fv.data);
             Exps_f exu, exd;
-            if (f_exp.type == Func.t_many2)
-            {
-                exu = new Exps_f(((Many2)(f_exp.data)).up, v.deep);
-                exd = new Exps_f(((Many2)(f_exp.data)).down, v.deep);
-            }
-            else
-            {
-                exu = new Exps_f(new Many(new Func(f_exp)), v.deep);
-                exd = new Exps_f(new Many(new Complex(1)), v.deep);
-            }
-            bool ret = Func.expand2_func[type](this, fv, exu, exd);
-
-            return ret;
+            exu = new Exps_f(m.up, v.deep);
+            exd = new Exps_f(m.down, v.deep);
+            return Func.expand2_func[type](this, fv, exu, exd);
         }
         static public Func<Func, bool>[] expand_func = {
                 (Func t) => {return false;},
@@ -3664,7 +4040,7 @@ namespace shard0
                     if ((_nd != null) && ((Many2)(f.data)).up.data.ContainsKey(_o) && (((Many2)(f.data)).up.data[_o].sign() * _nd.sign() > 0)) {
                         _nd.mul(((Many2)(f.data)).up.data[_o]);
                         if (_nd.great(Complex._r1)) {
-                            Many _u = new Many(); _u.data.Add(_o,_nd);
+                            Many _u = new Many(true); _u.data.Add(_o, _nd);
                             t.type = Func.t_many2; t.data = new Many2(_u,new Many(new Complex(1)));
                         }
                     } else Func._zero(t);
@@ -3794,7 +4170,7 @@ namespace shard0
         }
         static void _add(Many2 t, Func f)
         {
-            Many _u = new Many(); _u.data.Add(new One(new Func(f)), new Complex(1));
+            Many _u = new Many(true); _u.data.Add(new One(new Func(f)), new Complex(1));
             t.add(new Many2(_u, new Many(new Complex(1))));
         }
         static public Action<Func, Func>[] add_func = {
@@ -3802,7 +4178,7 @@ namespace shard0
                 (Func t, Func f) => {
                     if (! ((Complex)(f.data)).iszero()) {
                         Many _u = new Many(new Func(t));
-                        _u.add(new One(),(Complex)(f.data));
+                        _u.add(new One(true),(Complex)(f.data));
                         t.type = Func.t_many2; t.data = new Many2(_u);
                     }
                 },
@@ -3827,7 +4203,7 @@ namespace shard0
                         t.type = Func.t_val; t.data = f.data; //pnt to var
                     } else {
                         Many _u = new Many(new One(new Func(f)));
-                        _u.add(new One(),(Complex)(t.data));
+                        _u.add(new One(true),(Complex)(t.data));
                         t.type = Func.t_many2; t.data = new Many2(_u);
                     }
                 },
@@ -4131,7 +4507,7 @@ namespace shard0
 
         static public Action<Func, int>[] deeper_func = {
                 (Func t, int d) => {
-                    int _i; if ((_i = ((Vals)(t.data)).deep + d) >= ((Vals)(t.data)).var.vals.Length) IDS.root.sys.error("too deep");
+                    int _i; if ((_i = ((Vals)(t.data)).deep + d) >= ((Vals)(t.data)).var.vals.Length) IDS.sys.error("too deep");
                     t.data = ((Vals)(t.data)).var.vals[_i];
                 },
                 (Func t, int d) => {},
@@ -4165,19 +4541,19 @@ namespace shard0
         public static Complex f_fact(Complex n, Func t)
         {
             IDS.now_func = t;
-            if ((n.i.sign != 0) || (n.r.sign < 1) || (!n.r.isint()) || (n.r.up >= IDS.root.fact.Count())) IDS.root.sys.error("fact: not yet");
+            if ((!n.i.up.IsZero) || (n.r.up.Sign < 1) || (!n.r.isint()) || (n.r.up >= IDS.root.fact.Count())) IDS.sys.error("fact: not yet");
             return new Complex(IDS.root.fact[(int)n.r.up]);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Complex f_int(Complex n)
         {
             if ((n.r.down == 1) && (n.i.down == 1)) return n;
-            return new Complex(new Num(n.r.sign * n.r.up / n.r.down), new Num(n.i.sign * n.i.up / n.i.down));
+            return new Complex(new Num(n.r.up / n.r.down), new Num(n.i.up / n.i.down));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Complex f_sign(Complex n)
         {
-            return new Complex(IDS.nums[n.r.sign + IDS.znums], IDS.nums[n.i.sign + IDS.znums]);
+            return new Complex(IDS.nums[n.r.up.Sign + IDS.znums], IDS.nums[n.i.up.Sign + IDS.znums]);
         }
         static public Func<Func, Complex>[] calc_func = {
                 (Func t) => {return ((Vals)(t.data)).get_val(); },
@@ -4188,11 +4564,11 @@ namespace shard0
                 (Func t) => {return Func.f_int(((Many2)(t.data)).calc());},
                 (Func t) => {return Func.f_sign(((Many2)(t.data)).calc());},
                 (Func t) => {
-                    IDS.root.sys.error("row:not prep");
+                    IDS.sys.error("row:not prep");
                     return new Complex(0);
                 },
                 (Func t) => {
-                    IDS.root.sys.error("matr:not prep");
+                    IDS.sys.error("matr:not prep");
                     return new Complex(0);
                 }
               };
@@ -4220,11 +4596,11 @@ namespace shard0
                     return new Complex((e.r.up & 1) == 0 ? s*s : s);
                 },
                 (Func t, Complex e) => {
-                    IDS.root.sys.error("row: not prep");
+                    IDS.sys.error("row: not prep");
                     return new Complex(0);
                 },
                 (Func t, Complex e) => {
-                    IDS.root.sys.error("matr: not prep");
+                    IDS.sys.error("matr: not prep");
                     return new Complex(0);
                 }
               };
@@ -4471,7 +4847,7 @@ namespace shard0
                         Many2 m = new Many2((Many2)(t.data));
                         One o = new One(new Func(dm));
                         o.addto(new Func(m),new Func(new Complex(-1)));
-                        Many _m = new Many(new Func(e)); _m.add(new One(),Complex._r_1);
+                        Many _m = new Many(new Func(e)); _m.add(new One(true),Complex._r_1);
                         o.addto(new Func(t),new Func(new Many2(_m)));
                         o.addto(new Func(e));
                         return new Func(new Many2(o));
@@ -4580,14 +4956,14 @@ namespace shard0
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Func diff_down(Func exp, Vals d)
         {
-            if ((type == Func.t_row) || (exp.type == Func.t_row)) IDS.root.sys.error("cant diff on innate row");
+            if ((type == Func.t_row) || (exp.type == Func.t_row)) IDS.sys.error("cant diff on innate row");
             Func r;
             if (type > Func.t_ln)
             {
-                if (((Many2)(data)).hasval(d)) IDS.root.sys.error("cant diff on such");
+                if (((Many2)(data)).hasval(d)) IDS.sys.error("cant diff on such");
                 if (exp.type > Func.t_ln)
                 {
-                    if (((Many2)(exp.data)).hasval(d)) IDS.root.sys.error("cant diff on such");
+                    if (((Many2)(exp.data)).hasval(d)) IDS.sys.error("cant diff on such");
                     return new Func(new Complex(0));
                 }
                 else
@@ -4599,7 +4975,7 @@ namespace shard0
             {
                 if (exp.type > Func.t_ln)
                 {
-                    if (((Many2)(exp.data)).hasval(d)) IDS.root.sys.error("cant diff on such");
+                    if (((Many2)(exp.data)).hasval(d)) IDS.sys.error("cant diff on such");
                     r = Func.diffe_down_func[type * Func.types + 0](this, exp, d);
                 }
                 else
@@ -4634,64 +5010,35 @@ namespace shard0
             lexp = 2; exps[0] = new Num(0); exps[1] = new Num(1);
             lval = 0;
         }
-        public void save(BinaryWriter file)
+        public void save()
         {
-            file.Write((Int32)nvals);
-            file.Write((UInt16)lexp);
-            int m, i = 0; while (i < lexp)
-            {
-                exps[i].save(file);
-                i++;
-            }
-            file.Write((UInt16)lval);
-            m = 0; i = 0; while (i < lval)
-            {
-                vals[i].save(file);
-                if (mao[i] != null) m++;
-                i++;
-            }
-            file.Write((UInt16)m);
-            i = 0; while (i < lval)
-            {
-                if (mao[i] != null)
-                {
-                    file.Write((UInt16)i);
-                    mao[i].save(file);
-                }
-                i++;
-            }
+            IDS.sys.save(nvals);
+            IDS.sys.save(lexp);
+            ushort i = 0; while (i < lexp) IDS.sys.save(exps[i++]);
+            IDS.sys.save(lval);
+            i = 0; while (i < lval) IDS.sys.save(vals[i++]);
+            i = 0; while (i < lval) IDS.sys.save(mao[i++]);
         }
-        public static MAO_dict load(BinaryReader file)
+        public static MAO_dict load()
         {
-            MAO_dict ret = new MAO_dict(file.ReadInt32());
-            ret.lexp = file.ReadUInt16();
-            int m, i = 0; while (i < ret.lexp)
-            {
-                ret.exps[i] = Num.load(file);
-                i++;
-            }
-            ret.lval = file.ReadUInt16();
-            Func v;
+            var ret = new MAO_dict(IDS.sys.load_int());
+            IDS.sys.load(out ret.lexp);
+            ushort i = 0; while (i < ret.lexp) IDS.sys.load(out ret.exps[i++]);
+            IDS.sys.load(out ret.lval);
             i = 0; while (i < ret.lval)
             {
-                v = Func.load(file);
-                ret.to_val[v] = i;
-                ret.vals[i] = v;
+                IDS.sys.load(out ret.vals[i]);
+                ret.to_val[ret.vals[i]] = i;
                 i++;
             }
-            i = 0; m = file.ReadUInt16();
-            while (i < m)
-            {
-                ret.mao[file.ReadUInt16()] = Many_as_one.load(file, ret);
-                i++;
-            }
+            i = 0; while (i < ret.lval) IDS.sys.load(ret, out ret.mao[i++]);
             return ret;
         }
         public ushort exp(Num e)
         {
             ushort i;
             for (i = 0; i < lexp; i++) if (e.CompareTo(exps[i]) == 0) return i;
-            if (lexp > mexp - 2) IDS.root.sys.error("too Many exp");
+            if (lexp > mexp - 2) IDS.sys.error("too Many exp");
             exps[lexp++] = new Num(e);
             return i;
         }
@@ -4699,7 +5046,7 @@ namespace shard0
         {
             if (!to_val.ContainsKey(v))
             {
-                if (lval >= nvals) IDS.root.sys.error("MAO: too many funcs");
+                if (lval >= nvals) IDS.sys.error("MAO: too many funcs");
                 to_val[v] = lval;
                 vals[lval++] = v;
             }
@@ -4707,11 +5054,11 @@ namespace shard0
         }
         public void set_mao(int i)
         {
-            if (i >= lval) IDS.root.sys.error("MAO: wrong expand");
+            if (i >= lval) IDS.sys.error("MAO: wrong expand");
             if (mao[i] == null)
             {
-                if ((vals[i].type != 0) || (((Vals)(vals[i].data)).var.var == null)) IDS.root.sys.error("MAO: wrong expand");
-                Func f = new Func(((Vals)(vals[i].data)).var.var); if (f.type != 2) IDS.root.sys.error("MAO: only many2");
+                if ((vals[i].type != 0) || (((Vals)(vals[i].data)).var.var == null)) IDS.sys.error("MAO: wrong expand");
+                Func f = new Func(((Vals)(vals[i].data)).var.var); if (f.type != 2) IDS.sys.error("MAO: only many2");
                 f.deeper(((Vals)(vals[i].data)).deep);
                 mao[i] = new Many_as_one(f, this);
             }
@@ -4734,7 +5081,7 @@ namespace shard0
                 Num sum = new Num(exps[e0]);
                 sum.add(exps[e1]);
                 eadd[ee] = exp(sum);
-                eflg_a[ee] = ((sum.up == 0) || (exps[e1].up == 0) || (sum.sign != exps[e1].sign));
+                eflg_a[ee] = (sum.up.IsZero || exps[e1].up.IsZero || (sum.up.Sign != exps[e1].up.Sign));
             }
             return eadd[ee];
         }
@@ -4770,22 +5117,18 @@ namespace shard0
             key = new ushort[dict.nvals];
             set(k);
         }
-        public void save(BinaryWriter file)
+        public void save()
         {
             int i = 0; while (i < dict.nvals)
             {
-                file.Write((UInt16)(key[i]));
+                IDS.sys.save(key[i]);
                 i++;
             }
         }
-        public static MAO_key load(BinaryReader file, MAO_dict d)
+        public static MAO_key load(MAO_dict d)
         {
-            ushort[] k = new ushort[d.nvals];
-            int i = 0; while (i < d.nvals)
-            {
-                k[i] = file.ReadUInt16();
-                i++;
-            }
+            var k = new ushort[d.nvals];
+            int i = 0; while (i < d.nvals) IDS.sys.load(out k[i++]);
             return new MAO_key(d, k);
         }
         public void set(MAO_key k)
@@ -4850,33 +5193,33 @@ namespace shard0
             dict = d;
             _data_i();
         }
-        public void save(BinaryWriter file, SortedDictionary<MAO_key, Complex> m)
+        public void save(SortedDictionary<MAO_key, Complex> m)
         {
-            file.Write((Int32)m.Count);
-            foreach (KeyValuePair<MAO_key, Complex> d in m)
+            IDS.sys.save(m.Count);
+            foreach (var d in m)
             {
-                d.Key.save(file);
-                d.Value.save(file);
+                d.Key.save();
+                d.Value.save();
             }
         }
-        public void save(BinaryWriter file)
+        public void save()
         {
-            save(file, data[0]);
-            save(file, data[1]);
+            save(data[0]);
+            save(data[1]);
         }
-        public static void load(BinaryReader file, SortedDictionary<MAO_key, Complex> m, MAO_dict d)
+        public static void load(SortedDictionary<MAO_key, Complex> m, MAO_dict d)
         {
-            int i = 0, max = file.ReadInt32(); while (i < max)
+            int i = 0, max = IDS.sys.load_int(); while (i < max)
             {
-                m.Add(MAO_key.load(file, d), Complex.load(file));
+                m.Add(MAO_key.load(d), new Complex());
                 i++;
             }
         }
-        public static Many_as_one load(BinaryReader file, MAO_dict d)
+        public static Many_as_one load(MAO_dict d)
         {
-            Many_as_one ret = new Many_as_one(d);
-            Many_as_one.load(file, ret.data[0], d);
-            Many_as_one.load(file, ret.data[1], d);
+            var ret = new Many_as_one(d);
+            Many_as_one.load(ret.data[0], d);
+            Many_as_one.load(ret.data[1], d);
             return ret;
         }
         void _data_i()
@@ -4888,11 +5231,11 @@ namespace shard0
         public KeyValuePair<MAO_key, Complex> fr_one(KeyValuePair<One, Complex> o)
         {
             int i0, v0;
-            KeyValuePair<MAO_key, Complex> ret = new KeyValuePair<MAO_key, Complex>(new MAO_key(dict), new Complex(o.Value));
+            var ret = new KeyValuePair<MAO_key, Complex>(new MAO_key(dict), new Complex(o.Value));
             for (i0 = 0; i0 < dict.nvals; i0++) ret.Key.key[i0] = 0;
-            foreach (KeyValuePair<Func, Func> f in o.Key.exps)
+            foreach (var f in o.Key.exps)
             {
-                if (f.Value.type_pow() > 1) IDS.root.sys.error("cant fast on complex exp");
+                if (f.Value.type_pow() > 1) IDS.sys.error("cant fast on complex exp");
                 v0 = dict.val(f.Key);
                 ret.Key.key[v0] = dict.exp(((Complex)(f.Value.data)).r);
             }
@@ -4901,7 +5244,7 @@ namespace shard0
         public One to_one(MAO_key fr)
         {
             int i;
-            One ret = new One();
+            One ret = new One(true);
             for (i = 0; i < dict.nvals; i++)
                 if (fr.key[i] != 0) ret.exps.Add(new Func(dict.vals[i]), new Func(new Complex(dict.exps[fr.key[i]])));
             return ret;
@@ -4917,12 +5260,11 @@ namespace shard0
         }
         public void add(int ud, SortedDictionary<MAO_key, Complex> fr)
         {
-            KeyValuePair<MAO_key, Complex> tmp;
-            foreach (KeyValuePair<MAO_key, Complex> d in fr) { tmp = d; add(ud, tmp); }
+            foreach (var d in fr) add(ud, d);
         }
         public void mul(int ud, MAO_key m, Complex n)
         {
-            foreach (KeyValuePair<MAO_key, Complex> d in data[ud])
+            foreach (var d in data[ud])
             {
                 d.Key.mul(m);
                 d.Value.mul(n);
@@ -4930,8 +5272,8 @@ namespace shard0
         }
         public void muladd(int ud, SortedDictionary<MAO_key, Complex> fr, MAO_key m, Complex n)
         {
-            KeyValuePair<MAO_key, Complex> tmp = new KeyValuePair<MAO_key, Complex>(new MAO_key(dict), new Complex(0));
-            foreach (KeyValuePair<MAO_key, Complex> d in fr)
+            var tmp = new KeyValuePair<MAO_key, Complex>(new MAO_key(dict), new Complex(0));
+            foreach (var d in fr)
             {
                 tmp.Key.mul(m, d.Key);
                 tmp.Value.set(n);
@@ -4942,45 +5284,45 @@ namespace shard0
 
         public void mul(int ud, SortedDictionary<MAO_key, Complex> m0)
         {
-            SortedDictionary<MAO_key, Complex> tmp1 = data[ud];
+            var tmp1 = data[ud];
             data[ud] = new SortedDictionary<MAO_key, Complex>();
-            foreach (KeyValuePair<MAO_key, Complex> d in m0) muladd(ud, tmp1, d.Key, d.Value);
+            foreach (var d in m0) muladd(ud, tmp1, d.Key, d.Value);
         }
         public void mul(int ud, SortedDictionary<MAO_key, Complex> m0, SortedDictionary<MAO_key, Complex> m1)
         {
             data[ud].Clear();
-            foreach (KeyValuePair<MAO_key, Complex> d in m0) muladd(ud, m1, d.Key, d.Value);
+            foreach (var d in m0) muladd(ud, m1, d.Key, d.Value);
         }
         void set(Many_as_one fr)
         {
             for (int i = 0; i < 2; i++)
             {
                 data[i].Clear();
-                foreach (KeyValuePair<MAO_key, Complex> d in fr.data[i]) data[i].Add(new MAO_key(d.Key), new Complex(d.Value));
+                foreach (var d in fr.data[i]) data[i].Add(new MAO_key(d.Key), new Complex(d.Value));
             }
         }
         public Many_as_one(Func f, MAO_dict d)
         {
             dict = d;
             _data_i();
-            foreach (KeyValuePair<One, Complex> o in ((Many2)f.data).up.data) add(0, fr_one(o));
-            foreach (KeyValuePair<One, Complex> o in ((Many2)f.data).down.data) add(1, fr_one(o));
+            foreach (var o in ((Many2)f.data).up.data) add(0, fr_one(o));
+            foreach (var o in ((Many2)f.data).down.data) add(1, fr_one(o));
         }
         public Func to_func()
         {
             int i = 0, cn = data[0].Count + data[1].Count;
-            Many _u = new Many(); Many _d = new Many();
-            foreach (KeyValuePair<MAO_key, Complex> d in data[0]) { _u.data.Add(to_one(d.Key), new Complex(d.Value)); IDS.root.sys.progr(i++, cn); }
-            foreach (KeyValuePair<MAO_key, Complex> d in data[1]) { _d.data.Add(to_one(d.Key), new Complex(d.Value)); IDS.root.sys.progr(i++, cn); }
+            Many _u = new Many(true); Many _d = new Many(true);
+            foreach (var d in data[0]) { _u.data.Add(to_one(d.Key), new Complex(d.Value)); IDS.sys.progr(i++, cn); }
+            foreach (var d in data[1]) { _d.data.Add(to_one(d.Key), new Complex(d.Value)); IDS.sys.progr(i++, cn); }
             return new Func(new Many2(_u, _d));
         }
 
         public Many_as_one(Many_as_one _m, int _e)
         {
             dict = _m.dict;
-            Many_as_one tmp = new Many_as_one(dict);
-            Many_as_one _tmp = new Many_as_one(dict);
-            Many_as_one fr = new Many_as_one(dict);
+            var tmp = new Many_as_one(dict);
+            var _tmp = new Many_as_one(dict);
+            var fr = new Many_as_one(dict);
             Num exp = dict.exps[_e], nexp = new Num(0);
             int i0, _eu = (int)(exp.up);
             fr.set(_m);
@@ -4992,7 +5334,7 @@ namespace shard0
                 for (i0 = 0; i0 < dict.nvals; i0++)
                 {
                     nexp.set(dict.exps[fr.data[0].ToArray()[0].Key.key[i0]]);
-                    nexp.mul((BigInteger)1, exp.down);
+                    nexp.up *= exp.up.Sign; nexp.down *= exp.down;
                     fr.data[0].ToArray()[0].Key.key[i0] = dict.exp(nexp);
                 }
             }
@@ -5016,21 +5358,21 @@ namespace shard0
                 }
             }
 
-            if (exp.sign < 0) { tmp.data[0] = data[0]; data[0] = data[1]; data[1] = tmp.data[0]; }
+            if (exp.up.Sign < 0) { tmp.data[0] = data[0]; data[0] = data[1]; data[1] = tmp.data[0]; }
         }
         bool expand(int n, Many_as_one e, int ex)
         {
             bool ret = false;
             int ee; ushort tex;
             Num max_u = new Num(0), max_d = new Num(0), now_u = new Num(0), now_d = new Num(0);
-            Many_as_one[] me = new Many_as_one[254], ae = new Many_as_one[254];
-            MAO_key z = new MAO_key(dict);
-            KeyValuePair<MAO_key, Complex> tu = new KeyValuePair<MAO_key, Complex>(new MAO_key(dict), new Complex(0));
+            var me = new Many_as_one[254]; var ae = new Many_as_one[254];
+            var z = new MAO_key(dict);
+            var tu = new KeyValuePair<MAO_key, Complex>(new MAO_key(dict), new Complex(0));
             me[0] = new Many_as_one(e, 0);
             me[1] = new Many_as_one(e, 1);
-            if ((e.data[0].Count < 1) || (e.data[1].Count < 1)) IDS.root.sys.error("wrong");
+            if ((e.data[0].Count < 1) || (e.data[1].Count < 1)) IDS.sys.error("wrong");
             int pnow = 0;
-            foreach (KeyValuePair<MAO_key, Complex> u in data[n])
+            foreach (var u in data[n])
             {
                 tex = u.Key.key[ex];
                 tu.Key.set(u.Key);
@@ -5048,7 +5390,7 @@ namespace shard0
                 if (me[tex] != null) tu.Key.key[ex] = 0; else tex = 0;
                 if (ae[tex] == null) ae[tex] = new Many_as_one(dict);
                 ae[tex].add(0, tu);
-                IDS.root.sys.progr(pnow++, data[n].Count);
+                IDS.sys.progr(pnow++, data[n].Count);
             }
             max_d.neg();
             for (tex = 0; tex < 254; tex++)
@@ -5059,8 +5401,8 @@ namespace shard0
                     now_u.set(max_u); now_d.set(max_d);
                     if (dict.exps[tex].down == 1)
                     {
-                        if (dict.exps[tex].sign > 0) now_u.add_up(0 - dict.exps[tex].up);
-                        else now_d.add_up(0 - dict.exps[tex].up);
+                        if (dict.exps[tex].up.Sign > 0) now_u.up -= dict.exps[tex].up;
+                        else now_d.up -= dict.exps[tex].up;
                     }
                     else
                     {
@@ -5074,7 +5416,7 @@ namespace shard0
                     if (me[ee] == null) me[ee] = new Many_as_one(e, ee);
                     ae[tex].mul(0, me[ee].data[0]);
                 }
-                IDS.root.sys.progr(tex, 254);
+                IDS.sys.progr(tex, 254);
             }
             ee = dict.exp(max_u);
             if (me[ee] == null) me[ee] = new Many_as_one(e, ee);
@@ -5090,7 +5432,7 @@ namespace shard0
                     me[tex].mul(0, ae[tex].data[0]);
                     add(n, me[tex].data[0]);
                 }
-                IDS.root.sys.progr(tex, 254);
+                IDS.sys.progr(tex, 254);
             }
             return ret;
         }
@@ -5098,21 +5440,22 @@ namespace shard0
         {
             bool r0 = expand(0, e, id);
             bool r1 = expand(1, e, id);
-            foreach (KeyValuePair<MAO_key, Complex> d in data[0]) d.Value.simple();
-            foreach (KeyValuePair<MAO_key, Complex> d in data[1]) d.Value.simple();
+            foreach (var d in data[0]) d.Value.simple();
+            foreach (var d in data[1]) d.Value.simple();
             return r0 | r1;
         }
     }
-
 
     public class Fileio//: IDisposable
     {
         public StreamReader fin, f611 = null;
         public StreamWriter file_flag;
+        public BinaryReader fload;
+        public BinaryWriter fsave;
         public string flag;
         List<string>[] sout;
         public string name;
-        public Boolean has;
+        public Boolean has,isretry;
         public Fileio(string nin)
         {
             string fname;
@@ -5129,7 +5472,7 @@ namespace shard0
             //            f611 = (File.Exists("611"+iexf) ?  new StreamReader("611"+iexf) : null);
             fin = new StreamReader(nin + ".sh0");
             sout = new List<string>[40];
-            has = true;
+            has = true; isretry = false;
         }
         private string rfile()
         {
@@ -5162,7 +5505,8 @@ namespace shard0
         public void finish(bool thr, string[] _nam)
         {
             StreamWriter fout;
-            fin.Close();
+            if (fload != null) fload.Close();
+            if (fsave != null) fsave.Close();
             int i = 0; while (i < sout.Length)
             {
                 if (sout[i] != null)
@@ -5181,16 +5525,20 @@ namespace shard0
             {
                 File.Delete(name + ".bin");
             }
+            fin.Close();
             if (thr) throw new FinishException();
         }
-        public void finish() { finish(true, IDS.root.par.out_names); }
+        public void finish() { finish(true, IDS.par.out_names); }
         public void error(string e)
         {
+            if (isretry) { isretry = false; throw new RetryException(); }
             wline(0, "");
-            wline(0, IDS.root.par.prev);
-            wline(0, IDS.root.par.val);
-            wline(0, "Position " + IDS.root.par.pos.ToString() + ": " + ((IDS.now_func != null) ? IDS.root.par.print(IDS.now_func, true) + " " : "") + e);
+            wline(0, IDS.par.prev);
+            wline(0, IDS.par.val);
+            wline(0, "Position " + IDS.par.pos.ToString() + ": " + ((IDS.now_func != null) ? IDS.par.print(IDS.now_func, true) + " " : "") + e);
             flag = "#error:" + e;
+            if (fload != null) fload.Close();
+            if (fsave != null) fsave.Close();
             File.Delete(name + ".bin");
             finish();
         }
@@ -5204,6 +5552,148 @@ namespace shard0
             if (sout[n] == null) { sout[n] = new List<string>(); sout[n].Add(""); }
             if (s == "\\n") sout[n].Add(""); else sout[n][sout[n].Count - 1] += s;
         }
+        public void load()
+        {
+            if (fload != null) error("syserr");
+            fload = new BinaryReader(File.Open(name + ".bin", FileMode.Open));
+        }
+        public void save()
+        {
+            if (fsave != null) error("syserr");
+            if (fload != null) fload.Close();
+            fsave = new BinaryWriter(File.Open(name + ".bin", FileMode.Create));
+        }
+        public void sl_flush()
+        {
+            if ((fsave == null)) error("syserr");
+            fsave.Flush();
+        }
+
+        public void save(bool s)
+        {
+            fsave.Write(s);
+        }
+        public void load(out bool l)
+        {
+            l = fload.ReadBoolean();
+        }
+        public bool load_bool()
+        {
+            return fload.ReadBoolean();
+        }
+        public void save(ushort s)
+        {
+            fsave.Write(s);
+        }
+        public void load(out ushort l)
+        {
+            l = fload.ReadUInt16();
+        }
+        public void save(short s)
+        {
+            fsave.Write(s);
+        }
+        public void load(out short l)
+        {
+            l = fload.ReadInt16();
+        }
+        public short load_short()
+        {
+            return fload.ReadInt16();
+        }
+        public void save(int s)
+        {
+            fsave.Write(s);
+        }
+        public void load(out int l)
+        {
+            l = fload.ReadInt32();
+        }
+        public int load_int()
+        {
+            return fload.ReadInt32();
+        }
+        public void save(string s)
+        {
+            fsave.Write(s);
+        }
+        public void load(out string l)
+        {
+            l = fload.ReadString();
+        }
+        public string load_str()
+        {
+            return fload.ReadString();
+        }
+        public void save(Num s)
+        {
+            if (s == null) fsave.Write(false); else { fsave.Write(true); s.save(); }
+        }
+        public void load(out Num l)
+        {
+            l = (fload.ReadBoolean() ? Num.load() : null);
+        }
+        public void save(Many_as_one s)
+        {
+            if (s == null) fsave.Write(false); else { fsave.Write(true); s.save(); }
+        }
+        public void load(MAO_dict d, out Many_as_one l)
+        {
+            l = (fload.ReadBoolean() ? Many_as_one.load(d) : null);
+        }
+
+        public void save<T>(T s) where T : ISL, new()
+        {
+            if (s == null) fsave.Write(false); else { fsave.Write(true); s.save(); }
+        }
+        public void load<T>(out T l) where T : ISL, new()
+        {
+            l = (fload.ReadBoolean() ? new T() : default(T));
+        }
+        public void save<T>(T[] s) where T : ISL, new()
+        {
+            if (s == null) fsave.Write(-1);
+            else
+            {
+                fsave.Write(s.Length);
+                int i = 0; while (i < s.Length) save(s[i++]);
+            }
+        }
+        public void load<T>(out T[] l) where T : ISL, new()
+        {
+            int sz = fload.ReadInt32();
+            if (sz < 0) l = null;
+            else
+            {
+                l = new T[sz];
+                int i = 0; while (i < sz) load(out l[i++]);
+            }
+        }
+
+        public void save<T>(SortedSet<T> s) where T : ISL, new()
+        {
+            if (s == null) fsave.Write(-1);
+            else
+            {
+                fsave.Write(s.Count); foreach (T m in s) m.save();
+            }
+        }
+        public void load<T>(out SortedSet<T> l) where T : ISL, new()
+        {
+            int sz = fload.ReadInt32();
+            if (sz < 0) l = null;
+            else
+            {
+                l = new SortedSet<T>();
+                int i = 0; while (i < sz)
+                {
+                    l.Add(new T());
+                    i++;
+                }
+            }
+        }
+
+
     }
     public class Deep
     {
@@ -5352,7 +5842,7 @@ namespace shard0
         string _parm()
         {
             string s1;
-            if (isequnow('{')) s1 = calc().r.get_sup().ToString();
+            if (isequnow('{')) s1 = calc().r.up.ToString();
             else
             {
                 s1 = get(",<>");
@@ -5500,7 +5990,7 @@ namespace shard0
         public int get_int()
         {
             int r = 0;
-            if (!(isequnow(isnum) && Int32.TryParse(get(isnum), out r))) IDS.root.sys.error("not int");
+            if (!(isequnow(isnum) && Int32.TryParse(get(isnum), out r))) IDS.sys.error("not int");
             return r;
         }
         public string get(string delim)
@@ -5552,11 +6042,11 @@ namespace shard0
                 else
                 {
                     Vars vr = IDS.root.find_var(_n);
-                    if ((vr.var == null) || (vr.var.type != 7)) IDS.root.sys.error("not row");
-                    next(); if (!isequnow(isabc)) IDS.root.sys.error("wrong row call");
+                    if ((vr.var == null) || (vr.var.type != 7)) IDS.sys.error("not row");
+                    next(); if (!isequnow(isabc)) IDS.sys.error("wrong row call");
                     Vals vl = IDS.root.find_val(get(isname));
                     mustnow(',', "wrong row call");
-                    if (!isequnow(isnum)) IDS.root.sys.error("wrong row call");
+                    if (!isequnow(isnum)) IDS.sys.error("wrong row call");
                     int st; Int32.TryParse(get(isnum), out st);
                     r = new Func(((Row)(vr.var.data)).prep_calc(vl, st));
                 }
@@ -5567,8 +6057,22 @@ namespace shard0
                 if (isequnow('$'))
                 {
                     next();
-                    if (vl.var.var.type != Func.t_many2) IDS.root.sys.error("only many at $");
-                    Many2 m2 = new Many2((Many2)(vl.var.var.data)); m2.deeper(vl.deep);
+                    if (vl.var.var == null) IDS.sys.error("wrong at $");
+                    Many2 m2 = null;
+                    switch (vl.var.var.type)
+                    {
+                        case Func.t_many2:
+                            m2 = new Many2((Many2)(vl.var.var.data));
+                            break;
+                        case Func.t_matr:
+                            Many det = ((Matrix)(vl.var.var.data)).det();
+                            det.simple(); m2 = new Many2(det);
+                            break;
+                        default:
+                            IDS.sys.error("wrong at $");
+                            break;
+                    }
+                    m2.deeper(vl.deep);
                     r = new Func(m2);
                 }
                 else r = new Func(vl);
@@ -5580,7 +6084,7 @@ namespace shard0
             bool repeat;
             Func eval = null;
             Func ex = new Func(new Complex(1));
-            One ro = new One(); Complex rn = new Complex(now == '-' ? -1 : +1);
+            One ro = new One(true); Complex rn = new Complex(now == '-' ? -1 : +1);
             if ((now == '-') || (now == '+')) next();
             bool l = true;
             Action eset = () =>
@@ -5658,9 +6162,10 @@ namespace shard0
         }
         public Many mpars()
         {
-            Many m = new Many();
+            Many m = new Many(true);
             KeyValuePair<One, Complex> on;
             int d = deep.Count;
+            while (isequnow(' ')) next();
             while ((!isequnow(isclose)) && (!isequnow(isend)) && (!isequnow(',')) && (!isequnow('=')))
             {
                 on = opars(); m.add(on.Key, on.Value);
@@ -5674,17 +6179,16 @@ namespace shard0
         }
         public void mustnow(char tst, string err)
         {
-            if (!isequnow(tst)) IDS.root.sys.error(err); else next();
+            if (!isequnow(tst)) IDS.sys.error(err); else next();
         }
-        void e_parse(SortedSet<Many> sm)
+        void e_parse(Order<Many> sm)
         {
             Many m;
             mustnow('[', "parse:equ");
             while (!isequnow(']'))
             {
                 m = mpars();
-                if (sm.Contains(m)) sys.error("parse:equ:dup");
-                sm.Add(m);
+                sm.add(m);
                 if (isequnow(',')) next();
             }
             next();
@@ -5703,7 +6207,7 @@ namespace shard0
             switch (tp)
             {
                 case 7:
-                    r = new Func(new Row());
+                    r = new Func(new Row(true));
                     if (!isequnow(isnum)) sys.error("parse:row");
                     ((Row)(r.data)).point = get_int();
                     mustnow(',', "parse:row");
@@ -5716,7 +6220,7 @@ namespace shard0
                     }
                     break;
                 case 8:
-                    List<List<Func>> tm = new List<List<Func>>();
+                    var tm = new List<List<Func>>();
                     while (!isequnow(']'))
                     {
                         mustnow('[', "parse: matr");
@@ -5732,7 +6236,7 @@ namespace shard0
                     r = new Func(new Matrix(tm));
                     break;
                 case 9:
-                    Equat eq = new Equat();
+                    Equat eq = new Equat(11);
                     next();
                     mustnow('[', "parse:equ");
                     while (!isequnow(']'))
@@ -5756,7 +6260,7 @@ namespace shard0
                     r = new Func(eq);
                     break;
                 default:
-                    r = new Func(tp, m2pars());
+                    r = new Func((short)tp, m2pars());
                     break;
             }
             if (d < deep.Count) next();
@@ -5804,7 +6308,7 @@ namespace shard0
                           };
                 while (l)
                 {
-                    if (ln[0].i.sign != 0) sys.error("wrong complex in calc");
+                    if (!ln[0].i.up.IsZero) sys.error("wrong complex in calc");
                     lo[0] = '+';
                     if ((now == '+') || (now == '-')) { lo[0] = now; next(); }
                     li = true;
@@ -5829,28 +6333,28 @@ namespace shard0
         public string print_mul(Complex p, ref bool first, bool noone)
         {
             string ret = "";
-            if (p.i.sign != 0)
+            if (!p.i.up.IsZero)
             {
                 ret = (first ? "" : "+") + "{" + print(p.r, true) + ":" + print(p.i, true) + "}";
                 first = false;
             }
             else
             {
-                ret = (p.r.sign < 0 ? "-" : (first ? "" : "+"));
-                if (noone || ((p.r.down > 1) || (p.r.up != 1))) { ret += print(p.r, false); first = false; } else first = true;
+                ret = (p.r.up.Sign < 0 ? "-" : (first ? "" : "+"));
+                if (noone || ((p.r.down > 1) || (!BigInteger.Abs(p.r.up).IsOne))) { ret += print(p.r, false); first = false; } else first = true;
             }
             return ret;
         }
         public string print(Complex p, bool nopow, bool nosign)
         {
             string ret = "";
-            if (p.i.sign != 0)
+            if (!p.i.up.IsZero)
             {
                 ret = "{" + print(p.r, true) + ":" + print(p.i, true) + "}";
             }
             else
             {
-                if (((p.r.sign > -1) || nosign) && (p.r.isint() || nopow)) ret += print(p.r, !nosign);
+                if (((p.r.up.Sign > -1) || nosign) && (p.r.isint() || nopow)) ret += print(p.r, !nosign);
                 else ret = "{" + print(p.r, nopow) + "}";
             }
             return ret;
@@ -5861,17 +6365,17 @@ namespace shard0
             string ret = "";
             if (sign)
             {
-                if (v.sign < 0) ret = "-";
-                if (v.sign > 0) ret = "+";
+                if (v.up.Sign < 0) ret = "-";
+                if (v.up.Sign > 0) ret = "+";
             }
-            ret += v.up.ToString().Trim();
+            ret += BigInteger.Abs(v.up).ToString().Trim();
             if (!v.isint()) { ret += "/" + v.down.ToString().Trim(); }
             return ret;
         }
         public string print(Complex v, int b, int a)
         {
             string s = print(v.r, b, a);
-            if (v.i.sign != 0) s += ":" + print(v.i, b, a);
+            if (!v.i.up.IsZero) s += ":" + print(v.i, b, a);
             return s;
         }
         public string print(Complex v, int b)
@@ -5881,9 +6385,9 @@ namespace shard0
         public string print(Num v, int b, int a)
         {
             string s; if (a < 0) a = IDS.prec10;
-            Num _v = new Num(v); _v.sign = 1;
+            Num _v = new Num(v); _v.up = BigInteger.Abs(_v.up);
             BigInteger nn = _v.toint();
-            s = (v.sign < 0 ? "-" : (v.sign > 0 ? "+" : " ")) + nn.ToString().Trim() + ".";
+            s = (v.up.Sign < 0 ? "-" : (v.up.Sign > 0 ? "+" : " ")) + nn.ToString().Trim() + ".";
             s = (b > 0 ? s.PadLeft(b) : s);
             if (a > 0)
             {
@@ -5897,16 +6401,16 @@ namespace shard0
             string ret = print_mul(n, ref first, o.exps.Count == 0);
             bool div, one;
             Complex tmp;
-            foreach (KeyValuePair<Func, Func> m in o.exps)
+            foreach (var m in o.exps)
             {
                 if ((m.Value.type != 1) || (!((Complex)(m.Value.data)).iszero()))
                 {
                     if (m.Value.type == 1)
                     {
                         tmp = (Complex)(m.Value.data);
-                        div = ((tmp.i.sign == 0) && (tmp.r.sign < 0));
+                        div = (tmp.i.up.IsZero && (tmp.r.up.Sign < 0));
                         one = (tmp.isint(1) || tmp.isint(-1));
-                        if (flag_out_exptomul && (tmp.i.sign == 0) && (tmp.r.isint()) && (tmp.r.up < 11))
+                        if (flag_out_exptomul && tmp.i.up.IsZero && (tmp.r.isint()) && (tmp.r.up < 11))
                         {
                             if (first) ret += (div ? "1/" : ""); else ret += (div ? "/" : "*");
                             int i = 1; while (i < tmp.r.up)
@@ -5936,7 +6440,7 @@ namespace shard0
         public string print(Many m)
         {
             string ret = ""; bool first = true;
-            foreach (KeyValuePair<One, Complex> o in m.data)
+            foreach (var o in m.data)
             {
                 ret += print(o.Key, o.Value, first);
                 first = false;
@@ -5960,16 +6464,16 @@ namespace shard0
         {
             if (f == null) return "";
             string ret = IDS.root.funcs_name[f.type];
-            Func<SortedSet<Many>, string, bool, bool> p_equ = (SortedSet<Many> sm, string pref, bool f1) =>
+            Func<Order<Many>, string, bool, bool> p_equ = (Order<Many> sm, string pref, bool f1) =>
             {
-                if (sm.Count > 0)
+                if (sm.now > 0)
                 {
                     if (f1) ret += ",";
                     ret += pref + "["; bool f0 = false;
-                    foreach (Many m in sm)
+                    int i = 0; while (i < sm.now)
                     {
                         if (f0) ret += ",";
-                        ret += print(m);
+                        ret += print(sm.entity[i++]);
                         f0 = true;
                     }
                     ret += "]"; f1 = true;
@@ -5990,7 +6494,7 @@ namespace shard0
                   () => {ret += print((Many2)(f.data));},
                   () => {
                       ret += "(" + ((Row)(f.data)).point.ToString();
-                      foreach(KeyValuePair<int,Many2> m in ((Row)(f.data)).data) {
+                      foreach(var m in ((Row)(f.data)).data) {
                           ret += "," + print(m.Value);
                       }
                       ret += ")";
@@ -6050,6 +6554,39 @@ namespace shard0
         {
             return (flag_out_desc ? v.desc : v.name) + " =" + (v.var == null ? "" : print(v.var, false)) + ";";
         }
+
+        public string print<T>(Order<T> o, Func<Ordered<T>, string> f) where T : ISL, IComparable, new()
+        {
+            string ret = "", bord = "";
+            foreach (var ee in o.order)
+            {
+                ret += bord + f(ee);
+                bord = ",";
+            }
+            return ret;
+        }
+
+        public string print<T>(T[] a, Func<T, string> f)
+        {
+            string ret = "", bord = "";
+            foreach (T ee in a)
+            {
+                ret += bord + f(ee);
+                bord = ",";
+            }
+            return ret;
+        }
+
+        public string print<T>(T[] a, Func<T, int, string> f)
+        {
+            int i = 0;  string ret = "", bord = "";
+            foreach (T ee in a)
+            {
+                ret += bord + f(ee,i);
+                bord = ","; i++;
+            }
+            return ret;
+        }
     }
 
 
@@ -6067,25 +6604,25 @@ namespace shard0
         public Fdim(Vars v, Complex f, Complex s, Complex t)
         {
             var = v; from = f; now = new Complex(f); step = new Complex(s); to = new Complex(t);
-            Complex _t = Complex.sub(to, from);
-            if ((_t.sign() == 0) || (_t.r.sign != step.r.sign) || (_t.i.sign != step.i.sign)) IDS.root.sys.error("fcalc: wrong direction");
+            var _t = Complex.sub(to, from);
+            if ((_t.sign() == 0) || (_t.r.up.Sign != step.r.up.Sign) || (_t.i.up.Sign != step.i.up.Sign)) IDS.sys.error("fcalc: wrong direction");
         }
-        public void save(BinaryWriter file)
+        public void save()
         {
-            file.Write((Int32)var.ind);
-            now.save(file);
-            from.save(file);
-            step.save(file);
-            to.save(file);
+            var.save();
+            IDS.sys.save(now);
+            IDS.sys.save(from);
+            IDS.sys.save(step);
+            IDS.sys.save(to);
         }
-        public static Fdim load(BinaryReader file)
+        public static Fdim load()
         {
             Fdim ret = new Fdim();
-            ret.var = Vars.inds[file.ReadInt32()];
-            ret.now = Complex.load(file);
-            ret.from = Complex.load(file);
-            ret.step = Complex.load(file);
-            ret.to = Complex.load(file);
+            ret.var = Vars.load();
+            IDS.sys.load(out ret.now);
+            IDS.sys.load(out ret.from);
+            IDS.sys.load(out ret.step);
+            IDS.sys.load(out ret.to);
             return ret;
         }
         public bool next()
@@ -6099,7 +6636,7 @@ namespace shard0
             return r;
         }
     }
-    public class Fborder
+    public class Fborder : ISL
     {
         public Complex from, to, siz0;
         public Complex max, min;
@@ -6107,48 +6644,42 @@ namespace shard0
         public bool imag = false;
         public Fborder(Complex _nfr, Complex _n, int sc, bool _im)
         {
+            init(_nfr, _n);
+            scale = sc;
+            imag = _im;
+        }
+        void init(Complex _nfr, Complex _n)
+        {
             from = _nfr; to = _n;
             max = null; min = null; siz0 = null;
-            scale = sc;
             if ((from != null) && (to != null))
             {
                 siz0 = Complex.sub(to, from);
                 siz0.r.div(); siz0.i.div();
             }
-            imag = _im;
         }
 
-        public static void save(BinaryWriter file, Fborder f)
+        public void save()
         {
-            if (f == null) file.Write(false);
-            else
-            {
-                file.Write(true);
-                Complex.save(file, f.from);
-                Complex.save(file, f.to);
-                Complex.save(file, f.min);
-                Complex.save(file, f.max);
-                file.Write((Int32)f.scale);
-                file.Write(f.imag);
-            }
+            from.save();
+            to.save();
+            IDS.sys.save(min);
+            IDS.sys.save(max);
+            IDS.sys.save(scale);
+            IDS.sys.save(imag);
         }
-        public static Fborder load(BinaryReader file)
+        public Fborder()
         {
-            Fborder ret = null;
-            if (file.ReadBoolean())
-            {
-                ret = new Fborder(Complex.load(file), Complex.load(file), 0, false);
-                ret.min = Complex.load(file);
-                ret.max = Complex.load(file);
-                ret.scale = file.ReadInt32();
-                ret.imag = file.ReadBoolean();
-            }
-            return ret;
+            init(new Complex(), new Complex());
+            IDS.sys.load(out min);
+            IDS.sys.load(out max);
+            IDS.sys.load(out scale);
+            IDS.sys.load(out imag);
         }
 
         public Complex get(Complex _n)
         {
-            Complex ret = (imag ? new Complex(_n.i, _n.r) : new Complex(_n));
+            var ret = (imag ? new Complex(_n.i, _n.r) : new Complex(_n));
             if (max == null) max = new Complex(ret);
             else
             {
@@ -6165,9 +6696,9 @@ namespace shard0
         }
         public Complex getnow(Complex c)
         {
-            Complex ret = Complex.sub(c, from);
-            if (ret.r.sign < 0) ret.r = IDS.nums[IDS.znums];
-            if (ret.i.sign < 0) ret.i = IDS.nums[IDS.znums];
+            var ret = Complex.sub(c, from);
+            if (ret.r.up.Sign < 0) ret.r = IDS.nums[IDS.znums];
+            if (ret.i.up.Sign < 0) ret.i = IDS.nums[IDS.znums];
             ret.r = Num.mul(ret.r, siz0.r);
             ret.i = Num.mul(ret.i, siz0.i);
             if (ret.r.up > ret.r.down) ret.r = IDS.nums[IDS.znums + 1];
@@ -6199,15 +6730,15 @@ namespace shard0
         {
             if (from == null) from = min;
             if (to == null) to = max;
-            Complex siz = Complex.sub(to, from); siz.div();
+            var siz = Complex.sub(to, from); siz.div();
 
             int i = 0; while (i < _c.Length)
             {
                 if (_c[i] != null)
                 {
                     _c[i].sub(from);
-                    if (_c[i].r.sign < 0) _c[i].r = IDS.nums[IDS.znums];
-                    if (_c[i].i.sign < 0) _c[i].i = IDS.nums[IDS.znums];
+                    if (_c[i].r.up.Sign < 0) _c[i].r = IDS.nums[IDS.znums];
+                    if (_c[i].i.up.Sign < 0) _c[i].i = IDS.nums[IDS.znums];
                     _c[i].r = Num.mul(_c[i].r, siz.r);
                     _c[i].i = Num.mul(_c[i].i, siz.i);
                     if (_c[i].r.up > _c[i].r.down) _c[i].r = IDS.nums[IDS.znums + 1];
@@ -6240,40 +6771,35 @@ namespace shard0
     }
     public class Fdo
     {
-        public int type, parm;
+        public short type, parm;
         public int x0, y0, xs, ys;
-        public Fdo(int _t, int _p, int _x0, int _y0, int _xs, int _ys)
+        public Fdo(short _t, short _p, int _x0, int _y0, int _xs, int _ys)
         {
             type = _t; parm = _p; x0 = _x0; y0 = _y0; xs = _xs; ys = _ys;
         }
-        public virtual void save(BinaryWriter file) { }
-        public void _save(BinaryWriter file)
+        public virtual void save() { }
+        public void _save()
         {
-            file.Write((Int32)type); file.Write((Int32)(parm));
-            file.Write((Int32)x0);
-            file.Write((Int32)y0);
-            file.Write((Int32)xs);
-            file.Write((Int32)ys);
+            IDS.sys.save(type); IDS.sys.save(parm);
+            IDS.sys.save(x0);
+            IDS.sys.save(y0);
+            IDS.sys.save(xs);
+            IDS.sys.save(ys);
         }
-        public static Fdo load(BinaryReader file)
+        public static Fdo load()
         {
-            int _t, _p, _x0, _y0, _xs, _ys;
-            _t = file.ReadInt32(); _p = file.ReadInt32();
-            _x0 = file.ReadInt32();
-            _y0 = file.ReadInt32();
-            _xs = file.ReadInt32();
-            _ys = file.ReadInt32();
+            short _t = IDS.sys.load_short();
             switch (_t)
             {
                 case 0:
-                    Fdo0 r0 = new Fdo0(_t, _p, _x0, _y0, _xs, _ys);
-                    r0._load(file); return r0;
+                    Fdo0 r0 = new Fdo0(_t, IDS.sys.load_short(), IDS.sys.load_int(), IDS.sys.load_int(), IDS.sys.load_int(), IDS.sys.load_int());
+                    r0._load(); return r0;
                 case 1:
-                    Fdo1 r1 = new Fdo1(_t, _p, _x0, _y0, _xs, _ys);
-                    r1._load(file); return r1;
+                    Fdo1 r1 = new Fdo1(_t, IDS.sys.load_short(), IDS.sys.load_int(), IDS.sys.load_int(), IDS.sys.load_int(), IDS.sys.load_int());
+                    r1._load(); return r1;
                 case 2:
-                    Fdo2 r2 = new Fdo2(_t, _p, _x0, _y0, _xs, _ys);
-                    r2._load(file); return r2;
+                    Fdo2 r2 = new Fdo2(_t, IDS.sys.load_short(), IDS.sys.load_int(), IDS.sys.load_int(), IDS.sys.load_int(), IDS.sys.load_int());
+                    r2._load(); return r2;
             }
             return null;
         }
@@ -6284,27 +6810,27 @@ namespace shard0
     {
         string sb = "", sa = "";
         public Vals x;
-        public Fdo0(int _t, int _p, int _x0, int _y0, int _xs, int _ys) : base(_t, _p, _x0, _y0, _xs, _ys) { }
-        public Fdo0(int p, string b, string a, Vals v, int i0, int i1)
-            : base(0, p, i0, 0, i1, 0)
+        public Fdo0(short _t, short _p, int _x0, int _y0, int _xs, int _ys) : base(_t, _p, _x0, _y0, _xs, _ys) { }
+        public Fdo0(short p, string b, string a, Vals v, int i0, int i1)
+            : base((short)0, p, i0, 0, i1, 0)
         {
             sb = b; sa = a; x = v;
         }
-        public override void save(BinaryWriter file)
+        public override void save()
         {
-            base._save(file);
-            file.Write(sb); file.Write(sa);
-            Vals.save(file, x);
+            base._save();
+            IDS.sys.save(sb); IDS.sys.save(sa);
+            Vals.save(x);
         }
-        public void _load(BinaryReader file)
+        public void _load()
         {
-            sb = file.ReadString(); sa = file.ReadString();
-            x = Vals.load(file);
+            IDS.sys.load(out sb); IDS.sys.load(out sa);
+            x = Vals.load();
         }
         public override void doit()
         {
             //print x"str" to #parm
-            IDS.root.sys.wstr(parm, sb + (x == null ? "" : (x0 < 0 ? IDS.root.par.print(x.get_val(), 0) : (x0 == 0 ? x.get_val().toint().ToString().Trim() : IDS.root.par.print(x.get_val(), x0, xs)))) + sa);
+            IDS.sys.wstr(parm, sb + (x == null ? "" : (x0 < 0 ? IDS.par.print(x.get_val(), 0) : (x0 == 0 ? x.get_val().toint().ToString().Trim() : IDS.par.print(x.get_val(), x0, xs)))) + sa);
         }
     }
     public class Fdo1 : Fdo
@@ -6313,29 +6839,29 @@ namespace shard0
         public Fborder tx, ty;
         public Complex[] y1;
         public Complex min, max;
-        public Fdo1(int _t, int _p, int _x0, int _y0, int _xs, int _ys) : base(_t, _p, _x0, _y0, _xs, _ys) { }
-        public Fdo1(int _p, int _x0, int _y0, int _xs, int _ys, Vals _x, Fborder _tx, Vals _y, Fborder _ty)
-            : base(1, _p, _x0, _y0, _xs, _ys)
+        public Fdo1(short _t, short _p, int _x0, int _y0, int _xs, int _ys) : base(_t, _p, _x0, _y0, _xs, _ys) { }
+        public Fdo1(short _p, int _x0, int _y0, int _xs, int _ys, Vals _x, Fborder _tx, Vals _y, Fborder _ty)
+            : base((short)1, _p, _x0, _y0, _xs, _ys)
         {
             x = _x; tx = _tx; y = _y; ty = _ty;
             y1 = new Complex[_xs];
         }
-        public override void save(BinaryWriter file)
+        public override void save()
         {
-            base._save(file);
-            Vals.save(file, x);
-            Vals.save(file, y);
-            Fborder.save(file, tx);
-            Fborder.save(file, ty);
-            Complex.save_a(file, y1);
+            base._save();
+            Vals.save(x);
+            Vals.save(y);
+            IDS.sys.save(tx);
+            IDS.sys.save(ty);
+            IDS.sys.save(y1);
         }
-        public void _load(BinaryReader file)
+        public void _load()
         {
-            x = Vals.load(file);
-            y = Vals.load(file);
-            tx = Fborder.load(file);
-            ty = Fborder.load(file);
-            y1 = Complex.load_a(file);
+            x = Vals.load();
+            y = Vals.load();
+            IDS.sys.load(out tx);
+            IDS.sys.load(out ty);
+            IDS.sys.load(out y1);
         }
         public override void doit()
         {
@@ -6387,9 +6913,9 @@ namespace shard0
         public Vals x, y, r, g, b;
         public Fborder tx, ty, tr, tg, tb;
         public Complex[] r2, g2, b2;
-        public Fdo2(int _t, int _p, int _x0, int _y0, int _xs, int _ys) : base(_t, _p, _x0, _y0, _xs, _ys) { }
+        public Fdo2(short _t, short _p, int _x0, int _y0, int _xs, int _ys) : base(_t, _p, _x0, _y0, _xs, _ys) { }
         public Fdo2(int _x0, int _y0, int _xs, int _ys, Vals _x, Fborder _tx, Vals _y, Fborder _ty, Vals _r, Fborder _tr, Vals _g, Fborder _tg, Vals _b, Fborder _tb)
-            : base(2, 0, _x0, _y0, _xs, _ys)
+            : base((short)2, (short)0, _x0, _y0, _xs, _ys)
         {
             x = _x; tx = _tx; y = _y; ty = _ty;
             r = _r; tr = _tr;
@@ -6399,38 +6925,38 @@ namespace shard0
             g2 = new Complex[ys * xs];
             b2 = new Complex[ys * xs];
         }
-        public override void save(BinaryWriter file)
+        public override void save()
         {
-            base._save(file);
-            Vals.save(file, x);
-            Vals.save(file, y);
-            Vals.save(file, r);
-            Vals.save(file, g);
-            Vals.save(file, b);
-            Fborder.save(file, tx);
-            Fborder.save(file, ty);
-            Fborder.save(file, tr);
-            Fborder.save(file, tg);
-            Fborder.save(file, tb);
-            Complex.save_a(file, r2);
-            Complex.save_a(file, g2);
-            Complex.save_a(file, b2);
+            base._save();
+            Vals.save(x);
+            Vals.save(y);
+            Vals.save(r);
+            Vals.save(g);
+            Vals.save(b);
+            IDS.sys.save(tx);
+            IDS.sys.save(ty);
+            IDS.sys.save(tr);
+            IDS.sys.save(tg);
+            IDS.sys.save(tb);
+            IDS.sys.save(r2);
+            IDS.sys.save(g2);
+            IDS.sys.save(b2);
         }
-        public void _load(BinaryReader file)
+        public void _load()
         {
-            x = Vals.load(file);
-            y = Vals.load(file);
-            r = Vals.load(file);
-            g = Vals.load(file);
-            b = Vals.load(file);
-            tx = Fborder.load(file);
-            ty = Fborder.load(file);
-            tr = Fborder.load(file);
-            tg = Fborder.load(file);
-            tb = Fborder.load(file);
-            r2 = Complex.load_a(file);
-            g2 = Complex.load_a(file);
-            b2 = Complex.load_a(file);
+            x = Vals.load();
+            y = Vals.load();
+            r = Vals.load();
+            g = Vals.load();
+            b = Vals.load();
+            IDS.sys.load(out tx);
+            IDS.sys.load(out ty);
+            IDS.sys.load(out tr);
+            IDS.sys.load(out tg);
+            IDS.sys.load(out tb);
+            IDS.sys.load(out r2);
+            IDS.sys.load(out g2);
+            IDS.sys.load(out b2);
         }
         public override void doit()
         {
@@ -6471,7 +6997,6 @@ namespace shard0
         public const int level_step1 = 4;
 
         public int[] patch;
-        public BinaryReader read = null;
         public List<Func> id;
         DateTime time;
         public Flow(int size, int sec)
@@ -6480,19 +7005,18 @@ namespace shard0
             id = new List<Func>();
             time = DateTime.Now.AddSeconds(sec);
         }
-        public void save(BinaryWriter file)
+        public void save()
         {
-            file.Write((UInt16)patch.Length);
-            foreach (int i in patch) file.Write((Int32)i);
-            file.Write((UInt16)id.Count);
-            foreach (Func f in id) f.save(file);
+            IDS.sys.save(patch.Length);
+            foreach (int i in patch) IDS.sys.save(i);
+            IDS.sys.save(id.Count);
+            foreach (Func f in id) f.save();
         }
-        public static Flow load(BinaryReader file, int time)
+        public static Flow load(int time)
         {
-            Flow ret = new Flow(file.ReadUInt16(), time);
-            int i = 0; while (i < ret.patch.Length) ret.patch[i++] = file.ReadInt32();
-            int cnt = file.ReadUInt16(); i = 0; while (i < cnt) { ret.id.Add(Func.load(file)); i++; }
-            ret.read = file;
+            Flow ret = new Flow(IDS.sys.load_int(), time);
+            int cnt, i = 0; while (i < ret.patch.Length) IDS.sys.load(out ret.patch[i++]);
+            IDS.sys.load(out cnt); i = 0; while (i < cnt) { ret.id.Add(new Func()); i++; }
             return ret;
         }
         public void clear()
@@ -6528,66 +7052,65 @@ namespace shard0
         public Vars get_var() { return get_var(Flow.level_var); }
         public Func get_var_func(int level) { return get_var(level).var; }
         public Func get_var_func() { return get_var().var; }
-        public void save(Action<BinaryWriter> _s)
+        public void save(Action _s)
         {
-            BinaryWriter _f = IDS.root.save(IDS.root.sys.name + ".bin");
-            _s(_f);
-            _f.Close();
-            IDS.root.sys.flag = IDS.root.flag();
+            IDS.root.save();
+            _s();
+            IDS.sys.flag = IDS.root.flag();
         }
         public void select(int level, Action[] sel)
         {
-            if (patch[level] < sel.Length) sel[patch[level]](); else IDS.root.sys.error("flow: select");
+            if (patch[level] < sel.Length) sel[patch[level]](); else IDS.sys.error("flow: select");
         }
-        public void repeat(int level, int max, Func<int, bool> rep, Action<BinaryWriter> savex)
+        public void repeat(int level, int max, Func<int, bool> rep, Action savex)
         {
             while (patch[level] < max)
             {
                 if (DateTime.Now > time)
                 {
-                    save(savex); IDS.root.sys.finish();
+                    save(savex); IDS.sys.finish();
                 }
                 if (!rep(patch[level])) patch[level]++;
             }
             patch[level] = 0;
         }
-        public void repeat<T>(int level, List<T> list, Func<T, bool> rep, Action<BinaryWriter> savex)
+        public void repeat<T>(int level, List<T> list, Func<T, bool> rep, Action savex)
         {
             while (patch[level] < list.Count)
             {
                 if (DateTime.Now > time)
                 {
-                    save(savex); IDS.root.sys.finish();
+                    save(savex); IDS.sys.finish();
                 }
                 if (!rep(list[patch[level]])) patch[level]++;
             }
             patch[level] = 0;
         }
-        public void repeat(int level, Func<bool>[] rep, Action<BinaryWriter> savex)
+        public void repeat(int level, Func<bool>[] rep, Action savex)
         {
             while (patch[level] < rep.Length)
             {
                 if (DateTime.Now > time)
                 {
-                    save(savex); IDS.root.sys.finish();
+                    save(savex); IDS.sys.finish();
                 }
                 if (!rep[patch[level]]()) patch[level]++;
             }
         }
-        public void repeat(Func<bool> rep, Action<BinaryWriter> savex)
+        public void repeat(Func<bool> rep, Action savex)
         {
             do
             {
                 if (DateTime.Now > time)
                 {
-                    save(savex); IDS.root.sys.finish();
+                    save(savex); IDS.sys.finish();
                 }
             } while (rep());
         }
         public void add_id(Vals _v)
         {
-            Func f = new Func(_v);
-            foreach (Func _f in id) if (f.CompareTo(_f) == 0) IDS.root.sys.error(_v.get_name() + " duplicate");
+            var f = new Func(_v);
+            foreach (var _f in id) if (f.CompareTo(_f) == 0) IDS.sys.error(_v.get_name() + " duplicate");
             id.Add(f);
         }
     }
@@ -6610,14 +7133,14 @@ namespace shard0
             {
                 return 0;
                 /*            } catch (Exception ee) {
-                                root.par.sys.wline(0,"Position " + IDS.root.par.pos.ToString() + ": " + ((IDS.now_func != null) ? IDS.root.par.print(IDS.now_func,true) + " " : "") + "fatal: " + ee.ToString());
+                                root.par.sys.wline(0,"Position " + IDS.par.pos.ToString() + ": " + ((IDS.now_func != null) ? IDS.par.print(IDS.now_func,true) + " " : "") + "fatal: " + ee.ToString());
                                 root.par.sys.flag = "#error:fatal:" + ee.ToString();
                                 root.par.sys.finish(false);
                                 File.Delete(root.sys.name + ".bin");
                                 return -1;
                             */
             }
-            File.Delete(root.sys.name + ".bin");
+            File.Delete(IDS.sys.name + ".bin");
             return 0;
         }
         struct calc_out
@@ -6633,7 +7156,7 @@ namespace shard0
         {
             int sc = 10;
             bool imag = false;
-            Parse par = IDS.root.par;
+            Parse par = IDS.par;
             if (par.isequnow('<'))
             {
                 par.next();
@@ -6647,14 +7170,14 @@ namespace shard0
             if (par.isequnow('%')) { imag = true; par.next(); }
             if (par.isequnow(','))
             {
-                foreach (Fdim fd in fdim) if ((fd.var == v.var) && (fd.step.sign() != 0)) return new Fborder(fd.from, fd.to, sc, imag);
-                IDS.root.sys.error("draw: no interval");
+                foreach (var fd in fdim) if ((fd.var == v.var) && (fd.step.sign() != 0)) return new Fborder(fd.from, fd.to, sc, imag);
+                IDS.sys.error("draw: no interval");
             }
             else
             {
                 Complex n0 = null, ns = null;
-                if (par.isequnow('{')) n0 = par.calc(); else if (par.isequnow('@')) par.next(); else IDS.root.sys.error("wrong draw");
-                if (par.isequnow('{')) ns = par.calc(); else if (par.isequnow('@')) par.next(); else IDS.root.sys.error("wrong draw");
+                if (par.isequnow('{')) n0 = par.calc(); else if (par.isequnow('@')) par.next(); else IDS.sys.error("wrong draw");
+                if (par.isequnow('{')) ns = par.calc(); else if (par.isequnow('@')) par.next(); else IDS.sys.error("wrong draw");
                 return new Fborder(n0, ns, sc, imag);
             }
             return null;
@@ -6662,14 +7185,14 @@ namespace shard0
         static List<Func> d_vals(Func v)
         {
             List<Func> r = new List<Func>();
-            One o = new One();
+            One o = new One(true);
             v.findvals(o);
             foreach (KeyValuePair<Func, Func> m in o.exps) r.Add(m.Key);
             return r;
         }
         static string[] str_proc(string s)
         {
-            List<string> r = new List<string>(); string t0, t1, ac;
+            var r = new List<string>(); string t0, t1, ac;
             ac = ""; int i1, i0 = 0; while (i0 < s.Length)
             {
                 if ((i1 = s.IndexOf('%', i0)) < 0) break;
@@ -6697,19 +7220,19 @@ namespace shard0
             string val;
             bool repeat;
             MAO_dict mao = null;
-            Parse par = IDS.root.par;
-            Flow flow = IDS.root.flow;
+            Parse par = IDS.par;
+            Flow flow = IDS.flow;
             List<Fdim> fdim = new List<Fdim>();
             List<Fdo> fdo = new List<Fdo>();
             Action[] load = {
                 () => {},
-                () => {if (IDS.root.flow.is_bit(0)) mao = MAO_dict.load(IDS.root.fload);},
+                () => {if (IDS.flow.is_bit(0)) mao = MAO_dict.load();},
                 () => {},
                 () => {
-                    int _i = 0, cnt = IDS.root.fload.ReadInt16();
-                    while (_i < cnt) {fdim.Add(Fdim.load(IDS.root.fload)); _i++;}
-                    _i = 0; cnt = IDS.root.fload.ReadInt16();
-                    while (_i < cnt) {fdo.Add(Fdo.load(IDS.root.fload)); _i++;}
+                    int _i = 0, cnt = IDS.sys.load_int();
+                    while (_i < cnt) {fdim.Add(Fdim.load()); _i++;}
+                    _i = 0; IDS.sys.load(out cnt);
+                    while (_i < cnt) {fdo.Add(Fdo.load()); _i++;}
                 },
                 () => {},
                 () => {},
@@ -6718,26 +7241,21 @@ namespace shard0
                 () => {}
             };
 
-            if (IDS.root.fload != null)
-            {
-                load[flow.patch[Flow.level_oper]]();
-                IDS.root.fload.Close();
-                File.Delete("step.bin");
-            }
+            load[flow.patch[Flow.level_oper]]();
 
-            Action<BinaryWriter> save1 = (BinaryWriter _f) =>
+            Action save1 = () =>
             {
-                if (mao != null) mao.save(_f);
+                if (mao != null) mao.save();
             };
-            Action<BinaryWriter> save2 = (BinaryWriter _f) =>
+            Action save2 = () =>
             {
             };
-            Action<BinaryWriter> save3 = (BinaryWriter _f) =>
+            Action save3 = () =>
             {
-                _f.Write((Int16)fdim.Count);
-                foreach (Fdim fd in fdim) fd.save(_f);
-                _f.Write((Int16)fdo.Count);
-                foreach (Fdo fd in fdo) fd.save(_f);
+                IDS.sys.save(fdim.Count);
+                foreach (var fd in fdim) fd.save();
+                IDS.sys.save(fdo.Count);
+                foreach (var fd in fdo) fd.save();
             };
             Func<Func, bool> expand_revert = (Func _i) => { flow.get_var_func().revert(_i); return false; };
             Func<Func, bool> expand_expand = (Func _i) =>
@@ -6782,7 +7300,7 @@ namespace shard0
             Func<Num, string> _tostr = (Num _n) =>
             {
                 string ret = "";
-                switch (_n.sign)
+                switch (_n.up.Sign)
                 {
                     case -1:
                         ret = "n";
@@ -6799,17 +7317,17 @@ namespace shard0
             };
             Func<Complex, string> tostr = (Complex _n) =>
             {
-                return _tostr(_n.r) + (_n.i.sign == 0 ? "" : "_" + _tostr(_n.i));
+                return _tostr(_n.r) + (_n.i.up.IsZero ? "" : "_" + _tostr(_n.i));
             };
             Func<Many, string, int, int> _extr_x = (Many _extr, string ns, int vs) =>
                 {
-                    SortedDictionary<One, Many> extra = new SortedDictionary<One, Many>();
+                    var extra = new SortedDictionary<One, Many>();
                     One from, to; string nn;
-                    foreach (KeyValuePair<One, Complex> m in _extr.data)
+                    foreach (var m in _extr.data)
                     {
-                        to = new One();
+                        to = new One(true);
                         from = new One(m.Key);
-                        foreach (Func _f in flow.id)
+                        foreach (var _f in flow.id)
                         {
                             if (from.exps.ContainsKey(_f))
                             {
@@ -6822,7 +7340,7 @@ namespace shard0
                     }
                     _extr.data.Clear();
                     Vars vr; One ores; Complex mul;
-                    foreach (KeyValuePair<One, Many> _res in extra)
+                    foreach (var _res in extra)
                     {
                         ores = new One(_res.Key); mul = _res.Value.get_Num();
                         if (mul == null)
@@ -6845,7 +7363,7 @@ namespace shard0
             () => {
                 Equat e = (Equat)(flow.get_var_func().data);
                 if (!e.procnow.down.isint(1, 0)) {
-                    if (!e.nozero.Contains(e.procnow.down)) e.nozero.Add(e.procnow.down);
+                    e.nozero.add(e.procnow.down);
                     e.procnow.down = new Many(new Complex(1));
                 }
                 return false;
@@ -6860,7 +7378,7 @@ namespace shard0
                 ((Equat)(flow.get_var_func().data)).procnow.revert(); return false;
             }
             };
-            Func<bool>[] extract0 = {
+            Func<bool>[] setequ = {
             () => {
                     flow.clear_bit(1); return false;
             },
@@ -6873,115 +7391,71 @@ namespace shard0
                     ((Equat)(flow.get_var_func().data)).procnow.simple(); return false;
             },
             () => {
-                    Equat eq = ((Equat)(flow.get_var_func().data));
-                    Many mup = ((Equat)(flow.get_var_func().data)).procnow.up;
-                    Complex n0, n1; BigInteger exp = 1, et;
-                    One o0 = null,o1 = null;
-                    bool hasmore2 = false, hashere;
-                    foreach (KeyValuePair<One, Complex> m in mup.data)
-                    {
-                        hashere = false;
-                        foreach (KeyValuePair<Func, Func> f in m.Key.exps)
-                        {
-                            if (f.Key.type == Func.t_many2)
-                            {
-                                if (f.Value.type != Func.t_num) par.sys.error("too complex exp for @");
-                                n0 = (Complex)(f.Value.data);
-                                if (!n0.i.isint(0)) par.sys.error("too complex exp for @");
-                                if (n0.r.down > 1)
-                                {
-                                    et = BigInteger.GreatestCommonDivisor(exp, n0.r.down);
-                                    et = BigInteger.Divide(n0.r.down, et);
-                                    exp *= et;
-                                    if (n0.r.down > 2) hasmore2 = true;
-                                    hashere = true;
-                                    if (n0.r.down.IsEven)
-                                    {
-                                        Many nz = new Many(((Many2)(f.Key.data)).up);
-                                        nz.mul(((Many2)(f.Key.data)).down); nz.simple();
-                                        if (!eq.noneg.Contains(nz)) eq.noneg.Add(nz);
-                                    }
-                                }
-                            }
-                        }
-                        if (hashere) 
-                        {
-                            if (o0 == null) o0 = m.Key; else if (o1 == null) o1 = m.Key; else par.sys.error("no, we cant");
-                        }
-                    }
-                    if (o0 != null) {
-                        flow.set_bit(1);
-                          if (o1 == null) {
-                              n0 = mup.data[o0]; mup.data.Remove(o0);
-                              n0.neg(); n0.exp(exp); o0.exp((int)exp);
-                              mup.exp(exp);
-                              n0.neg(); mup.add(o0,n0);
-                          } else {
-                              if (hasmore2) par.sys.error("no, we cant");
-                              n0 = mup.data[o0]; mup.data.Remove(o0);
-                              n1 = mup.data[o1]; mup.data.Remove(o1);
-                              Complex n01 = new Complex(n0); n01.mul(n1);
-                              One o01 = new One(o0); o01.mul(o1);
-                              n0.exp(2); o0.exp(2); n1.exp(2); o1.exp(2);
-                              mup.exp(2);
-                              n0.neg(); mup.add(o0,n0);
-                              n1.neg(); mup.add(o1,n1);
-                              n01.neg(); mup.add(o01,n01);
-                          }
-                    }
-                    else flow.clear_bit(1);
+                if (Equat.prepare(((Equat)(flow.get_var_func().data)).procnow.up, ((Equat)(flow.get_var_func().data))))
+                    flow.set_bit(1); else flow.clear_bit(1);
                     return false;
             }
             };
-            Func<bool> extract = () =>
+            Func<bool> setin = () =>
             {
                 if (flow.get_var_func().type == Func.t_equ)
                 {
                     do
                     {
-                        flow.repeat(Flow.level_step0, extract0, save2);
+                        flow.repeat(Flow.level_step0, setequ, save2);
                         flow.patch[Flow.level_step0] = 0;
                     } while (flow.is_bit(1));
                     Equat e = (Equat)(flow.get_var_func().data);
-                    if (!e.equat.Contains(e.procnow.up)) e.equat.Add(e.procnow.up);
+                    e.equat.add(e.procnow.up);
                     e.procnow = null;
-                    par.sys.wline(0, par.print(flow.get_var()));
+                }
+                par.sys.wline(0, par.print(flow.get_var()));
+                return false;
+            };
+            Func<bool> extract = () =>
+            {
+                if (flow.get_var_func().type == Func.t_equ)
+                {
+                    Equat eq = ((Equat)(flow.get_var_func().data));
+                    foreach (Func f in flow.id)
+                    {
+                        eq.step[0].unknown.add(new Equ_unknown(((Vals)(f.data)).ind));
+                    }
+                    eq.step[0].prepare_un(eq);
+
+
+
+
+                    par.sys.wline(0, flow.get_var().name + "==(" + eq.step[0].print() + ");");
+
                 }
                 else if (flow.id.Count == 1)
                 {
-                    SortedDictionary<int, int> lout = new SortedDictionary<int, int>();
-                    Func extr = flow.id[0];
-                    Vals ve = (Vals)(extr.data);
+                    var lout = new SortedDictionary<int, int>();
+                    var extr = flow.id[0];
+                    var ve = (Vals)(extr.data);
                     string n0 = ve.var.name + "_" + flow.get_var().name + "_", n1;
-                    One _o = null;
-                    Complex pow = null, div = ((Many2)(flow.get_var_func().data)).down.get_Num(); div.div();
-                    Vars va = null;
-                    foreach (KeyValuePair<One, Complex> m in ((Many2)(flow.get_var_func().data)).up.data)
+                    var pout = ((Many2)(flow.get_var_func().data)).up.to_mults(extr, ((Many2)(flow.get_var_func().data)).down.get_Num());
+                    Complex pow; Vars va; foreach (var fm in pout)
                     {
-                        if (m.Key.exps.ContainsKey(extr))
-                        {
-                            if (m.Key.exps[extr].type != Func.t_num) par.sys.error("@ only numeric exponent");
-                            pow = (Complex)(m.Key.exps[extr].data);
-                            _o = new One(m.Key);
-                            _o.exps.Remove(extr);
-                        }
-                        else { _o = m.Key; pow = new Complex(0); }
+                        if (fm.Key.type != Func.t_num) par.sys.error("@ only numeric exponent");
+                        pow = (Complex)(fm.Key.data);
                         n1 = n0 + tostr(pow);
                         va = root.findadd_var(n1);
                         if (!lout.ContainsKey(va.ind)) lout.Add(va.ind, 0);
-                        if (va.var == null) va.var = new Func(new Many2(_o, Complex.mul(m.Value, div)));
-                        else ((Many2)(va.var.data)).up.add(_o, Complex.mul(m.Value, div));
+                        if (va.var == null) va.var = new Func(new Many2(fm.Value));
+                        else ((Many2)(va.var.data)).up.add(fm.Value);
                     }
-                    foreach (KeyValuePair<int, int> k in lout)
+                    foreach (var k in lout)
                     {
                         par.sys.wline(0, par.print(Vars.inds[k.Key]));
                     }
                 }
                 else
                 {
-                    Many2 doit = (Many2)(flow.get_var_func().data);
+                    var doit = (Many2)(flow.get_var_func().data);
                     string ns = flow.get_var().name + "_";
-                    foreach (Func _f in flow.id)
+                    foreach (var _f in flow.id)
                     {
                         ns += ((Vals)_f.data).var.name + "_";
                     }
@@ -6993,19 +7467,20 @@ namespace shard0
             };
             Func<bool> numeric = () =>
             {
-                root.uncalc(); foreach (Fdim fd in fdim) fd.var.set_now(fd.now);
-                foreach (Fdo fd in fdo) fd.doit();
-                foreach (Fdim fd in fdim)
+                root.uncalc(); foreach (var fd in fdim) fd.var.set_now(fd.now);
+                foreach (var fd in fdo) fd.doit();
+                foreach (var fd in fdim)
                 {
                     if (fd.next()) return true;
                 }
-                foreach (Fdo fd in fdo) fd.finish();
+                foreach (var fd in fdo) fd.finish();
                 return false;
             };
 
             Action[] oper = {
             () => {},
             () => flow.repeat(Flow.level_step0,expand,save1),
+            () => flow.repeat(setin,save2),
             () => flow.repeat(extract,save2),
             () => flow.repeat(numeric,save3)
             };
@@ -7037,9 +7512,9 @@ namespace shard0
                         } while (repeat);
                         break;
                     case '=':
-                        if (root.fnames.ContainsKey(par.name)) IDS.root.sys.error("reserved name");
+                        if (root.fnames.ContainsKey(par.name)) IDS.sys.error("reserved name");
                         var0 = root.findadd_var(par.name);
-                        if (var0.ind < IDS.v_res) IDS.root.sys.error("reserved var");
+                        if (var0.ind < IDS.v_res) IDS.sys.error("reserved var");
                         par.next();
                         if (par.isequnow('"')) var0.desc = par.get("\"");
                         var0.var = (par.isequnow(Parse.isend) ? null : par.fpars("", false));
@@ -7077,44 +7552,51 @@ namespace shard0
                         if (par.isequnow('$')) { flow.set_bit(2); par.next(); }
                         break;
 
-                    case '@':
+                    case ':':
                         flow.patch[Flow.level_oper] = 2;
-                        Vars _v = root.find_var_fill(par.name);
-                        flow.patch[Flow.level_var] = _v.ind;
+                        var0 = root.findadd_var(par.name);
+                        flow.patch[Flow.level_var] = var0.ind;
                         par.next();
                         flow.id.Clear();
-                        if (_v.var.type == Func.t_equ)
+                        short tp = (par.val.IndexOf("==") > 0 ? Func.t_equ : Func.t_many2);
+                        if (var0.var == null) var0.var = (tp == Func.t_many2 ? new Func(new Many2(true)) : new Func(new Equat(11))); else if (tp != var0.var.type) par.sys.error(": worng type");
+                        switch (var0.var.type)
                         {
-                            Many m0, m1;
-                            m0 = par.mpars();
-                            if (!par.isequnow("==")) par.sys.error("@ equ wrong");
-                            m1 = par.mpars();
-                            m1.neg(); m0.add(m1);
-                            ((Equat)(flow.get_var_func().data)).procnow = new Many2(m0);
-                        }
-                        else
-                        {
-                            while (par.isequnow(Parse.isname))
-                            {
-                                val = par.get(Parse.isname);
-                                if (par.isequnow(',')) par.next();
-                                val0 = root.find_val(val);
-                                if (val0.var.ind == flow.patch[Flow.level_var]) par.sys.error(par.name + " @recursion - look recursion");
-                                flow.add_id(val0);
-                            }
-                            if (flow.id.Count < 1) par.sys.error("@ list empty");
-                            if (flow.id.Count == 1 && (((Many2)(_v.var.data)).down.get_Num() == null)) par.sys.error("@ wrong");
-                            if (_v.var.type != Func.t_many2) par.sys.error("@ wrong");
+                            case Func.t_equ:
+                                Many m0, m1;
+                                m0 = par.mpars();
+                                if (!par.isequnow("==")) par.sys.error(": equ wrong");
+                                m1 = par.mpars();
+                                m1.neg(); m0.add(m1);
+                                ((Equat)(var0.var.data)).procnow = new Many2(m0);
+                                break;
+                            default:
+                                par.sys.error(": wrong");
+                                break;
                         }
                         break;
-
-                    case '|':
+                    case '@':
+                        flow.patch[Flow.level_oper] = 3;
                         var0 = root.find_var_fill(par.name);
-                        if (var0.var.type != Func.t_matr) par.sys.error("not matr");
+                        flow.patch[Flow.level_var] = var0.ind;
                         par.next();
-                        Many det = ((Matrix)(var0.var.data)).det();
-                        det.simple(); var0.var = new Func(new Many2(det));
-                        par.sys.wline(0, par.print(var0));
+                        flow.id.Clear();
+                        while (par.isequnow(Parse.isname))
+                        {
+                            val = par.get(Parse.isname);
+                            if (par.isequnow(',')) par.next();
+                            val0 = root.find_val(val);
+                            if (val0.var.ind == flow.patch[Flow.level_var]) par.sys.error(par.name + " @recursion - look recursion");
+                            flow.add_id(val0);
+                        }
+                        if (var0.var.type == Func.t_equ)
+                        {
+                            Equat eq = ((Equat)var0.var.data);
+                            eq.equat.set();
+                            eq.step = new Equ_step[flow.id.Count];
+                            eq.step[0] = new Equ_step(flow.id.Count, eq.equat.now);
+                        }
+                        if (flow.id.Count < 1) par.sys.error("@ list empty");
                         break;
 
                     case '<':
@@ -7132,15 +7614,15 @@ namespace shard0
                         par.sys.wline(0, par.print(var0));
                         break;
                     case '[':
-                        flow.patch[Flow.level_oper] = 3;
+                        flow.patch[Flow.level_oper] = 4;
                         par.next();
                         fdim.Clear();
                         fdo.Clear();
                         do
                         {
-                            if (!par.isequnow(Parse.isabc)) IDS.root.sys.error("calc: wrong");
+                            if (!par.isequnow(Parse.isabc)) IDS.sys.error("calc: wrong");
                             var0 = root.find_var(par.get(Parse.isname));
-                            foreach (Fdim fd in fdim) if (fd.var.ind == var0.ind) IDS.root.sys.error("calc: double");
+                            foreach (var fd in fdim) if (fd.var.ind == var0.ind) IDS.sys.error("calc: double");
                             switch (par.now)
                             {
                                 case '[':
@@ -7152,7 +7634,7 @@ namespace shard0
                                     fdim.Add(new Fdim(var0, par.calc()));
                                     break;
                                 default:
-                                    IDS.root.sys.error("calc: wrong");
+                                    IDS.sys.error("calc: wrong");
                                     break;
                             }
                             if (par.isequnow(']')) break;
@@ -7164,9 +7646,9 @@ namespace shard0
                             if (par.isequnow(Parse.isabc))
                             {
                                 val0 = root.find_val(par.get(Parse.isname));
-                                if (!par.isequnow('"')) IDS.root.sys.error("wrong do");
+                                if (!par.isequnow('"')) IDS.sys.error("wrong do");
                                 String[] sp = str_proc(par.get("\""));
-                                if (sp.Length != 3) IDS.root.sys.error("wrong do");
+                                if (sp.Length != 3) IDS.sys.error("wrong do");
                                 int _a = -1, _b = 0;
                                 if (sp[1] == "i") _a = 0;
                                 else
@@ -7177,13 +7659,13 @@ namespace shard0
                                         Int32.TryParse(_sp[0], out _a); if (_sp[1].Length > 0) Int32.TryParse(_sp[1], out _b); else _b = -1;
                                     }
                                 }
-                                fdo.Add(new Fdo0(par.get_int(), sp[0], sp[2], val0, _a, _b));
+                                fdo.Add(new Fdo0((short)par.get_int(), sp[0], sp[2], val0, _a, _b));
                             }
                             else switch (par.now)
                                 {
                                     case '"':
                                         val = par.get("\"");
-                                        fdo.Add(new Fdo0(par.get_int(), str_proc(val)[0], "", null, -1, 0));
+                                        fdo.Add(new Fdo0((short)par.get_int(), str_proc(val)[0], "", null, -1, 0));
                                         break;
                                     case '[':
                                         int _fx, _sx, _fy, _sy;
@@ -7196,7 +7678,7 @@ namespace shard0
                                             _fy = (int)(par.calc().toint());
                                             _sy = (int)(par.calc().toint());
                                             par.next();
-                                            if ((_sx < 4) || (_sy < 4) || (_fx + _sx >= IDS.root.pic_x) || (_fy + _sy >= IDS.root.pic_y)) IDS.root.sys.error("draw: wrong");
+                                            if ((_sx < 4) || (_sy < 4) || (_fx + _sx >= IDS.root.pic_x) || (_fy + _sy >= IDS.root.pic_y)) IDS.sys.error("draw: wrong");
                                         }
                                         else
                                         {
@@ -7208,7 +7690,7 @@ namespace shard0
                                         int _tn = 0;
                                         while (!par.isequnow(']'))
                                         {
-                                            if (_tn > 5) root.sys.error("draw: wrong parm num");
+                                            if (_tn > 5) IDS.sys.error("draw: wrong parm num");
                                             if (!par.isequnow(','))
                                             {
                                                 _tv[_tn] = root.find_val(par.get(Parse.isname));
@@ -7229,7 +7711,7 @@ namespace shard0
                                                 _fd = new Fdo2(_fx, _fy, _sx, _sy, _tv[0], _tb[0], _tv[1], _tb[1], _tv[2], _tb[2], _tv[3], _tb[3], _tv[4], _tb[4]);
                                                 break;
                                             default:
-                                                root.sys.error("draw: wrong parm num");
+                                                IDS.sys.error("draw: wrong parm num");
                                                 break;
                                         }
                                         par.next(); fdo.Add(_fd);
@@ -7241,7 +7723,7 @@ namespace shard0
                 }
 
             } while (par.bnext());
-            IDS.root.flow.select(Flow.level_oper, oper);
+            IDS.flow.select(Flow.level_oper, oper);
 
 
             par.sys.wline(0, "finished, vars = " + (root.var.Count()).ToString());
